@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Driftless - Focus Companion",
+  "version": "1.0",
+  "description": "Digital wellbeing and distraction tracker.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "tabs",
+    "storage"
+  ]
+}
