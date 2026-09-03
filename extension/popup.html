@@ -17,11 +17,27 @@
     p {
       font-size: 13px;
     }
+    #resetBtn {
+    margin-top: 15px;
+    padding: 8px 15px;
+    background-color: #ff4757;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    width: 100%;
+}
+#resetBtn:hover {
+    background-color: #ff6b81;
+}
   </style>
 </head>
 <body>
   <h2>Driftless</h2>
   <p>Your focus session is active!</p>
-  <p id="timer">00:00</p>
+  <div id="timer"></div>
+  <button id="resetBtn">Reset Timer</button>
+  <script src="popup.js"></script>
 </body>
 </html>
