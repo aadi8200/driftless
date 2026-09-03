@@ -4,6 +4,8 @@ const ALARM_NAME = "driftless_time_check";
 
 let timerTimeout = null;
 
+console.log("🚀 Driftless Background Service Worker active and monitoring.");
+
 // Synchronous top-level event listeners (Manifest V3 requirement)
 
 // 1. Tab switch listener
@@ -12,7 +14,6 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         const tab = await chrome.tabs.get(activeInfo.tabId);
         await checkSite(tab?.url || "");
     } catch (err) {
-        // Tab may have closed before info was fetched
         console.debug("Driftless onActivated tab error:", err);
     }
 });
@@ -38,6 +39,7 @@ chrome.tabs.onRemoved.addListener(async () => {
 // 4. Chrome Alarm listener (wakes up service worker even if idle)
 chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === ALARM_NAME) {
+        console.log("⏰ Driftless alarm triggered, checking time limit...");
         await checkTimeLimit();
     }
 });
@@ -110,6 +112,7 @@ async function checkSite(url) {
             currentActiveSite: matchedSite,
             currentStartTime: now
         });
+        console.log(`🟢 Tracking started for: ${matchedSite}`);
 
         // Calculate remaining seconds until 1-minute limit
         const alreadySpent = siteTimes[matchedSite] || 0;
@@ -132,6 +135,7 @@ async function checkSite(url) {
             currentActiveSite: null,
             currentStartTime: null
         });
+        console.log("⚪ Not on a tracked site, timer paused.");
     }
 }
 
@@ -173,9 +177,11 @@ async function checkTimeLimit() {
 
     const liveTime = Math.floor((Date.now() - siteStartTime) / 1000);
     const totalSeconds = (siteTimes[activeSite] || 0) + liveTime;
+    console.log(`⏱️ Live time on ${activeSite}: ${totalSeconds}s (threshold: ${TIME_LIMIT_SECONDS}s)`);
 
     if (totalSeconds >= TIME_LIMIT_SECONDS) {
         if (!notifiedSites[activeSite]) {
+            console.log(`🚨 1 minute reached on ${activeSite}! Triggering notification...`);
             await sendNotification(activeSite, totalSeconds);
             notifiedSites[activeSite] = true;
             await chrome.storage.local.set({ notifiedSites });
@@ -196,8 +202,14 @@ async function sendNotification(site, totalSeconds) {
     await chrome.notifications.create(`driftless-${site}-${Date.now()}`, {
         type: "basic",
         iconUrl: "icons/icon-128.png",
-        title: "Driftless - Focus Alert",
+        title: "Driftless - Focus Alert 🚨",
         message: `You've spent ${timeText} on ${displayName}! Time to refocus on your goals.`,
         priority: 2
+    }, (id) => {
+        if (chrome.runtime.lastError) {
+            console.error("❌ Notification error:", chrome.runtime.lastError);
+        } else {
+            console.log("✅ Notification successfully sent:", id);
+        }
     });
 }
