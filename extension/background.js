@@ -1,6 +1,18 @@
 const TRACKED_SITES = ["youtube.com", "instagram.com", "facebook.com", "reddit.com"];
-const TIME_LIMIT_SECONDS = 60; // 1 minute limit for notification
 const ALARM_NAME = "driftless_time_check";
+const DEFAULT_TIME_LIMIT_SECONDS = 60; // Fallback: 1 minute
+
+/**
+ * Returns the user-defined time limit in seconds.
+ * Reads `userTimeLimitMinutes` from storage; falls back to 60 s if not set.
+ */
+async function getTimeLimitSeconds() {
+    const { userTimeLimitMinutes } = await chrome.storage.local.get(['userTimeLimitMinutes']);
+    if (userTimeLimitMinutes && userTimeLimitMinutes >= 1) {
+        return userTimeLimitMinutes * 60;
+    }
+    return DEFAULT_TIME_LIMIT_SECONDS;
+}
 
 let timerTimeout = null;
 
@@ -59,7 +71,8 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
 
             const { currentActiveSite } = await chrome.storage.local.get(["currentActiveSite"]);
             if (currentActiveSite) {
-                scheduleCheck(TIME_LIMIT_SECONDS);
+                const limitSeconds = await getTimeLimitSeconds();
+                scheduleCheck(limitSeconds);
             }
         }
     }
@@ -114,12 +127,13 @@ async function checkSite(url) {
         });
         console.log(`🟢 Tracking started for: ${matchedSite}`);
 
-        // Calculate remaining seconds until 1-minute limit
+        // Calculate remaining seconds until the user-defined limit
+        const limitSeconds = await getTimeLimitSeconds();
         const alreadySpent = siteTimes[matchedSite] || 0;
-        const remainingSeconds = TIME_LIMIT_SECONDS - alreadySpent;
+        const remainingSeconds = limitSeconds - alreadySpent;
 
         if (remainingSeconds <= 0) {
-            // Already hit 1 minute, notify if not already done
+            // Already exceeded the limit, notify if not already done
             if (!notifiedSites[matchedSite]) {
                 await sendNotification(matchedSite, alreadySpent);
                 notifiedSites[matchedSite] = true;
@@ -175,20 +189,21 @@ async function checkTimeLimit() {
         return;
     }
 
+    const limitSeconds = await getTimeLimitSeconds();
     const liveTime = Math.floor((Date.now() - siteStartTime) / 1000);
     const totalSeconds = (siteTimes[activeSite] || 0) + liveTime;
-    console.log(`⏱️ Live time on ${activeSite}: ${totalSeconds}s (threshold: ${TIME_LIMIT_SECONDS}s)`);
+    console.log(`⏱️ Live time on ${activeSite}: ${totalSeconds}s (threshold: ${limitSeconds}s)`);
 
-    if (totalSeconds >= TIME_LIMIT_SECONDS) {
+    if (totalSeconds >= limitSeconds) {
         if (!notifiedSites[activeSite]) {
-            console.log(`🚨 1 minute reached on ${activeSite}! Triggering notification...`);
+            console.log(`🚨 Limit reached on ${activeSite}! Triggering notification...`);
             await sendNotification(activeSite, totalSeconds);
             notifiedSites[activeSite] = true;
             await chrome.storage.local.set({ notifiedSites });
         }
     } else {
         // Still have some time remaining, reschedule
-        const remaining = TIME_LIMIT_SECONDS - totalSeconds;
+        const remaining = limitSeconds - totalSeconds;
         scheduleCheck(remaining);
     }
 }
@@ -198,6 +213,10 @@ async function sendNotification(site, totalSeconds) {
     const displayName = site.split(".")[0].charAt(0).toUpperCase() + site.split(".")[0].slice(1);
     const minutes = Math.floor(totalSeconds / 60) || 1;
     const timeText = `${minutes} minute${minutes > 1 ? "s" : ""}`;
+
+    // Mark that the limit was exceeded today — streak evaluator reads this tomorrow.
+    await chrome.storage.local.set({ limitExceededToday: true });
+    console.log("📛 Daily limit exceeded — streak at risk.");
 
     await chrome.notifications.create(`driftless-${site}-${Date.now()}`, {
         type: "basic",
@@ -213,3 +232,68 @@ async function sendNotification(site, totalSeconds) {
         }
     });
 }
+
+
+// ── Focus Mode / Site Blocker ─────────────────────────────────────────────────
+// Uses declarativeNetRequest dynamic rules so no page reload is needed.
+
+const FOCUS_RULE_BASE_ID = 100; // Rule IDs 100-103; well clear of any static rules.
+const BLOCKED_SITES = ["youtube.com", "instagram.com", "facebook.com", "reddit.com"];
+
+/**
+ * Builds a declarativeNetRequest rule that blocks all requests to a given domain
+ * and its www. subdomain.
+ */
+function buildBlockRule(id, domain) {
+    return {
+        id,
+        priority: 1,
+        action: { type: "block" },
+        condition: {
+            urlFilter: `||${domain}`,
+            resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest", "script", "image", "stylesheet", "font", "media", "websocket", "other"]
+        }
+    };
+}
+
+/**
+ * Enables Focus Mode: adds dynamic blocking rules for all BLOCKED_SITES.
+ */
+async function enableFocusMode() {
+    const rulesToAdd = BLOCKED_SITES.map((domain, i) =>
+        buildBlockRule(FOCUS_RULE_BASE_ID + i, domain)
+    );
+    const ruleIdsToRemove = BLOCKED_SITES.map((_, i) => FOCUS_RULE_BASE_ID + i);
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: ruleIdsToRemove, // Remove first to avoid ID conflicts on re-enable
+        addRules: rulesToAdd
+    });
+    console.log("🛡️ Driftless Focus Mode ON — blocking:", BLOCKED_SITES.join(", "));
+}
+
+/**
+ * Disables Focus Mode: removes all dynamic blocking rules.
+ */
+async function disableFocusMode() {
+    const ruleIdsToRemove = BLOCKED_SITES.map((_, i) => FOCUS_RULE_BASE_ID + i);
+    await chrome.declarativeNetRequest.updateDynamicRules({
+        removeRuleIds: ruleIdsToRemove,
+        addRules: []
+    });
+    console.log("✅ Driftless Focus Mode OFF — all sites unblocked.");
+}
+
+// 7. Listen for Focus Mode toggle messages from popup.js
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === "SET_FOCUS_MODE") {
+        const action = message.enabled ? enableFocusMode() : disableFocusMode();
+        action
+            .then(() => sendResponse({ success: true, focusModeActive: message.enabled }))
+            .catch(err => {
+                console.error("❌ Focus Mode error:", err);
+                sendResponse({ success: false, error: err.message });
+            });
+        return true; // Keep the message channel open for the async response
+    }
+});

@@ -1,43 +1,515 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* ── Design Tokens ─────────────────────────────────────── */
+    :root {
+      --bg:            #0f172a;
+      --surface:       #1e293b;
+      --surface-2:     #273549;
+      --border:        rgba(255, 255, 255, 0.07);
+      --border-hover:  rgba(255, 255, 255, 0.14);
+
+      --accent:        #818cf8;        /* indigo-400 */
+      --accent-dim:    rgba(129, 140, 248, 0.15);
+      --accent-glow:   rgba(129, 140, 248, 0.35);
+
+      --danger:        #f87171;        /* red-400   */
+      --danger-dim:    rgba(248, 113, 113, 0.12);
+      --danger-border: rgba(248, 113, 113, 0.35);
+
+      --success:       #34d399;        /* emerald-400 */
+      --success-dim:   rgba(52, 211, 153, 0.12);
+
+      --text-1:        #f1f5f9;        /* primary */
+      --text-2:        #94a3b8;        /* secondary */
+      --text-3:        #475569;        /* muted */
+
+      --radius-sm:     8px;
+      --radius-md:     12px;
+      --radius-lg:     16px;
+      --radius-full:   9999px;
+
+      --transition:    0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Reset & Base ──────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      width: 250px;
-      padding: 10px;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background-color: #0F1B18;
-      color: #F2F6F3;
-    }
-    h2 {
-      color: #8FBFA0;
-      font-size: 16px;
-    }
-    p {
+      width: 300px;
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: 'Inter', system-ui, sans-serif;
       font-size: 13px;
+      line-height: 1.5;
+      padding: 18px;
+      -webkit-font-smoothing: antialiased;
+      overflow-y: auto;
+      max-height: 600px; /* Chrome popup ceiling */
     }
+
+    /* Hide scrollbar track while keeping scroll functional */
+    ::-webkit-scrollbar        { display: none; }
+    html                       { scrollbar-width: none; }  /* Firefox */
+
+    /* ── Header ────────────────────────────────────────────── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .header-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-dim);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .header-text h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-1);
+      letter-spacing: -0.3px;
+    }
+
+    .header-text p {
+      font-size: 11px;
+      color: var(--text-3);
+      font-weight: 400;
+    }
+
+    /* ── Card ──────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 10px;
+      transition: border-color var(--transition);
+    }
+
+    .card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .card-label {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .card-icon {
+      font-size: 15px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: -0.1px;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      color: var(--text-3);
+      margin-top: 1px;
+      font-weight: 400;
+    }
+
+    /* ── Toggle Switch ─────────────────────────────────────── */
+    .toggle-switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .toggle-switch input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--surface-2);
+      border: 1px solid var(--border-hover);
+      border-radius: var(--radius-full);
+      transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .toggle-slider::before {
+      content: "";
+      position: absolute;
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      top: 2px;
+      background: var(--text-3);
+      border-radius: 50%;
+      transition: transform var(--transition), background var(--transition), box-shadow var(--transition);
+    }
+
+    input:checked + .toggle-slider {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    input:checked + .toggle-slider::before {
+      transform: translateX(20px);
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    }
+
+    /* ── Focus Status Badge ────────────────────────────────── */
+    #focusStatus {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 10px;
+      padding: 3px 10px 3px 8px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: var(--text-3);
+      background: transparent;
+      border: 1px solid var(--border);
+      transition: all var(--transition);
+    }
+
+    #focusStatus::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-3);
+      transition: background var(--transition), box-shadow var(--transition);
+      flex-shrink: 0;
+    }
+
+    #focusStatus.active {
+      color: var(--accent);
+      border-color: rgba(129, 140, 248, 0.4);
+      background: var(--accent-dim);
+    }
+
+    #focusStatus.active::before {
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent-glow);
+    }
+
+    /* ── Divider ───────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0 10px;
+    }
+
+    /* ── Daily Limit Input Row ─────────────────────────────── */
+    .limit-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      position: relative;
+    }
+
+    .input-wrapper span {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: var(--text-3);
+      pointer-events: none;
+      font-weight: 500;
+    }
+
+    #limitInput {
+      width: 100%;
+      padding: 7px 32px 7px 11px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-hover);
+      background: var(--bg);
+      color: var(--text-1);
+      font-size: 13px;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-weight: 500;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      /* Remove browser default number spinners */
+      -moz-appearance: textfield;
+    }
+
+    #limitInput::-webkit-outer-spin-button,
+    #limitInput::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+    }
+
+    #limitInput::placeholder {
+      color: var(--text-3);
+      font-weight: 400;
+    }
+
+    #limitInput:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    #saveLimitBtn {
+      padding: 7px 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'Inter', system-ui, sans-serif;
+      white-space: nowrap;
+      letter-spacing: 0.1px;
+      transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+
+    #saveLimitBtn:hover {
+      background: #a5b4fc;
+      box-shadow: 0 0 14px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    #saveLimitBtn:active {
+      transform: translateY(0);
+    }
+
+    #limitSaveMsg {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--success);
+      margin-top: 8px;
+      min-height: 15px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* ── Tracker Section ───────────────────────────────────── */
+    .tracker-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      margin-bottom: 8px;
+    }
+
+    #timer p {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-2);
+      margin: 0;
+    }
+
+    #timer p:last-child {
+      border-bottom: none;
+    }
+
+    #timer p strong {
+      font-weight: 500;
+      color: var(--text-1);
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    #timer p strong::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-3);
+      flex-shrink: 0;
+    }
+
+    /* monospace time value */
+    #timer p .time-val {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--text-1);
+      background: var(--surface-2);
+      padding: 2px 8px;
+      border-radius: 5px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Reset Button ──────────────────────────────────────── */
     #resetBtn {
-    margin-top: 15px;
-    padding: 8px 15px;
-    background-color: #ff4757;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: bold;
-    width: 100%;
-}
-#resetBtn:hover {
-    background-color: #ff6b81;
-}
+      width: 100%;
+      margin-top: 12px;
+      padding: 9px 0;
+      background: var(--danger-dim);
+      color: var(--danger);
+      border: 1px solid var(--danger-border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Inter', system-ui, sans-serif;
+      letter-spacing: 0.1px;
+      transition: background var(--transition), box-shadow var(--transition), transform var(--transition);
+    }
+
+    #resetBtn:hover {
+      background: rgba(248, 113, 113, 0.22);
+      box-shadow: 0 0 16px rgba(248, 113, 113, 0.2);
+      transform: translateY(-1px);
+    }
+
+    #resetBtn:active {
+      transform: translateY(0);
+    }
+
+    /* ── Footer ────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      margin-top: 14px;
+      font-size: 10px;
+      color: var(--text-3);
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Streak Badge ──────────────────────────────────────── */
+    #streakBadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 9px;
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: var(--text-3);
+      border: 1px solid var(--border);
+      background: transparent;
+      transition: color var(--transition), border-color var(--transition),
+                  background var(--transition), box-shadow var(--transition);
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    #streakBadge.streak-active {
+      color: #fb923c;                          /* orange-400  */
+      border-color: rgba(251, 146, 60, 0.4);
+      background: rgba(251, 146, 60, 0.1);
+      box-shadow: 0 0 8px rgba(251, 146, 60, 0.2);
+    }
   </style>
 </head>
 <body>
-  <h2>Driftless</h2>
-  <p>Your focus session is active!</p>
+
+  <!-- ── Header ── -->
+  <div class="header">
+    <div class="header-icon">🌿</div>
+    <div class="header-text">
+      <h1>Driftless</h1>
+      <span id="streakBadge">— No streak yet</span>
+    </div>
+  </div>
+
+  <!-- ── Focus Mode Card ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-label">
+        <span class="card-icon">🛡️</span>
+        <div>
+          <div class="card-title">Focus Mode</div>
+          <div class="card-sub">Block distracting sites instantly</div>
+        </div>
+      </div>
+      <label class="toggle-switch" title="Toggle Focus Mode">
+        <input type="checkbox" id="focusToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+  <div id="focusStatus">OFF</div>
+
+  <div class="divider"></div>
+
+  <!-- ── Daily Time Limit Card ── -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-label">
+        <span class="card-icon">⏱️</span>
+        <div>
+          <div class="card-title">Daily Limit</div>
+          <div class="card-sub">Minutes per site before alert</div>
+        </div>
+      </div>
+    </div>
+    <div class="limit-row">
+      <div class="input-wrapper">
+        <input type="number" id="limitInput" min="1" max="1440" placeholder="e.g. 30" title="Minutes before alert">
+        <span>min</span>
+      </div>
+      <button id="saveLimitBtn">Save</button>
+    </div>
+    <div id="limitSaveMsg"></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── Time Tracker ── -->
+  <div class="tracker-label">Today's Usage</div>
   <div id="timer"></div>
-  <button id="resetBtn">Reset Timer</button>
+
+  <!-- ── Reset Button ── -->
+  <button id="resetBtn">↺ Reset All Timers</button>
+
+  <!-- ── Footer ── -->
+  <div class="footer">Driftless · Stay focused, stay sharp</div>
+
   <script src="popup.js"></script>
 </body>
 </html>

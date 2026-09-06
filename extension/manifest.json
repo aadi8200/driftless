@@ -20,7 +20,9 @@
     "tabs",
     "storage",
     "alarms",
-    "notifications"
+    "notifications",
+    "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess"
   ],
   "background": {
     "service_worker": "background.js"
