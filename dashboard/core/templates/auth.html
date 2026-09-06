@@ -1,0 +1,335 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driftless — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:            #000000;
+      --surface:       #111111;
+      --card:          #171717;
+      --card-hover:    #1C1C1E;
+      --green:         #32D74B;
+      --green-dim:     rgba(50,215,75,0.12);
+      --green-glow:    rgba(50,215,75,0.28);
+      --red:           #FF453A;
+      --text:          #FFFFFF;
+      --text-sub:      #8E8E93;
+      --text-muted:    #3A3A3C;
+      --r-card:        20px;
+      --r-pill:        50px;
+      --r-sm:          12px;
+      --ease:          0.22s cubic-bezier(0.4,0,0.2,1);
+      --spring:        0.28s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { display: none; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding: 20px;
+    }
+
+    /* Subtle radial glow behind the card */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 50% 30%, rgba(50,215,75,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--card);
+      border-radius: var(--r-card);
+      padding: 40px 36px 36px;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 24px 64px rgba(0,0,0,0.7);
+      animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    /* ── Brand ── */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .brand-icon {
+      width: 44px; height: 44px;
+      border-radius: 14px;
+      background: var(--green-dim);
+      box-shadow: inset 0 0 0 1px rgba(50,215,75,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .brand-name {
+      font-size: 22px; font-weight: 800;
+      color: var(--text); letter-spacing: -0.6px;
+    }
+    .brand-sub { font-size: 12px; color: var(--text-sub); margin-top: 1px; }
+
+    /* ── Tab switcher ── */
+    .tabs {
+      display: flex;
+      background: #0A0A0A;
+      border-radius: var(--r-sm);
+      padding: 3px;
+      margin-bottom: 28px;
+      gap: 3px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 9px 0;
+      border: none;
+      background: transparent;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background var(--ease), color var(--ease);
+    }
+    .tab-btn.active {
+      background: var(--card-hover);
+      color: var(--text);
+    }
+
+    /* ── Form panels ── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Form fields ── */
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-sub);
+      letter-spacing: 0.3px;
+      margin-bottom: 7px;
+      text-transform: uppercase;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 13px 15px;
+      background: #0D0D0D;
+      border: 1.5px solid #2A2A2A;
+      border-radius: var(--r-sm);
+      color: var(--text);
+      font-size: 15px;
+      font-family: inherit;
+      font-weight: 500;
+      outline: none;
+      transition: border-color var(--ease), box-shadow var(--ease);
+    }
+    input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px var(--green-dim);
+    }
+    input::placeholder { color: var(--text-muted); font-weight: 400; }
+
+    /* ── Submit btn ── */
+    .submit-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px 0;
+      background: var(--green);
+      color: #000;
+      border: none;
+      border-radius: var(--r-pill);
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      letter-spacing: -0.1px;
+      box-shadow: 0 4px 20px rgba(50,215,75,0.3);
+      transition: opacity var(--ease), transform var(--spring), box-shadow var(--ease);
+    }
+    .submit-btn:hover  { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(50,215,75,0.38); }
+    .submit-btn:active { transform: scale(0.97); opacity: 0.75; }
+
+    /* ── Error / success message ── */
+    .msg {
+      margin-top: 16px;
+      padding: 11px 14px;
+      border-radius: var(--r-sm);
+      font-size: 13px;
+      font-weight: 500;
+      display: none;
+    }
+    .msg.error   { background: rgba(255,69,58,0.1); color: var(--red); }
+    .msg.success { background: var(--green-dim);    color: var(--green); }
+
+    /* ── Footer ── */
+    .card-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="brand">
+      <div class="brand-icon">🌿</div>
+      <div>
+        <div class="brand-name">Driftless</div>
+        <div class="brand-sub">Your focus companion</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="login">Sign In</button>
+      <button class="tab-btn"        data-tab="signup">Create Account</button>
+    </div>
+
+    <!-- ── LOGIN PANEL ── -->
+    <div class="panel active" id="panel-login">
+      <form id="loginForm" autocomplete="on">
+        <div class="field">
+          <label for="login-username">Username</label>
+          <input id="login-username" name="username" type="text" placeholder="your_username" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="login-password">Password</label>
+          <input id="login-password" name="password" type="password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="submit-btn" id="loginBtn">Sign In</button>
+        <div class="msg" id="loginMsg"></div>
+      </form>
+    </div>
+
+    <!-- ── SIGNUP PANEL ── -->
+    <div class="panel" id="panel-signup">
+      <form id="signupForm" autocomplete="on">
+        <div class="field">
+          <label for="signup-username">Username</label>
+          <input id="signup-username" name="username" type="text" placeholder="pick_a_username" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label for="signup-email">Email (optional)</label>
+          <input id="signup-email" name="email" type="email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="signup-password">Password</label>
+          <input id="signup-password" name="password" type="password" placeholder="min. 6 characters" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="submit-btn" id="signupBtn">Create Account</button>
+        <div class="msg" id="signupMsg"></div>
+      </form>
+    </div>
+
+    <div class="card-footer">Stay focused, stay sharp · Driftless &copy; 2026</div>
+  </div>
+
+  <script>
+    // ── Tab switcher ────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function showMsg(elId, text, isError) {
+      const el = document.getElementById(elId);
+      el.textContent = text;
+      el.className   = 'msg ' + (isError ? 'error' : 'success');
+      el.style.display = 'block';
+    }
+
+    function setLoading(btn, loading) {
+      btn.disabled     = loading;
+      btn.style.opacity = loading ? '0.6' : '1';
+      btn.textContent  = loading ? 'Please wait…' : btn.dataset.label;
+    }
+
+    document.querySelectorAll('.submit-btn').forEach(b => b.dataset.label = b.textContent);
+
+    // ── Login ────────────────────────────────────────────────────────────────
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('loginBtn');
+      setLoading(btn, true);
+      try {
+        const res = await fetch('/api/auth/login/', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            username: document.getElementById('login-username').value.trim(),
+            password: document.getElementById('login-password').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Login failed.');
+        localStorage.setItem('driftless_token',    data.token);
+        localStorage.setItem('driftless_username',  data.username);
+        showMsg('loginMsg', `Welcome back, ${data.username}! Redirecting…`, false);
+        setTimeout(() => window.location.href = '/dashboard/', 800);
+      } catch (err) {
+        showMsg('loginMsg', err.message, true);
+        setLoading(btn, false);
+      }
+    });
+
+    // ── Sign Up ──────────────────────────────────────────────────────────────
+    document.getElementById('signupForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const btn = document.getElementById('signupBtn');
+      setLoading(btn, true);
+      try {
+        const res = await fetch('/api/auth/register/', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            username: document.getElementById('signup-username').value.trim(),
+            email:    document.getElementById('signup-email').value.trim(),
+            password: document.getElementById('signup-password').value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          const msg = Object.values(data).flat().join(' ');
+          throw new Error(msg || 'Registration failed.');
+        }
+        localStorage.setItem('driftless_token',    data.token);
+        localStorage.setItem('driftless_username',  data.username);
+        showMsg('signupMsg', `Account created! Redirecting…`, false);
+        setTimeout(() => window.location.href = '/dashboard/', 800);
+      } catch (err) {
+        showMsg('signupMsg', err.message, true);
+        setLoading(btn, false);
+      }
+    });
+  </script>
+</body>
+</html>

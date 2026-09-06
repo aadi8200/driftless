@@ -1,299 +1,368 @@
-const TRACKED_SITES = ["youtube.com", "instagram.com", "facebook.com", "reddit.com"];
-const ALARM_NAME = "driftless_time_check";
-const DEFAULT_TIME_LIMIT_SECONDS = 60; // Fallback: 1 minute
+// ─────────────────────────────────────────────────────────────────────────────
+// DRIFTLESS BACKGROUND SERVICE WORKER
+// All site lists are dynamic — read from chrome.storage.local (blockedSites).
+// No hardcoded domain arrays.
+// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns the user-defined time limit in seconds.
- * Reads `userTimeLimitMinutes` from storage; falls back to 60 s if not set.
- */
-async function getTimeLimitSeconds() {
-    const { userTimeLimitMinutes } = await chrome.storage.local.get(['userTimeLimitMinutes']);
-    if (userTimeLimitMinutes && userTimeLimitMinutes >= 1) {
-        return userTimeLimitMinutes * 60;
-    }
-    return DEFAULT_TIME_LIMIT_SECONDS;
-}
+const ALARM_NAME             = 'driftless_time_check';
+const DEFAULT_TIME_LIMIT_SEC = 60;         // Fallback: 1 minute
+const FOCUS_RULE_BASE_ID     = 100;        // Dynamic rule IDs start here
 
 let timerTimeout = null;
 
-console.log("🚀 Driftless Background Service Worker active and monitoring.");
+console.log('Driftless Background Service Worker active.');
+const SYNC_ALARM_NAME = 'driftless_daily_sync';
 
-// Synchronous top-level event listeners (Manifest V3 requirement)
+// ── Backend API URL — update this to your production URL when deployed ────────
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
-// 1. Tab switch listener
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-    try {
-        const tab = await chrome.tabs.get(activeInfo.tabId);
-        await checkSite(tab?.url || "");
-    } catch (err) {
-        console.debug("Driftless onActivated tab error:", err);
+// ─────────────────────────────────────────────────────────────────────────────
+// BACKEND SYNC — POST daily usage totals to the Django API
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Reads siteTimes from local storage and the stored API token,
+ * then POSTs all entries as a batch to /api/usage/.
+ * Called by the nightly sync alarm and manually when the extension starts.
+ */
+async function syncToBackend() {
+  const { apiToken, siteTimes, lastSyncDate } = await chrome.storage.local.get([
+    'apiToken', 'siteTimes', 'lastSyncDate'
+  ]);
+
+  // No token means user hasn't linked the extension yet — skip silently.
+  if (!apiToken) {
+    console.log('Driftless sync: no API token stored, skipping.');
+    return;
+  }
+
+  const times = siteTimes || {};
+  const today = new Date().toISOString().slice(0, 10);
+
+  const entries = Object.entries(times)
+    .filter(([, secs]) => secs > 0)
+    .map(([website_url, time_spent_seconds]) => ({
+      website_url,
+      time_spent_seconds,
+      date: today,
+    }));
+
+  if (entries.length === 0) {
+    console.log('Driftless sync: nothing to sync today.');
+    return;
+  }
+
+  try {
+    const res = await fetch(${API_BASE_URL}/api/usage/, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': Token ,
+      },
+      body: JSON.stringify(entries),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(Driftless sync failed ():, err);
+      return;
     }
+
+    const result = await res.json();
+    console.log(Driftless sync success — created: , updated: );
+    await chrome.storage.local.set({ lastSyncDate: today });
+  } catch (err) {
+    console.error('Driftless sync network error:', err);
+  }
+}
+
+/**
+ * Schedules (or reschedules) the nightly midnight sync alarm.
+ * Also runs an immediate sync if we haven't synced today yet.
+ */
+async function scheduleDailySync() {
+  // Clear any existing sync alarm before recreating
+  await chrome.alarms.clear(SYNC_ALARM_NAME);
+
+  // Midnight tonight (local time) in ms
+  const now       = new Date();
+  const midnight  = new Date(now);
+  midnight.setHours(24, 0, 0, 0); // next midnight
+  const msUntilMidnight = midnight.getTime() - now.getTime();
+
+  chrome.alarms.create(SYNC_ALARM_NAME, {
+    when:        Date.now() + msUntilMidnight,
+    periodInMinutes: 24 * 60,  // repeat every 24 hours
+  });
+
+  // If we haven't synced today, do it now
+  const { lastSyncDate } = await chrome.storage.local.get(['lastSyncDate']);
+  const today = now.toISOString().slice(0, 10);
+  if (lastSyncDate !== today) {
+    await syncToBackend();
+  }
+
+  console.log(Driftless: daily sync alarm set (fires in  min).);
+}
+
+
+// ─── Helper: read tracked sites from storage ─────────────────────────────────
+async function getBlockedSites() {
+  const { blockedSites } = await chrome.storage.local.get(['blockedSites']);
+  return Array.isArray(blockedSites) ? blockedSites : [];
+}
+
+// ─── Helper: read user time limit ────────────────────────────────────────────
+async function getTimeLimitSeconds() {
+  const { userTimeLimitMinutes } = await chrome.storage.local.get(['userTimeLimitMinutes']);
+  if (userTimeLimitMinutes && userTimeLimitMinutes >= 1) {
+    return userTimeLimitMinutes * 60;
+  }
+  return DEFAULT_TIME_LIMIT_SEC;
+}
+
+// ─── Event Listeners (must be synchronous at top level for MV3) ─────────────
+
+// 1. Tab switch
+chrome.tabs.onActivated.addListener(async activeInfo => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    await checkSite(tab?.url || '');
+  } catch (err) {
+    console.debug('Driftless onActivated error:', err);
+  }
 });
 
-// 2. Tab URL update / reload listener
+// 2. Tab URL update / reload
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-    if (tab.active && (changeInfo.url || changeInfo.status === "complete")) {
-        await checkSite(tab.url || "");
-    }
+  if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
+    await checkSite(tab.url || '');
+  }
 });
 
-// 3. Tab close listener
+// 3. Tab close
 chrome.tabs.onRemoved.addListener(async () => {
-    try {
-        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        await checkSite(tab?.url || "");
-    } catch (err) {
-        console.debug("Driftless onRemoved query error:", err);
-        await checkSite("");
-    }
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await checkSite(tab?.url || '');
+  } catch (err) {
+    console.debug('Driftless onRemoved error:', err);
+    await checkSite('');
+  }
 });
 
-// 4. Chrome Alarm listener (wakes up service worker even if idle)
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-    if (alarm.name === ALARM_NAME) {
-        console.log("⏰ Driftless alarm triggered, checking time limit...");
-        await checkTimeLimit();
-    }
+// 4. Chrome Alarm (wakes service worker even when idle)
+chrome.alarms.onAlarm.addListener(async alarm => {
+  if (alarm.name === ALARM_NAME) {
+    await checkTimeLimit();
+  }
+  // Nightly backend sync
+  if (alarm.name === SYNC_ALARM_NAME) {
+    await syncToBackend();
+    console.log('Driftless: nightly sync complete.');
+  }
 });
 
-// 5. Storage change listener (syncs reset from popup)
-chrome.storage.onChanged.addListener(async (changes, areaName) => {
-    if (areaName === "local" && changes.siteTimes) {
-        const newTimes = changes.siteTimes.newValue || {};
-        if (Object.keys(newTimes).length === 0) {
-            // Timer was reset in popup
-            if (timerTimeout) {
-                clearTimeout(timerTimeout);
-                timerTimeout = null;
-            }
-            await chrome.alarms.clear(ALARM_NAME);
-            await chrome.storage.local.set({ notifiedSites: {} });
+// Schedule the daily sync alarm on service worker startup
+scheduleDailySync();
 
-            const { currentActiveSite } = await chrome.storage.local.get(["currentActiveSite"]);
-            if (currentActiveSite) {
-                const limitSeconds = await getTimeLimitSeconds();
-                scheduleCheck(limitSeconds);
-            }
-        }
+// 5. Storage change — handle timer reset from popup
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area !== 'local') return;
+
+  // Timer reset
+  if (changes.siteTimes) {
+    const newTimes = changes.siteTimes.newValue || {};
+    if (Object.keys(newTimes).length === 0) {
+      if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
+      await chrome.alarms.clear(ALARM_NAME);
+      await chrome.storage.local.set({ notifiedSites: {} });
+      const { currentActiveSite } = await chrome.storage.local.get(['currentActiveSite']);
+      if (currentActiveSite) {
+        const limitSec = await getTimeLimitSeconds();
+        scheduleCheck(limitSec);
+      }
     }
+  }
+
+  // If blockedSites changes while Focus Mode is ON, rebuild rules automatically
+  if (changes.blockedSites) {
+    const { focusModeActive } = await chrome.storage.local.get(['focusModeActive']);
+    if (focusModeActive) {
+      await enableFocusMode();
+    }
+  }
 });
 
-// 6. Dismiss notification click
-chrome.notifications.onClicked.addListener((notificationId) => {
-    chrome.notifications.clear(notificationId);
-});
+// 6. Notification click — dismiss
+chrome.notifications.onClicked.addListener(id => chrome.notifications.clear(id));
 
-// Core logic: Site checking and session management
-async function checkSite(url) {
-    const matchedSite = TRACKED_SITES.find(site => (url || "").includes(site)) || null;
-
-    const data = await chrome.storage.local.get([
-        "siteTimes",
-        "currentActiveSite",
-        "currentStartTime",
-        "notifiedSites"
-    ]);
-
-    const siteTimes = data.siteTimes || {};
-    const activeSite = data.currentActiveSite || null;
-    const siteStartTime = data.currentStartTime || 0;
-    const notifiedSites = data.notifiedSites || {};
-
-    // No change in site
-    if (activeSite === matchedSite) {
-        return;
-    }
-
-    // Save time spent on previous site
-    if (activeSite && siteStartTime > 0) {
-        const timeSpent = Math.floor((Date.now() - siteStartTime) / 1000);
-        if (timeSpent > 0) {
-            siteTimes[activeSite] = (siteTimes[activeSite] || 0) + timeSpent;
-        }
-    }
-
-    if (timerTimeout) {
-        clearTimeout(timerTimeout);
-        timerTimeout = null;
-    }
-    await chrome.alarms.clear(ALARM_NAME);
-
-    if (matchedSite) {
-        const now = Date.now();
-        await chrome.storage.local.set({
-            siteTimes: siteTimes,
-            currentActiveSite: matchedSite,
-            currentStartTime: now
-        });
-        console.log(`🟢 Tracking started for: ${matchedSite}`);
-
-        // Calculate remaining seconds until the user-defined limit
-        const limitSeconds = await getTimeLimitSeconds();
-        const alreadySpent = siteTimes[matchedSite] || 0;
-        const remainingSeconds = limitSeconds - alreadySpent;
-
-        if (remainingSeconds <= 0) {
-            // Already exceeded the limit, notify if not already done
-            if (!notifiedSites[matchedSite]) {
-                await sendNotification(matchedSite, alreadySpent);
-                notifiedSites[matchedSite] = true;
-                await chrome.storage.local.set({ notifiedSites });
-            }
-        } else {
-            scheduleCheck(remainingSeconds);
-        }
-    } else {
-        // Switched to a non-tracked site
-        await chrome.storage.local.set({
-            siteTimes: siteTimes,
-            currentActiveSite: null,
-            currentStartTime: null
-        });
-        console.log("⚪ Not on a tracked site, timer paused.");
-    }
-}
-
-// Schedule notification check using alarms (for worker sleep) & timeout (for instant response)
-function scheduleCheck(seconds) {
-    if (timerTimeout) {
-        clearTimeout(timerTimeout);
-        timerTimeout = null;
-    }
-
-    // Alarm ensures wake-up even if service worker terminates
-    chrome.alarms.create(ALARM_NAME, {
-        when: Date.now() + (seconds * 1000)
-    });
-
-    // In-memory timeout as fast-path while service worker is still awake
-    timerTimeout = setTimeout(async () => {
-        await checkTimeLimit();
-    }, seconds * 1000);
-}
-
-// Verify if time limit was reached and trigger notification
-async function checkTimeLimit() {
-    const data = await chrome.storage.local.get([
-        "siteTimes",
-        "currentActiveSite",
-        "currentStartTime",
-        "notifiedSites"
-    ]);
-
-    const activeSite = data.currentActiveSite;
-    const siteStartTime = data.currentStartTime;
-    const siteTimes = data.siteTimes || {};
-    const notifiedSites = data.notifiedSites || {};
-
-    if (!activeSite || !siteStartTime) {
-        return;
-    }
-
-    const limitSeconds = await getTimeLimitSeconds();
-    const liveTime = Math.floor((Date.now() - siteStartTime) / 1000);
-    const totalSeconds = (siteTimes[activeSite] || 0) + liveTime;
-    console.log(`⏱️ Live time on ${activeSite}: ${totalSeconds}s (threshold: ${limitSeconds}s)`);
-
-    if (totalSeconds >= limitSeconds) {
-        if (!notifiedSites[activeSite]) {
-            console.log(`🚨 Limit reached on ${activeSite}! Triggering notification...`);
-            await sendNotification(activeSite, totalSeconds);
-            notifiedSites[activeSite] = true;
-            await chrome.storage.local.set({ notifiedSites });
-        }
-    } else {
-        // Still have some time remaining, reschedule
-        const remaining = limitSeconds - totalSeconds;
-        scheduleCheck(remaining);
-    }
-}
-
-// Send system notification
-async function sendNotification(site, totalSeconds) {
-    const displayName = site.split(".")[0].charAt(0).toUpperCase() + site.split(".")[0].slice(1);
-    const minutes = Math.floor(totalSeconds / 60) || 1;
-    const timeText = `${minutes} minute${minutes > 1 ? "s" : ""}`;
-
-    // Mark that the limit was exceeded today — streak evaluator reads this tomorrow.
-    await chrome.storage.local.set({ limitExceededToday: true });
-    console.log("📛 Daily limit exceeded — streak at risk.");
-
-    await chrome.notifications.create(`driftless-${site}-${Date.now()}`, {
-        type: "basic",
-        iconUrl: "icons/icon-128.png",
-        title: "Driftless - Focus Alert 🚨",
-        message: `You've spent ${timeText} on ${displayName}! Time to refocus on your goals.`,
-        priority: 2
-    }, (id) => {
-        if (chrome.runtime.lastError) {
-            console.error("❌ Notification error:", chrome.runtime.lastError);
-        } else {
-            console.log("✅ Notification successfully sent:", id);
-        }
-    });
-}
-
-
-// ── Focus Mode / Site Blocker ─────────────────────────────────────────────────
-// Uses declarativeNetRequest dynamic rules so no page reload is needed.
-
-const FOCUS_RULE_BASE_ID = 100; // Rule IDs 100-103; well clear of any static rules.
-const BLOCKED_SITES = ["youtube.com", "instagram.com", "facebook.com", "reddit.com"];
-
-/**
- * Builds a declarativeNetRequest rule that blocks all requests to a given domain
- * and its www. subdomain.
- */
-function buildBlockRule(id, domain) {
-    return {
-        id,
-        priority: 1,
-        action: { type: "block" },
-        condition: {
-            urlFilter: `||${domain}`,
-            resourceTypes: ["main_frame", "sub_frame", "xmlhttprequest", "script", "image", "stylesheet", "font", "media", "websocket", "other"]
-        }
-    };
-}
-
-/**
- * Enables Focus Mode: adds dynamic blocking rules for all BLOCKED_SITES.
- */
-async function enableFocusMode() {
-    const rulesToAdd = BLOCKED_SITES.map((domain, i) =>
-        buildBlockRule(FOCUS_RULE_BASE_ID + i, domain)
-    );
-    const ruleIdsToRemove = BLOCKED_SITES.map((_, i) => FOCUS_RULE_BASE_ID + i);
-
-    await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: ruleIdsToRemove, // Remove first to avoid ID conflicts on re-enable
-        addRules: rulesToAdd
-    });
-    console.log("🛡️ Driftless Focus Mode ON — blocking:", BLOCKED_SITES.join(", "));
-}
-
-/**
- * Disables Focus Mode: removes all dynamic blocking rules.
- */
-async function disableFocusMode() {
-    const ruleIdsToRemove = BLOCKED_SITES.map((_, i) => FOCUS_RULE_BASE_ID + i);
-    await chrome.declarativeNetRequest.updateDynamicRules({
-        removeRuleIds: ruleIdsToRemove,
-        addRules: []
-    });
-    console.log("✅ Driftless Focus Mode OFF — all sites unblocked.");
-}
-
-// 7. Listen for Focus Mode toggle messages from popup.js
+// 7. Message listener (from popup)
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message.type === "SET_FOCUS_MODE") {
-        const action = message.enabled ? enableFocusMode() : disableFocusMode();
-        action
-            .then(() => sendResponse({ success: true, focusModeActive: message.enabled }))
-            .catch(err => {
-                console.error("❌ Focus Mode error:", err);
-                sendResponse({ success: false, error: err.message });
-            });
-        return true; // Keep the message channel open for the async response
-    }
+  if (message.type === 'SET_FOCUS_MODE') {
+    const action = message.enabled ? enableFocusMode() : disableFocusMode();
+    action
+      .then(() => sendResponse({ success: true, focusModeActive: message.enabled }))
+      .catch(err => { console.error('Focus Mode error:', err); sendResponse({ success: false, error: err.message }); });
+    return true; // keep channel open for async response
+  }
+
+  if (message.type === 'REBUILD_FOCUS_RULES') {
+    enableFocusMode()
+      .then(() => sendResponse({ success: true }))
+      .catch(err => { console.error('Rebuild rules error:', err); sendResponse({ success: false }); });
+    return true;
+  }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CORE TRACKING LOGIC
+// ─────────────────────────────────────────────────────────────────────────────
+async function checkSite(url) {
+  const trackedSites = await getBlockedSites();
+  const matchedSite  = trackedSites.find(site => (url || '').includes(site)) || null;
+
+  const data = await chrome.storage.local.get([
+    'siteTimes', 'currentActiveSite', 'currentStartTime', 'notifiedSites'
+  ]);
+  const siteTimes     = data.siteTimes     || {};
+  const activeSite    = data.currentActiveSite || null;
+  const siteStartTime = data.currentStartTime  || 0;
+  const notifiedSites = data.notifiedSites || {};
+
+  // No change — nothing to do
+  if (activeSite === matchedSite) return;
+
+  // Commit time spent on the previous site
+  if (activeSite && siteStartTime > 0) {
+    const spent = Math.floor((Date.now() - siteStartTime) / 1000);
+    if (spent > 0) siteTimes[activeSite] = (siteTimes[activeSite] || 0) + spent;
+  }
+
+  if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
+  await chrome.alarms.clear(ALARM_NAME);
+
+  if (matchedSite) {
+    const now = Date.now();
+    await chrome.storage.local.set({
+      siteTimes, currentActiveSite: matchedSite, currentStartTime: now
+    });
+    console.log(`Driftless: tracking ${matchedSite}`);
+
+    const limitSec      = await getTimeLimitSeconds();
+    const alreadySpent  = siteTimes[matchedSite] || 0;
+    const remaining     = limitSec - alreadySpent;
+
+    if (remaining <= 0) {
+      if (!notifiedSites[matchedSite]) {
+        await sendNotification(matchedSite, alreadySpent);
+        notifiedSites[matchedSite] = true;
+        await chrome.storage.local.set({ notifiedSites });
+      }
+    } else {
+      scheduleCheck(remaining);
+    }
+  } else {
+    await chrome.storage.local.set({
+      siteTimes, currentActiveSite: null, currentStartTime: null
+    });
+    console.log('Driftless: off tracked site, timer paused.');
+  }
+}
+
+function scheduleCheck(seconds) {
+  if (timerTimeout) { clearTimeout(timerTimeout); timerTimeout = null; }
+  chrome.alarms.create(ALARM_NAME, { when: Date.now() + seconds * 1000 });
+  timerTimeout = setTimeout(async () => { await checkTimeLimit(); }, seconds * 1000);
+}
+
+async function checkTimeLimit() {
+  const data = await chrome.storage.local.get([
+    'siteTimes', 'currentActiveSite', 'currentStartTime', 'notifiedSites'
+  ]);
+  const activeSite    = data.currentActiveSite;
+  const siteStartTime = data.currentStartTime;
+  const siteTimes     = data.siteTimes    || {};
+  const notifiedSites = data.notifiedSites || {};
+
+  if (!activeSite || !siteStartTime) return;
+
+  const limitSec    = await getTimeLimitSeconds();
+  const liveTime    = Math.floor((Date.now() - siteStartTime) / 1000);
+  const totalSec    = (siteTimes[activeSite] || 0) + liveTime;
+
+  if (totalSec >= limitSec) {
+    if (!notifiedSites[activeSite]) {
+      await sendNotification(activeSite, totalSec);
+      notifiedSites[activeSite] = true;
+      await chrome.storage.local.set({ notifiedSites });
+    }
+  } else {
+    scheduleCheck(limitSec - totalSec);
+  }
+}
+
+async function sendNotification(site, totalSeconds) {
+  const name    = site.split('.')[0];
+  const display = name.charAt(0).toUpperCase() + name.slice(1);
+  const minutes = Math.floor(totalSeconds / 60) || 1;
+  const timeText = `${minutes} minute${minutes > 1 ? 's' : ''}`;
+
+  await chrome.storage.local.set({ limitExceededToday: true });
+  console.log('Driftless: daily limit exceeded — streak at risk.');
+
+  await chrome.notifications.create(`driftless-${site}-${Date.now()}`, {
+    type:     'basic',
+    iconUrl:  'icons/icon-128.png',
+    title:    'Driftless — Focus Alert',
+    message:  `You have spent ${timeText} on ${display}! Time to refocus.`,
+    priority: 2
+  }, id => {
+    if (chrome.runtime.lastError) {
+      console.error('Notification error:', chrome.runtime.lastError);
+    } else {
+      console.log('Notification sent:', id);
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FOCUS MODE — declarativeNetRequest dynamic rules, built from blockedSites
+// ─────────────────────────────────────────────────────────────────────────────
+function buildBlockRule(id, domain) {
+  return {
+    id,
+    priority: 1,
+    action: { type: 'block' },
+    condition: {
+      urlFilter: `||${domain}`,
+      resourceTypes: [
+        'main_frame', 'sub_frame', 'xmlhttprequest',
+        'script', 'image', 'stylesheet', 'font', 'media', 'websocket', 'other'
+      ]
+    }
+  };
+}
+
+async function enableFocusMode() {
+  const sites = await getBlockedSites();
+
+  // Remove ALL existing dynamic rules first (clean slate)
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeIds = existing.map(r => r.id);
+
+  const rulesToAdd = sites.map((domain, i) => buildBlockRule(FOCUS_RULE_BASE_ID + i, domain));
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: removeIds,
+    addRules:      rulesToAdd
+  });
+  console.log('Driftless Focus Mode ON — blocking:', sites.join(', '));
+}
+
+async function disableFocusMode() {
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeIds = existing.map(r => r.id);
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
+  console.log('Driftless Focus Mode OFF — all rules cleared.');
+}

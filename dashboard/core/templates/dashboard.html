@@ -1,0 +1,516 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driftless — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:           #000000;
+      --surface:      #111111;
+      --card:         #171717;
+      --card-2:       #1C1C1E;
+      --green:        #32D74B;
+      --green-dim:    rgba(50,215,75,0.12);
+      --green-glow:   rgba(50,215,75,0.28);
+      --orange:       #FF9F0A;
+      --blue:         #0A84FF;
+      --red:          #FF453A;
+      --text:         #FFFFFF;
+      --text-sub:     #8E8E93;
+      --text-muted:   #3A3A3C;
+      --r-card:       20px;
+      --r-pill:       50px;
+      --r-sm:         12px;
+      --ease:         0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    ::-webkit-scrollbar { display: none; }
+    html { scrollbar-width: none; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─────────────── TOPBAR ───────────────────────────────────────────────── */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 11px;
+    }
+    .topbar-icon {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: var(--green-dim);
+      box-shadow: inset 0 0 0 1px rgba(50,215,75,0.2);
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .topbar-name { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
+
+    .topbar-right { display: flex; align-items: center; gap: 12px; }
+    .user-badge {
+      font-size: 13px; font-weight: 500; color: var(--text-sub);
+    }
+    .user-badge span { color: var(--text); font-weight: 600; }
+
+    .logout-btn {
+      padding: 7px 16px;
+      background: transparent;
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: var(--r-pill);
+      color: var(--text-sub);
+      font-size: 13px; font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color var(--ease), color var(--ease), background var(--ease);
+    }
+    .logout-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,69,58,0.07); }
+
+    /* ─────────────── MAIN LAYOUT ──────────────────────────────────────────── */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 24px 60px;
+    }
+
+    .page-title {
+      font-size: 28px; font-weight: 800;
+      letter-spacing: -0.7px;
+      margin-bottom: 4px;
+      animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .page-sub {
+      font-size: 14px; color: var(--text-sub);
+      margin-bottom: 32px;
+      animation: fadeUp 0.35s 0.05s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    /* ─────────────── STAT CARDS ────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 680px) { .stats-grid { grid-template-columns: 1fr; } }
+
+    .stat-card {
+      background: var(--card);
+      border-radius: var(--r-card);
+      padding: 22px 22px 20px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.5);
+      animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both;
+      transition: box-shadow var(--ease);
+    }
+    .stat-card:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 3px 12px rgba(0,0,0,0.65); }
+    .stat-card:nth-child(2) { animation-delay: 0.04s; }
+    .stat-card:nth-child(3) { animation-delay: 0.08s; }
+
+    .stat-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.7px;
+      text-transform: uppercase; color: var(--text-sub);
+      margin-bottom: 10px;
+    }
+    .stat-value {
+      font-size: 34px; font-weight: 800; letter-spacing: -1.5px;
+      line-height: 1; color: var(--text);
+    }
+    .stat-value.green  { color: var(--green); }
+    .stat-value.orange { color: var(--orange); }
+    .stat-value.blue   { color: var(--blue); }
+    .stat-unit {
+      font-size: 15px; font-weight: 500; color: var(--text-sub);
+      margin-left: 4px; letter-spacing: 0;
+    }
+
+    /* ─────────────── CHARTS GRID ───────────────────────────────────────────── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1.7fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 760px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--card);
+      border-radius: var(--r-card);
+      padding: 24px 24px 20px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.5);
+      animation: fadeUp 0.4s 0.10s cubic-bezier(0.22,1,0.36,1) both;
+      transition: box-shadow var(--ease);
+    }
+    .chart-card:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 3px 12px rgba(0,0,0,0.65); }
+    .chart-card:nth-child(2) { animation-delay: 0.16s; }
+
+    .chart-title {
+      font-size: 15px; font-weight: 700; letter-spacing: -0.2px;
+      margin-bottom: 4px;
+    }
+    .chart-sub {
+      font-size: 12px; color: var(--text-sub); margin-bottom: 22px;
+    }
+
+    .chart-wrap {
+      position: relative;
+      /* Fixed height so Chart.js renders correctly */
+    }
+    .chart-wrap-bar    { height: 260px; }
+    .chart-wrap-donut  { height: 240px; display: flex; align-items: center; justify-content: center; }
+
+    /* Empty state */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 10px; height: 200px;
+      color: var(--text-muted); font-size: 13px; text-align: center;
+    }
+    .empty-state .emoji { font-size: 36px; }
+
+    /* Loading skeleton pulse */
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50%       { opacity: 0.9; }
+    }
+    .skeleton {
+      background: var(--card-2);
+      border-radius: 8px;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+
+    /* Extension token section */
+    .token-card {
+      background: var(--card);
+      border-radius: var(--r-card);
+      padding: 22px 24px;
+      margin-top: 12px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.5);
+      animation: fadeUp 0.4s 0.22s cubic-bezier(0.22,1,0.36,1) both;
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .token-label { font-size: 13px; font-weight: 600; color: var(--text-sub); flex-shrink: 0; }
+    .token-value {
+      flex: 1; min-width: 0;
+      font-size: 13px; font-weight: 500; color: var(--text);
+      background: #0A0A0A;
+      padding: 9px 14px; border-radius: var(--r-sm);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 0.3px;
+    }
+    .copy-btn {
+      padding: 8px 16px; border: none; cursor: pointer;
+      background: var(--green); color: #000;
+      border-radius: var(--r-pill);
+      font-size: 13px; font-weight: 700; font-family: inherit;
+      transition: opacity var(--ease), transform 0.15s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover  { opacity: 0.85; }
+    .copy-btn:active { transform: scale(0.95); }
+    .token-hint { width: 100%; font-size: 11px; color: var(--text-muted); margin-top: -4px; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Topbar ── -->
+  <nav class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-icon">🌿</div>
+      <div class="topbar-name">Driftless</div>
+    </div>
+    <div class="topbar-right">
+      <div class="user-badge">Signed in as <span id="usernameDisplay">{{ username }}</span></div>
+      <button class="logout-btn" id="logoutBtn">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- ── Main content ── -->
+  <main class="main">
+    <div class="page-title">Your Focus Report</div>
+    <div class="page-sub" id="dateDisplay">Loading…</div>
+
+    <!-- Stat cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">⏱ Today's Screen Time</div>
+        <div class="stat-value green" id="statToday">—<span class="stat-unit">min</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🏆 Most Visited Today</div>
+        <div class="stat-value" id="statTopSite" style="font-size:20px;letter-spacing:-0.5px;">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">🔥 Focus Streak</div>
+        <div class="stat-value orange" id="statStreak">—<span class="stat-unit">days</span></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <!-- Weekly Bar -->
+      <div class="chart-card">
+        <div class="chart-title">Weekly Usage</div>
+        <div class="chart-sub">Total minutes per day — last 7 days</div>
+        <div class="chart-wrap chart-wrap-bar">
+          <canvas id="weeklyChart"></canvas>
+          <div class="empty-state" id="weeklyEmpty" style="display:none;">
+            <div class="emoji">📊</div>
+            <div>No data yet — start browsing and your stats will appear here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Doughnut -->
+      <div class="chart-card">
+        <div class="chart-title">Today by Site</div>
+        <div class="chart-sub">Time distribution for today</div>
+        <div class="chart-wrap chart-wrap-donut">
+          <canvas id="dailyChart"></canvas>
+          <div class="empty-state" id="dailyEmpty" style="display:none;">
+            <div class="emoji">🍩</div>
+            <div>No tracked sites visited today.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Extension Token card -->
+    <div class="token-card">
+      <div class="token-label">🔑 Extension API Token</div>
+      <div class="token-value" id="tokenDisplay">{{ api_token }}</div>
+      <button class="copy-btn" id="copyTokenBtn">Copy</button>
+      <div class="token-hint">Paste this into your extension's settings to sync data with this dashboard.</div>
+    </div>
+  </main>
+
+  <script>
+    // ── Config ─────────────────────────────────────────────────────────────
+    const API_TOKEN = '{{ api_token }}';
+
+    // ── Logout ──────────────────────────────────────────────────────────────
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      await fetch('/api/auth/logout/', {
+        method: 'POST',
+        headers: { 'Authorization': 'Token ' + API_TOKEN },
+        credentials: 'include',
+      });
+      localStorage.removeItem('driftless_token');
+      localStorage.removeItem('driftless_username');
+      window.location.href = '/';
+    });
+
+    // ── Copy token ──────────────────────────────────────────────────────────
+    document.getElementById('copyTokenBtn').addEventListener('click', () => {
+      navigator.clipboard.writeText(API_TOKEN).then(() => {
+        const btn = document.getElementById('copyTokenBtn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    });
+
+    // ── Date display ────────────────────────────────────────────────────────
+    const today = new Date();
+    document.getElementById('dateDisplay').textContent =
+      today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    // ── Chart.js global defaults ─────────────────────────────────────────────
+    Chart.defaults.color = '#8E8E93';
+    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+
+    const PALETTE = [
+      '#32D74B', '#0A84FF', '#FF9F0A', '#FF453A',
+      '#BF5AF2', '#64D2FF', '#FFD60A', '#FF6961',
+    ];
+
+    function fmtMins(sec) { return Math.round(sec / 60); }
+    function fmtLabel(iso) {
+      const d = new Date(iso + 'T00:00:00');
+      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    // ── Fetch summary & render ───────────────────────────────────────────────
+    let weeklyChartInstance = null;
+    let dailyChartInstance  = null;
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/summary/', {
+          headers: {
+            'Authorization': 'Token ' + API_TOKEN,
+            'Content-Type':  'application/json',
+          },
+          credentials: 'include',
+        });
+        if (!res.ok) throw new Error('API error ' + res.status);
+        const data = await res.json();
+        renderStats(data.stats);
+        renderWeekly(data.weekly);
+        renderDaily(data.daily);
+      } catch (err) {
+        console.error('Driftless dashboard error:', err);
+        document.getElementById('dateDisplay').textContent = 'Could not load data. Is the server running?';
+      }
+    }
+
+    function renderStats(stats) {
+      const todayMins = fmtMins(stats.today_total_seconds || 0);
+      document.getElementById('statToday').innerHTML =
+        `${todayMins}<span class="stat-unit">min</span>`;
+      document.getElementById('statTopSite').textContent = stats.top_site || '—';
+      document.getElementById('statStreak').innerHTML =
+        `${stats.streak || 0}<span class="stat-unit">days</span>`;
+    }
+
+    function renderWeekly(weekly) {
+      const hasData = weekly.some(d => d.total_seconds > 0);
+
+      if (!hasData) {
+        document.getElementById('weeklyChart').style.display = 'none';
+        document.getElementById('weeklyEmpty').style.display = 'flex';
+        return;
+      }
+
+      const labels = weekly.map(d => fmtLabel(d.date));
+      const values = weekly.map(d => fmtMins(d.total_seconds));
+
+      if (weeklyChartInstance) weeklyChartInstance.destroy();
+      weeklyChartInstance = new Chart(
+        document.getElementById('weeklyChart').getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Minutes',
+              data:  values,
+              backgroundColor: values.map((_, i) =>
+                i === values.length - 1
+                  ? '#32D74B'
+                  : 'rgba(50,215,75,0.28)'
+              ),
+              borderRadius:      10,
+              borderSkipped:     false,
+              hoverBackgroundColor: '#32D74B',
+            }],
+          },
+          options: {
+            responsive:          true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                backgroundColor: '#1C1C1E',
+                titleColor:      '#FFFFFF',
+                bodyColor:       '#8E8E93',
+                borderColor:     'rgba(255,255,255,0.08)',
+                borderWidth:     1,
+                padding:         12,
+                callbacks: {
+                  label: ctx => ` ${ctx.parsed.y} min`,
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid:  { color: 'rgba(255,255,255,0.04)' },
+                ticks: { color: '#8E8E93', font: { size: 11, weight: '500' } },
+              },
+              y: {
+                grid:    { color: 'rgba(255,255,255,0.04)' },
+                ticks:   { color: '#8E8E93', font: { size: 11 }, callback: v => v + 'm' },
+                beginAtZero: true,
+              },
+            },
+          },
+        }
+      );
+    }
+
+    function renderDaily(daily) {
+      if (!daily || daily.length === 0) {
+        document.getElementById('dailyChart').style.display = 'none';
+        document.getElementById('dailyEmpty').style.display = 'flex';
+        return;
+      }
+
+      const labels = daily.map(d => d.website_url);
+      const values = daily.map(d => fmtMins(d.total_seconds));
+      const colors = daily.map((_, i) => PALETTE[i % PALETTE.length]);
+
+      if (dailyChartInstance) dailyChartInstance.destroy();
+      dailyChartInstance = new Chart(
+        document.getElementById('dailyChart').getContext('2d'), {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{
+              data:                  values,
+              backgroundColor:       colors.map(c => c + 'CC'),  // slight transparency
+              hoverBackgroundColor:  colors,
+              borderColor:           '#171717',
+              borderWidth:           3,
+              hoverBorderColor:      '#1C1C1E',
+              hoverOffset:           8,
+            }],
+          },
+          options: {
+            responsive:          true,
+            maintainAspectRatio: false,
+            cutout:              '68%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  color:     '#8E8E93',
+                  font:      { size: 11, weight: '500' },
+                  padding:   14,
+                  usePointStyle: true,
+                  pointStyleWidth: 8,
+                },
+              },
+              tooltip: {
+                backgroundColor: '#1C1C1E',
+                titleColor:      '#FFFFFF',
+                bodyColor:       '#8E8E93',
+                borderColor:     'rgba(255,255,255,0.08)',
+                borderWidth:     1,
+                padding:         12,
+                callbacks: {
+                  label: ctx => ` ${ctx.label}: ${ctx.parsed} min`,
+                },
+              },
+            },
+          },
+        }
+      );
+    }
+
+    // ── Boot ────────────────────────────────────────────────────────────────
+    loadData();
+    // Auto-refresh every 5 minutes
+    setInterval(loadData, 5 * 60 * 1000);
+  </script>
+</body>
+</html>
