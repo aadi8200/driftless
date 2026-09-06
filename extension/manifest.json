@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Driftless",
+  "version": "1.0",
+  "description": "Tracks tab usage for digital wellbeing.",
+  "permissions": [
+    "tabs",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
+}
