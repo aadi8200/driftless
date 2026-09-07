@@ -1,4 +1,4 @@
-﻿// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // PROFILE DEFAULTS
 // ─────────────────────────────────────────────────────────────────────────────
 const PROFILE_DEFAULTS = {
@@ -57,6 +57,7 @@ function initDashboard() {
   initDailyLimit();
   initManageSites();
   evaluateAndDisplayStreak();
+  initApiToken();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -310,31 +311,62 @@ function renderStreak(streak) {
   }
 }
 
-async function evaluateAndDisplayStreak() {
-  const data = await chrome.storage.local.get([
-    'currentStreak', 'lastActiveDate', 'limitExceededToday'
-  ]);
-  let streak       = data.currentStreak   ?? 0;
-  const lastDate   = data.lastActiveDate  ?? null;
-  const failed     = data.limitExceededToday === true;
-  const today      = todayUTC();
+// ───────────────────────────────────────────────────────────────────────────────
+// API TOKEN — save & load from chrome.storage.local
+// ───────────────────────────────────────────────────────────────────────────────
+function initApiToken() {
+  const input       = document.getElementById('apiTokenInput');
+  const saveBtn     = document.getElementById('saveTokenBtn');
+  const saveMsg     = document.getElementById('tokenSaveMsg');
 
-  if (lastDate === null) {
-    await chrome.storage.local.set({ currentStreak: 0, lastActiveDate: today, limitExceededToday: false });
-    renderStreak(0);
-    return;
+  /** Show the tail of the stored token, masked */
+  function maskToken(token) {
+    if (!token || token.length < 9) return token || '';
+    return '•'.repeat(token.length - 8) + token.slice(-8);
   }
-  if (lastDate === today) {
-    renderStreak(streak);
-    return;
+
+  function showTokenMsg(text, isError = false) {
+    saveMsg.textContent = text;
+    saveMsg.style.color = isError ? '#FF453A' : '#4DA6FF';
+    saveMsg.style.opacity = '1';
+    setTimeout(() => { saveMsg.style.opacity = '0'; }, 3000);
   }
-  const yesterday    = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-  const wasYesterday = (lastDate === yesterday);
-  if (wasYesterday && !failed) {
-    streak += 1;
-  } else {
-    streak = 0;
-  }
-  await chrome.storage.local.set({ currentStreak: streak, lastActiveDate: today, limitExceededToday: false });
-  renderStreak(streak);
+
+  // Pre-populate with masked stored token
+  chrome.storage.local.get(['apiToken'], result => {
+    if (result.apiToken) {
+      input.value = maskToken(result.apiToken);
+      input.dataset.saved = 'true'; // flag: field shows a masked existing value
+    }
+  });
+
+  // Clear masked placeholder on focus so user can paste a fresh token
+  input.addEventListener('focus', () => {
+    if (input.dataset.saved === 'true') {
+      input.value = '';
+      input.dataset.saved = 'false';
+    }
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const raw = input.value.trim();
+
+    if (!raw || raw.length < 10) {
+      showTokenMsg('⚠️ Token looks too short. Paste the full token from the dashboard.', true);
+      return;
+    }
+
+    // If the value is still showing masked chars, user didn't change it — skip
+    if (raw.includes('•')) {
+      showTokenMsg('✅ Token already saved.', false);
+      return;
+    }
+
+    chrome.storage.local.set({ apiToken: raw }, () => {
+      input.value = maskToken(raw);
+      input.dataset.saved = 'true';
+      showTokenMsg('✅ Token saved! Syncing will begin automatically.');
+      console.log('Driftless: API token saved.');
+    });
+  });
 }

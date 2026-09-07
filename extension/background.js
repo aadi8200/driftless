@@ -53,23 +53,23 @@ async function syncToBackend() {
   }
 
   try {
-    const res = await fetch(${API_BASE_URL}/api/usage/, {
+    const res = await fetch(`${API_BASE_URL}/api/usage/`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': Token ,
+        'Authorization': `Token ${apiToken}`,
       },
       body: JSON.stringify(entries),
     });
 
     if (!res.ok) {
       const err = await res.text();
-      console.error(Driftless sync failed ():, err);
+      console.error(`Driftless sync failed (${res.status}):`, err);
       return;
     }
 
     const result = await res.json();
-    console.log(Driftless sync success — created: , updated: );
+    console.log(`Driftless sync success — created: ${result.created}, updated: ${result.updated}`);
     await chrome.storage.local.set({ lastSyncDate: today });
   } catch (err) {
     console.error('Driftless sync network error:', err);
@@ -102,7 +102,8 @@ async function scheduleDailySync() {
     await syncToBackend();
   }
 
-  console.log(Driftless: daily sync alarm set (fires in  min).);
+  const minsUntilMidnight = Math.round(msUntilMidnight / 60000);
+  console.log(`Driftless: daily sync alarm set (fires in ${minsUntilMidnight} min).`);
 }
 
 
