@@ -6,7 +6,9 @@
     "tabs",
     "windows",
     "storage",
-    "notifications"
+    "notifications",
+    "idle",
+    "alarms"
   ],
   "incognito": "spanning",
   "background": {
