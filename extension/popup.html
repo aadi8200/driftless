@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -64,12 +64,13 @@
     }
     .header-left { display: flex; align-items: center; gap: 10px; }
     .header-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--green-dim); display: flex;
-      align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
-      box-shadow: inset 0 0 0 1px rgba(50, 215, 75, 0.18);
+      width: 34px; height: 34px; border-radius: 10px;
+      background: var(--green-dim);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: inset 0 0 0 1px rgba(50, 215, 75, 0.20);
     }
+    .header-icon svg { width: 18px; height: 18px; display: block; }
     .header-text h1 {
       font-size: 18px; font-weight: 800;
       color: var(--text-primary); letter-spacing: -0.5px; line-height: 1.15;
@@ -239,7 +240,15 @@
       padding: 8px 0 4px;
       animation: fadeUp 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
-    .onboard-emoji { font-size: 44px; margin-bottom: 14px; line-height: 1; }
+    .onboard-emoji {
+      font-size: 52px;
+      line-height: 1;
+      margin-bottom: 14px;
+      display: block;
+      text-align: center;
+      /* subtle scale-in to complement the fadeUp on the parent */
+      animation: fadeUp 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
     .onboard-title { font-size: 20px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px; margin-bottom: 6px; }
     .onboard-sub   { font-size: 13px; color: var(--text-secondary); line-height: 1.55; max-width: 240px; margin: 0 auto 24px; }
 
@@ -357,7 +366,14 @@
     <!-- Header -->
     <div class="header">
       <div class="header-left">
-        <div class="header-icon">🌿</div>
+        <div class="header-icon">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 22C12 22 4 16 4 9.5C4 5.91 7.13 3 11 3C11.69 3 12.36 3.1 13 3.29C13.64 3.1 14.31 3 15 3C18.87 3 22 5.91 22 9.5C22 16 14 22 14 22" fill="rgba(50,215,75,0.18)"/>
+            <path d="M12 22C12 22 4 16 4 9.5C4 5.91 7.13 3 11 3C11.69 3 12.36 3.1 13 3.29" stroke="#32D74B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M22 9.5C22 16 14 22 14 22C14 22 13.38 21.54 12.6 20.76M22 9.5C22 5.91 18.87 3 15 3C14.31 3 13.64 3.1 13 3.29" stroke="#32D74B" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 3.29C13 3.29 13 12 8 17" stroke="#32D74B" stroke-width="1.4" stroke-linecap="round" opacity="0.6"/>
+          </svg>
+        </div>
         <div class="header-text"><h1>Driftless</h1></div>
       </div>
       <span id="streakBadge">— No streak yet</span>

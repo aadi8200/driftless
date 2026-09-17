@@ -5,16 +5,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ALARM_NAME             = 'driftless_time_check';
-const DEFAULT_TIME_LIMIT_SEC = 60;         // Fallback: 1 minute
-const FOCUS_RULE_BASE_ID     = 100;        // Dynamic rule IDs start here
+const SYNC_ALARM_NAME        = 'driftless_daily_sync';
+const DEFAULT_TIME_LIMIT_SEC = 60;    // Fallback: 1 minute
+const FOCUS_RULE_BASE_ID     = 100;   // Dynamic rule IDs start here
+
+// ── Backend API URL — update this to your production URL when deployed ────────
+const API_BASE_URL = 'http://127.0.0.1:8000';
 
 let timerTimeout = null;
 
 console.log('Driftless Background Service Worker active.');
-const SYNC_ALARM_NAME = 'driftless_daily_sync';
 
-// ── Backend API URL — update this to your production URL when deployed ────────
-const API_BASE_URL = 'http://127.0.0.1:8000';
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND SYNC — POST daily usage totals to the Django API
@@ -53,23 +55,23 @@ async function syncToBackend() {
   }
 
   try {
-    const res = await fetch(${API_BASE_URL}/api/usage/, {
+    const res = await fetch(`${API_BASE_URL}/api/usage/`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': Token ,
+        'Authorization': `Token ${apiToken}`,
       },
       body: JSON.stringify(entries),
     });
 
     if (!res.ok) {
       const err = await res.text();
-      console.error(Driftless sync failed ():, err);
+      console.error(`Driftless sync failed (${res.status}):`, err);
       return;
     }
 
     const result = await res.json();
-    console.log(Driftless sync success — created: , updated: );
+    console.log(`Driftless sync success — created: ${result.created}, updated: ${result.updated}`);
     await chrome.storage.local.set({ lastSyncDate: today });
   } catch (err) {
     console.error('Driftless sync network error:', err);
@@ -102,7 +104,8 @@ async function scheduleDailySync() {
     await syncToBackend();
   }
 
-  console.log(Driftless: daily sync alarm set (fires in  min).);
+  const minsUntilMidnight = Math.round(msUntilMidnight / 60000);
+  console.log(`Driftless: daily sync alarm set (fires in ${minsUntilMidnight} min).`);
 }
 
 
