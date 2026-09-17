@@ -1,185 +1,281 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Driftless — Dashboard</title>
+  <meta name="description" content="Your personal screen-time analytics dashboard. Track focus streaks, site usage, and weekly trends.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
+    /* ═══════════════════════════════════════════════════════════
+       DESIGN TOKENS
+    ═══════════════════════════════════════════════════════════ */
     :root {
-      --bg:           #000000;
-      --surface:      #111111;
-      --card:         #171717;
-      --card-2:       #1C1C1E;
-      --green:        #32D74B;
-      --green-dim:    rgba(50,215,75,0.12);
-      --green-glow:   rgba(50,215,75,0.28);
-      --orange:       #FF9F0A;
-      --blue:         #0A84FF;
-      --red:          #FF453A;
-      --text:         #FFFFFF;
-      --text-sub:     #8E8E93;
-      --text-muted:   #3A3A3C;
-      --r-card:       20px;
-      --r-pill:       50px;
-      --r-sm:         12px;
-      --ease:         0.22s cubic-bezier(0.4,0,0.2,1);
+      --bg:             #000000;
+      --surface:        #0D0D0D;
+      --card:           #141414;
+      --card-raised:    #1A1A1A;
+      --card-inset:     #0A0A0A;
+      --border:         rgba(255,255,255,0.06);
+      --border-hover:   rgba(255,255,255,0.10);
+
+      --green:          #32D74B;
+      --green-dim:      rgba(50,215,75,0.12);
+      --green-glow:     rgba(50,215,75,0.30);
+      --green-mid:      rgba(50,215,75,0.40);
+
+      --orange:         #FF9F0A;
+      --orange-dim:     rgba(255,159,10,0.12);
+
+      --blue:           #0A84FF;
+      --blue-dim:       rgba(10,132,255,0.12);
+      --blue-glow:      rgba(10,132,255,0.30);
+
+      --red:            #FF453A;
+      --red-dim:        rgba(255,69,58,0.10);
+
+      --purple:         #BF5AF2;
+
+      --text:           #FFFFFF;
+      --text-sub:       #8E8E93;
+      --text-muted:     #3A3A3C;
+      --text-dim:       #2C2C2E;
+
+      --r-card:         22px;
+      --r-pill:         50px;
+      --r-sm:           12px;
+      --ease:           0.22s cubic-bezier(0.4,0,0.2,1);
+      --spring:         0.28s cubic-bezier(0.34,1.56,0.64,1);
     }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     ::-webkit-scrollbar { display: none; }
-    html { scrollbar-width: none; }
+    html { scrollbar-width: none; background: var(--bg); }
 
     body {
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      font-family: 'Inter', system-ui, sans-serif;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
+    /* ─── Animations ──────────────────────────────────────────────────────────── */
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(14px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.35; }
+      50%       { opacity: 0.75; }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+    @keyframes glowPulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--orange-dim); }
+      50%       { box-shadow: 0 0 18px 4px rgba(255,159,10,0.18); }
+    }
 
-    /* ─────────────── TOPBAR ───────────────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════
+       TOPBAR
+    ═══════════════════════════════════════════════════════════ */
     .topbar {
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(0,0,0,0.85);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
       padding: 0 32px;
-      height: 60px;
+      height: 62px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
-    .topbar-brand {
-      display: flex; align-items: center; gap: 11px;
+    /* subtle green glow line under the brand */
+    .topbar::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0;
+      width: 180px; height: 1px;
+      background: linear-gradient(90deg, var(--green) 0%, transparent 100%);
+      opacity: 0.5;
     }
-    .topbar-icon {
-      width: 32px; height: 32px; border-radius: 9px;
-      background: var(--green-dim);
-      box-shadow: inset 0 0 0 1px rgba(50,215,75,0.2);
-      display: flex; align-items: center; justify-content: center; font-size: 16px;
-    }
-    .topbar-name { font-size: 17px; font-weight: 800; letter-spacing: -0.4px; }
 
-    .topbar-right { display: flex; align-items: center; gap: 12px; }
-    .user-badge {
-      font-size: 13px; font-weight: 500; color: var(--text-sub);
+    .topbar-brand { display: flex; align-items: center; gap: 11px; }
+    .topbar-icon {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: var(--green-dim);
+      box-shadow: inset 0 0 0 1px rgba(50,215,75,0.22), 0 0 14px rgba(50,215,75,0.12);
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+      flex-shrink: 0;
     }
-    .user-badge span { color: var(--text); font-weight: 600; }
+    .topbar-name {
+      font-size: 18px; font-weight: 900; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+
+    .topbar-right { display: flex; align-items: center; gap: 14px; }
+    .user-badge { font-size: 13px; font-weight: 500; color: var(--text-sub); }
+    .user-badge span { color: var(--text); font-weight: 700; }
 
     .logout-btn {
-      padding: 7px 16px;
+      padding: 7px 18px;
       background: transparent;
-      border: 1.5px solid rgba(255,255,255,0.1);
+      border: 1px solid var(--border);
       border-radius: var(--r-pill);
       color: var(--text-sub);
       font-size: 13px; font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
+      font-family: inherit; cursor: pointer;
       transition: border-color var(--ease), color var(--ease), background var(--ease);
     }
-    .logout-btn:hover { border-color: var(--red); color: var(--red); background: rgba(255,69,58,0.07); }
+    .logout-btn:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
 
-    /* ─────────────── MAIN LAYOUT ──────────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════
+       MAIN LAYOUT
+    ═══════════════════════════════════════════════════════════ */
     .main {
-      max-width: 1100px;
+      max-width: 1140px;
       margin: 0 auto;
-      padding: 36px 24px 60px;
+      padding: 40px 24px 80px;
     }
 
+    .page-header { margin-bottom: 36px; }
     .page-title {
-      font-size: 28px; font-weight: 800;
-      letter-spacing: -0.7px;
-      margin-bottom: 4px;
-      animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both;
+      font-size: 32px; font-weight: 900;
+      letter-spacing: -1px; line-height: 1.1;
+      animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
     }
     .page-sub {
-      font-size: 14px; color: var(--text-sub);
-      margin-bottom: 32px;
-      animation: fadeUp 0.35s 0.05s cubic-bezier(0.22,1,0.36,1) both;
+      font-size: 14px; color: var(--text-sub); margin-top: 6px;
+      animation: fadeUp 0.4s 0.06s cubic-bezier(0.22,1,0.36,1) both;
     }
 
-    /* ─────────────── STAT CARDS ────────────────────────────────────────────── */
+    /* ═══════════════════════════════════════════════════════════
+       STAT CARDS
+    ═══════════════════════════════════════════════════════════ */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 12px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
-    @media (max-width: 680px) { .stats-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .stats-grid { grid-template-columns: 1fr; } }
+    @media (min-width: 480px) and (max-width: 720px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 
     .stat-card {
+      position: relative;
       background: var(--card);
       border-radius: var(--r-card);
       padding: 22px 22px 20px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.5);
-      animation: fadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both;
-      transition: box-shadow var(--ease);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      animation: fadeUp 0.4s cubic-bezier(0.22,1,0.36,1) both;
+      transition: border-color var(--ease), transform var(--ease);
     }
-    .stat-card:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 3px 12px rgba(0,0,0,0.65); }
-    .stat-card:nth-child(2) { animation-delay: 0.04s; }
-    .stat-card:nth-child(3) { animation-delay: 0.08s; }
+    .stat-card:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+    .stat-card:nth-child(2) { animation-delay: 0.05s; }
+    .stat-card:nth-child(3) { animation-delay: 0.10s; }
+
+    /* colored top-accent line */
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+    }
+    .stat-card.green-accent::before  { background: linear-gradient(90deg, var(--green) 0%, transparent 70%); }
+    .stat-card.orange-accent::before { background: linear-gradient(90deg, var(--orange) 0%, transparent 70%); }
+    .stat-card.blue-accent::before   { background: linear-gradient(90deg, var(--blue) 0%, transparent 70%); }
+
+    .stat-icon-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .stat-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .stat-icon.green  { background: var(--green-dim); }
+    .stat-icon.orange { background: var(--orange-dim); }
+    .stat-icon.blue   { background: var(--blue-dim); }
 
     .stat-label {
       font-size: 11px; font-weight: 600; letter-spacing: 0.7px;
       text-transform: uppercase; color: var(--text-sub);
-      margin-bottom: 10px;
     }
     .stat-value {
-      font-size: 34px; font-weight: 800; letter-spacing: -1.5px;
+      font-size: 38px; font-weight: 900; letter-spacing: -1.8px;
       line-height: 1; color: var(--text);
     }
     .stat-value.green  { color: var(--green); }
     .stat-value.orange { color: var(--orange); }
     .stat-value.blue   { color: var(--blue); }
     .stat-unit {
-      font-size: 15px; font-weight: 500; color: var(--text-sub);
-      margin-left: 4px; letter-spacing: 0;
+      font-size: 16px; font-weight: 500; color: var(--text-sub);
+      margin-left: 4px; letter-spacing: 0; vertical-align: baseline;
+    }
+    .stat-site-value {
+      font-size: 18px; font-weight: 800; letter-spacing: -0.4px;
+      color: var(--text); line-height: 1.2; margin-top: 2px;
+      word-break: break-all;
     }
 
-    /* ─────────────── CHARTS GRID ───────────────────────────────────────────── */
+    /* Skeleton shimmer */
+    .skeleton {
+      background: linear-gradient(90deg, var(--card-raised) 0%, var(--card-inset) 50%, var(--card-raised) 100%);
+      background-size: 400px 100%;
+      border-radius: 8px;
+      animation: shimmer 1.6s ease-in-out infinite;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       CHARTS GRID
+    ═══════════════════════════════════════════════════════════ */
     .charts-grid {
       display: grid;
-      grid-template-columns: 1.7fr 1fr;
+      grid-template-columns: 1.75fr 1fr;
       gap: 12px;
+      margin-bottom: 16px;
     }
-    @media (max-width: 760px) { .charts-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 800px) { .charts-grid { grid-template-columns: 1fr; } }
 
     .chart-card {
       background: var(--card);
       border-radius: var(--r-card);
-      padding: 24px 24px 20px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.5);
-      animation: fadeUp 0.4s 0.10s cubic-bezier(0.22,1,0.36,1) both;
-      transition: box-shadow var(--ease);
+      padding: 26px 24px 22px;
+      border: 1px solid var(--border);
+      animation: fadeUp 0.4s 0.14s cubic-bezier(0.22,1,0.36,1) both;
+      transition: border-color var(--ease);
+      position: relative; overflow: hidden;
     }
-    .chart-card:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 3px 12px rgba(0,0,0,0.65); }
-    .chart-card:nth-child(2) { animation-delay: 0.16s; }
+    .chart-card:hover { border-color: var(--border-hover); }
+    .chart-card:nth-child(2) { animation-delay: 0.20s; }
 
-    .chart-title {
-      font-size: 15px; font-weight: 700; letter-spacing: -0.2px;
-      margin-bottom: 4px;
+    .chart-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
     }
-    .chart-sub {
-      font-size: 12px; color: var(--text-sub); margin-bottom: 22px;
-    }
+    .chart-card.green-accent::before { background: linear-gradient(90deg, var(--green) 0%, transparent 60%); }
+    .chart-card.purple-accent::before { background: linear-gradient(90deg, var(--purple) 0%, transparent 60%); }
 
-    .chart-wrap {
-      position: relative;
-      /* Fixed height so Chart.js renders correctly */
-    }
-    .chart-wrap-bar    { height: 260px; }
-    .chart-wrap-donut  { height: 240px; display: flex; align-items: center; justify-content: center; }
+    .chart-header { margin-bottom: 22px; }
+    .chart-title { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+    .chart-sub   { font-size: 12px; color: var(--text-sub); margin-top: 3px; }
+
+    .chart-wrap { position: relative; }
+    .chart-wrap-bar   { height: 272px; }
+    .chart-wrap-donut { height: 248px; display: flex; align-items: center; justify-content: center; }
 
     /* Empty state */
     .empty-state {
@@ -187,55 +283,105 @@
       justify-content: center; gap: 10px; height: 200px;
       color: var(--text-muted); font-size: 13px; text-align: center;
     }
-    .empty-state .emoji { font-size: 36px; }
+    .empty-state .empty-emoji { font-size: 38px; margin-bottom: 2px; }
 
-    /* Loading skeleton pulse */
-    @keyframes pulse {
-      0%, 100% { opacity: 0.4; }
-      50%       { opacity: 0.9; }
-    }
-    .skeleton {
-      background: var(--card-2);
-      border-radius: 8px;
-      animation: pulse 1.6s ease-in-out infinite;
+    /* ═══════════════════════════════════════════════════════════
+       EXTENSION TOKEN CARD
+    ═══════════════════════════════════════════════════════════ */
+    .connect-section { margin-top: 4px; }
+    .section-label {
+      font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--text-muted);
+      margin-bottom: 10px; padding-left: 2px;
     }
 
-    /* Extension token section */
     .token-card {
       background: var(--card);
       border-radius: var(--r-card);
-      padding: 22px 24px;
-      margin-top: 12px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 4px rgba(0,0,0,0.5);
-      animation: fadeUp 0.4s 0.22s cubic-bezier(0.22,1,0.36,1) both;
-      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      border: 1px solid var(--border);
+      padding: 24px 26px;
+      animation: fadeUp 0.4s 0.26s cubic-bezier(0.22,1,0.36,1) both;
+      transition: border-color var(--ease);
+      position: relative; overflow: hidden;
     }
-    .token-label { font-size: 13px; font-weight: 600; color: var(--text-sub); flex-shrink: 0; }
+    .token-card:hover { border-color: var(--border-hover); }
+    .token-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      border-radius: 2px 2px 0 0;
+      background: linear-gradient(90deg, var(--blue) 0%, transparent 60%);
+    }
+
+    .token-card-inner {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 20px;
+      align-items: center;
+    }
+    @media (max-width: 600px) { .token-card-inner { grid-template-columns: 1fr; } }
+
+    .token-info { display: flex; align-items: flex-start; gap: 16px; }
+    .token-icon-wrap {
+      width: 44px; height: 44px; border-radius: 13px;
+      background: var(--blue-dim);
+      box-shadow: inset 0 0 0 1px rgba(10,132,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; flex-shrink: 0;
+    }
+    .token-text-label {
+      font-size: 16px; font-weight: 800; letter-spacing: -0.3px;
+      margin-bottom: 4px;
+    }
+    .token-text-hint {
+      font-size: 12px; color: var(--text-sub); line-height: 1.5;
+    }
+
+    .token-actions { display: flex; flex-direction: column; gap: 10px; }
+    .token-display-row { display: flex; align-items: center; gap: 10px; }
     .token-value {
-      flex: 1; min-width: 0;
-      font-size: 13px; font-weight: 500; color: var(--text);
-      background: #0A0A0A;
+      font-size: 12px; font-weight: 500;
+      color: var(--text-sub);
+      background: var(--card-inset);
+      border: 1px solid var(--border);
       padding: 9px 14px; border-radius: var(--r-sm);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       font-family: 'Courier New', monospace;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.4px;
+      max-width: 280px; min-width: 160px;
     }
     .copy-btn {
-      padding: 8px 16px; border: none; cursor: pointer;
-      background: var(--green); color: #000;
+      padding: 9px 20px; border: none; cursor: pointer;
+      background: linear-gradient(135deg, #0A84FF 0%, #5AC8FA 100%);
+      color: #fff;
       border-radius: var(--r-pill);
       font-size: 13px; font-weight: 700; font-family: inherit;
-      transition: opacity var(--ease), transform 0.15s;
+      transition: opacity var(--ease), transform var(--spring), box-shadow var(--ease);
+      box-shadow: 0 4px 18px rgba(10,132,255,0.30);
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .copy-btn:hover  { opacity: 0.88; transform: translateY(-1px); box-shadow: 0 6px 24px rgba(10,132,255,0.38); }
+    .copy-btn:active { transform: scale(0.95); }
+
+    .token-steps {
+      display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px;
+      padding-top: 14px; border-top: 1px solid var(--border);
+    }
+    .token-step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .step-num {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--card-raised); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px; font-weight: 700; color: var(--text-sub);
       flex-shrink: 0;
     }
-    .copy-btn:hover  { opacity: 0.85; }
-    .copy-btn:active { transform: scale(0.95); }
-    .token-hint { width: 100%; font-size: 11px; color: var(--text-muted); margin-top: -4px; }
   </style>
 </head>
 <body>
 
-  <!-- ── Topbar ── -->
+  <!-- ── Topbar ────────────────────────────────────────────────────────────── -->
   <nav class="topbar">
     <div class="topbar-brand">
       <div class="topbar-icon">🌿</div>
@@ -247,23 +393,34 @@
     </div>
   </nav>
 
-  <!-- ── Main content ── -->
+  <!-- ── Main content ──────────────────────────────────────────────────────── -->
   <main class="main">
-    <div class="page-title">Your Focus Report</div>
-    <div class="page-sub" id="dateDisplay">Loading…</div>
+    <div class="page-header">
+      <h1 class="page-title">Your Focus Report</h1>
+      <div class="page-sub" id="dateDisplay">Loading…</div>
+    </div>
 
     <!-- Stat cards -->
     <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-label">⏱ Today's Screen Time</div>
+      <div class="stat-card green-accent">
+        <div class="stat-icon-row">
+          <div class="stat-icon green">⏱</div>
+          <div class="stat-label">Today's Screen Time</div>
+        </div>
         <div class="stat-value green" id="statToday">—<span class="stat-unit">min</span></div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">🏆 Most Visited Today</div>
-        <div class="stat-value" id="statTopSite" style="font-size:20px;letter-spacing:-0.5px;">—</div>
+      <div class="stat-card blue-accent">
+        <div class="stat-icon-row">
+          <div class="stat-icon blue">🏆</div>
+          <div class="stat-label">Most Visited Today</div>
+        </div>
+        <div class="stat-site-value" id="statTopSite">—</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">🔥 Focus Streak</div>
+      <div class="stat-card orange-accent">
+        <div class="stat-icon-row">
+          <div class="stat-icon orange">🔥</div>
+          <div class="stat-label">Focus Streak</div>
+        </div>
         <div class="stat-value orange" id="statStreak">—<span class="stat-unit">days</span></div>
       </div>
     </div>
@@ -271,26 +428,30 @@
     <!-- Charts -->
     <div class="charts-grid">
       <!-- Weekly Bar -->
-      <div class="chart-card">
-        <div class="chart-title">Weekly Usage</div>
-        <div class="chart-sub">Total minutes per day — last 7 days</div>
+      <div class="chart-card green-accent">
+        <div class="chart-header">
+          <div class="chart-title">Weekly Usage</div>
+          <div class="chart-sub">Total minutes per day — last 7 days</div>
+        </div>
         <div class="chart-wrap chart-wrap-bar">
           <canvas id="weeklyChart"></canvas>
           <div class="empty-state" id="weeklyEmpty" style="display:none;">
-            <div class="emoji">📊</div>
+            <div class="empty-emoji">📊</div>
             <div>No data yet — start browsing and your stats will appear here.</div>
           </div>
         </div>
       </div>
 
       <!-- Daily Doughnut -->
-      <div class="chart-card">
-        <div class="chart-title">Today by Site</div>
-        <div class="chart-sub">Time distribution for today</div>
+      <div class="chart-card purple-accent">
+        <div class="chart-header">
+          <div class="chart-title">Today by Site</div>
+          <div class="chart-sub">Time distribution for today</div>
+        </div>
         <div class="chart-wrap chart-wrap-donut">
           <canvas id="dailyChart"></canvas>
           <div class="empty-state" id="dailyEmpty" style="display:none;">
-            <div class="emoji">🍩</div>
+            <div class="empty-emoji">🍩</div>
             <div>No tracked sites visited today.</div>
           </div>
         </div>
@@ -298,19 +459,51 @@
     </div>
 
     <!-- Extension Token card -->
-    <div class="token-card">
-      <div class="token-label">🔑 Extension API Token</div>
-      <div class="token-value" id="tokenDisplay">{{ api_token }}</div>
-      <button class="copy-btn" id="copyTokenBtn">Copy</button>
-      <div class="token-hint">Paste this into your extension's settings to sync data with this dashboard.</div>
+    <div class="connect-section">
+      <div class="section-label">Connect Extension</div>
+      <div class="token-card">
+        <div class="token-card-inner">
+          <div class="token-info">
+            <div class="token-icon-wrap">🔑</div>
+            <div>
+              <div class="token-text-label">Extension API Token</div>
+              <div class="token-text-hint">Copy this token and paste it into your Driftless extension to start syncing your browsing data securely.</div>
+            </div>
+          </div>
+          <div class="token-actions">
+            <div class="token-display-row">
+              <div class="token-value" id="tokenDisplay">{{ api_token }}</div>
+              <button class="copy-btn" id="copyTokenBtn">Copy Token</button>
+            </div>
+          </div>
+        </div>
+        <div class="token-steps">
+          <div class="token-step">
+            <div class="step-num">1</div>
+            <span>Click <strong style="color:var(--text-sub)">Copy Token</strong></span>
+          </div>
+          <div class="token-step">
+            <div class="step-num">2</div>
+            <span>Open the Driftless extension popup</span>
+          </div>
+          <div class="token-step">
+            <div class="step-num">3</div>
+            <span>Paste into <strong style="color:var(--text-sub)">API Token</strong> field & Save</span>
+          </div>
+          <div class="token-step">
+            <div class="step-num">4</div>
+            <span>Your stats sync automatically each night 🌙</span>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 
   <script>
-    // ── Config ─────────────────────────────────────────────────────────────
+    // ── Config ─────────────────────────────────────────────────────────────────
     const API_TOKEN = '{{ api_token }}';
 
-    // ── Logout ──────────────────────────────────────────────────────────────
+    // ── Logout ─────────────────────────────────────────────────────────────────
     document.getElementById('logoutBtn').addEventListener('click', async () => {
       await fetch('/api/auth/logout/', {
         method: 'POST',
@@ -322,36 +515,42 @@
       window.location.href = '/';
     });
 
-    // ── Copy token ──────────────────────────────────────────────────────────
+    // ── Copy token ─────────────────────────────────────────────────────────────
     document.getElementById('copyTokenBtn').addEventListener('click', () => {
       navigator.clipboard.writeText(API_TOKEN).then(() => {
         const btn = document.getElementById('copyTokenBtn');
-        btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy', 2000);
+        btn.textContent = '✓ Copied!';
+        btn.style.background = 'linear-gradient(135deg, #32D74B 0%, #30D158 100%)';
+        btn.style.boxShadow = '0 4px 18px rgba(50,215,75,0.35)';
+        setTimeout(() => {
+          btn.textContent = 'Copy Token';
+          btn.style.background = '';
+          btn.style.boxShadow = '';
+        }, 2500);
       });
     });
 
-    // ── Date display ────────────────────────────────────────────────────────
+    // ── Date display ───────────────────────────────────────────────────────────
     const today = new Date();
     document.getElementById('dateDisplay').textContent =
       today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-    // ── Chart.js global defaults ─────────────────────────────────────────────
+    // ── Chart.js global defaults ───────────────────────────────────────────────
     Chart.defaults.color = '#8E8E93';
     Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
 
     const PALETTE = [
-      '#32D74B', '#0A84FF', '#FF9F0A', '#FF453A',
-      '#BF5AF2', '#64D2FF', '#FFD60A', '#FF6961',
+      '#32D74B', '#0A84FF', '#FF9F0A', '#BF5AF2',
+      '#FF453A', '#64D2FF', '#FFD60A', '#FF6961',
     ];
 
     function fmtMins(sec) { return Math.round(sec / 60); }
     function fmtLabel(iso) {
       const d = new Date(iso + 'T00:00:00');
-      return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+      return d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
     }
 
-    // ── Fetch summary & render ───────────────────────────────────────────────
+    // ── Fetch & render ─────────────────────────────────────────────────────────
     let weeklyChartInstance = null;
     let dailyChartInstance  = null;
 
@@ -395,57 +594,77 @@
 
       const labels = weekly.map(d => fmtLabel(d.date));
       const values = weekly.map(d => fmtMins(d.total_seconds));
+      const ctx    = document.getElementById('weeklyChart').getContext('2d');
+
+      // Build gradient fill for bars
+      const grad = ctx.createLinearGradient(0, 0, 0, 272);
+      grad.addColorStop(0,   'rgba(50,215,75,0.88)');
+      grad.addColorStop(0.6, 'rgba(50,215,75,0.45)');
+      grad.addColorStop(1,   'rgba(50,215,75,0.06)');
+
+      const hoverGrad = ctx.createLinearGradient(0, 0, 0, 272);
+      hoverGrad.addColorStop(0,   'rgba(50,215,75,1)');
+      hoverGrad.addColorStop(1,   'rgba(50,215,75,0.3)');
 
       if (weeklyChartInstance) weeklyChartInstance.destroy();
-      weeklyChartInstance = new Chart(
-        document.getElementById('weeklyChart').getContext('2d'), {
-          type: 'bar',
-          data: {
-            labels,
-            datasets: [{
-              label: 'Minutes',
-              data:  values,
-              backgroundColor: values.map((_, i) =>
-                i === values.length - 1
-                  ? '#32D74B'
-                  : 'rgba(50,215,75,0.28)'
-              ),
-              borderRadius:      10,
-              borderSkipped:     false,
-              hoverBackgroundColor: '#32D74B',
-            }],
+      weeklyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Minutes',
+            data:  values,
+            backgroundColor:      grad,
+            hoverBackgroundColor: hoverGrad,
+            borderRadius:         14,
+            borderSkipped:        false,
+          }],
+        },
+        options: {
+          responsive:          true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 900,
+            easing:   'easeInOutQuart',
           },
-          options: {
-            responsive:          true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { display: false },
-              tooltip: {
-                backgroundColor: '#1C1C1E',
-                titleColor:      '#FFFFFF',
-                bodyColor:       '#8E8E93',
-                borderColor:     'rgba(255,255,255,0.08)',
-                borderWidth:     1,
-                padding:         12,
-                callbacks: {
-                  label: ctx => ` ${ctx.parsed.y} min`,
-                },
-              },
-            },
-            scales: {
-              x: {
-                grid:  { color: 'rgba(255,255,255,0.04)' },
-                ticks: { color: '#8E8E93', font: { size: 11, weight: '500' } },
-              },
-              y: {
-                grid:    { color: 'rgba(255,255,255,0.04)' },
-                ticks:   { color: '#8E8E93', font: { size: 11 }, callback: v => v + 'm' },
-                beginAtZero: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor:  '#1A1A1A',
+              titleColor:       '#FFFFFF',
+              bodyColor:        '#8E8E93',
+              borderColor:      'rgba(255,255,255,0.08)',
+              borderWidth:      1,
+              padding:          14,
+              cornerRadius:     12,
+              boxPadding:       6,
+              callbacks: {
+                label: ctx => ` ${ctx.parsed.y} min`,
               },
             },
           },
-        }
-      );
+          scales: {
+            x: {
+              grid:  { display: false },
+              border: { display: false },
+              ticks: { color: '#8E8E93', font: { size: 11, weight: '500' }, maxRotation: 0 },
+            },
+            y: {
+              grid: {
+                color:     'rgba(255,255,255,0.04)',
+                borderDash: [3, 4],
+              },
+              border: { display: false, dash: [3, 4] },
+              ticks: {
+                color: '#8E8E93', font: { size: 11 },
+                callback: v => v + 'm',
+                maxTicksLimit: 5,
+              },
+              beginAtZero: true,
+            },
+          },
+        },
+      });
     }
 
     function renderDaily(daily) {
@@ -458,6 +677,27 @@
       const labels = daily.map(d => d.website_url);
       const values = daily.map(d => fmtMins(d.total_seconds));
       const colors = daily.map((_, i) => PALETTE[i % PALETTE.length]);
+      const totalMins = values.reduce((a, b) => a + b, 0);
+
+      // Centered total label plugin
+      const centerLabelPlugin = {
+        id: 'centerLabel',
+        afterDraw(chart) {
+          const { ctx, chartArea: { width, height, left, top } } = chart;
+          ctx.save();
+          const cx = left + width / 2;
+          const cy = top  + height / 2;
+          ctx.font = '900 26px Inter, system-ui, sans-serif';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(totalMins, cx, cy - 10);
+          ctx.font = '500 11px Inter, system-ui, sans-serif';
+          ctx.fillStyle = '#8E8E93';
+          ctx.fillText('min today', cx, cy + 12);
+          ctx.restore();
+        }
+      };
 
       if (dailyChartInstance) dailyChartInstance.destroy();
       dailyChartInstance = new Chart(
@@ -466,48 +706,54 @@
           data: {
             labels,
             datasets: [{
-              data:                  values,
-              backgroundColor:       colors.map(c => c + 'CC'),  // slight transparency
-              hoverBackgroundColor:  colors,
-              borderColor:           '#171717',
-              borderWidth:           3,
-              hoverBorderColor:      '#1C1C1E',
-              hoverOffset:           8,
+              data:                 values,
+              backgroundColor:      colors.map(c => c + 'CC'),
+              hoverBackgroundColor: colors,
+              borderColor:          '#141414',
+              borderWidth:          2,
+              hoverBorderColor:     '#1A1A1A',
+              hoverOffset:          12,
             }],
           },
           options: {
             responsive:          true,
             maintainAspectRatio: false,
-            cutout:              '68%',
+            cutout: '72%',
+            animation: {
+              duration: 800,
+              easing:   'easeInOutQuart',
+            },
             plugins: {
               legend: {
                 position: 'bottom',
                 labels: {
-                  color:     '#8E8E93',
-                  font:      { size: 11, weight: '500' },
-                  padding:   14,
-                  usePointStyle: true,
+                  color:           '#8E8E93',
+                  font:            { size: 11, weight: '500' },
+                  padding:         16,
+                  usePointStyle:   true,
                   pointStyleWidth: 8,
                 },
               },
               tooltip: {
-                backgroundColor: '#1C1C1E',
+                backgroundColor: '#1A1A1A',
                 titleColor:      '#FFFFFF',
                 bodyColor:       '#8E8E93',
                 borderColor:     'rgba(255,255,255,0.08)',
                 borderWidth:     1,
-                padding:         12,
+                padding:         14,
+                cornerRadius:    12,
                 callbacks: {
                   label: ctx => ` ${ctx.label}: ${ctx.parsed} min`,
                 },
               },
             },
           },
+          plugins: [centerLabelPlugin],
         }
       );
     }
 
-    // ── Boot ────────────────────────────────────────────────────────────────
+    // ── Boot ───────────────────────────────────────────────────────────────────
     loadData();
     // Auto-refresh every 5 minutes
     setInterval(loadData, 5 * 60 * 1000);
