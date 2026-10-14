@@ -1,6 +1,6 @@
-﻿from rest_framework import serializers
+from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import UsageLog
+from .models import UsageLog, UserSettings
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -32,3 +32,9 @@ class UsageLogSerializer(serializers.ModelSerializer):
         url = url.replace('https://', '').replace('http://', '').lstrip('www.')
         url = url.split('/')[0]
         return url
+
+
+class UserSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = UserSettings
+        fields = ('focus_mode_active', 'daily_limit_minutes', 'streak_days')

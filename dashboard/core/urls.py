@@ -1,4 +1,4 @@
-﻿from django.urls import path
+from django.urls import path
 from . import views
 
 urlpatterns = [
@@ -12,6 +12,9 @@ urlpatterns = [
     path('api/auth/logout/',   views.logout_view,   name='api-logout'),
 
     # ── Usage API ─────────────────────────────────────────────────────────────
-    path('api/usage/',   views.usage_log_view, name='api-usage'),
-    path('api/summary/', views.summary_view,   name='api-summary'),
+    path('api/usage/',     views.usage_log_view, name='api-usage'),
+    path('api/summary/',   views.summary_view,   name='api-summary'),
+
+    # ── Settings API ─────────────────────────────────────────────────────────
+    path('api/settings/',  views.settings_view,  name='api-settings'),
 ]

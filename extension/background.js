@@ -6,6 +6,7 @@
 
 const ALARM_NAME             = 'driftless_time_check';
 const SYNC_ALARM_NAME        = 'driftless_daily_sync';
+const PERIODIC_SYNC_ALARM    = 'driftless_periodic_sync';
 const DEFAULT_TIME_LIMIT_SEC = 60;    // Fallback: 1 minute
 const FOCUS_RULE_BASE_ID     = 100;   // Dynamic rule IDs start here
 
@@ -16,16 +17,14 @@ let timerTimeout = null;
 
 console.log('Driftless Background Service Worker active.');
 
-
-
 // ─────────────────────────────────────────────────────────────────────────────
-// BACKEND SYNC — POST daily usage totals to the Django API
+// BACKEND SYNC — POST daily usage totals & sync settings with Django API
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Reads siteTimes from local storage and the stored API token,
  * then POSTs all entries as a batch to /api/usage/.
- * Called by the nightly sync alarm and manually when the extension starts.
+ * Also triggers syncSettingsFromBackend() to keep settings in sync.
  */
 async function syncToBackend() {
   const { apiToken, siteTimes, lastSyncDate } = await chrome.storage.local.get([
@@ -49,42 +48,91 @@ async function syncToBackend() {
       date: today,
     }));
 
-  if (entries.length === 0) {
-    console.log('Driftless sync: nothing to sync today.');
-    return;
+  if (entries.length > 0) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/usage/`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Token ${apiToken}`,
+        },
+        body: JSON.stringify(entries),
+      });
+
+      if (!res.ok) {
+        const err = await res.text();
+        console.error(`Driftless sync failed (${res.status}):`, err);
+      } else {
+        const result = await res.json();
+        console.log(`Driftless sync success — created: ${result.created}, updated: ${result.updated}`);
+        await chrome.storage.local.set({ lastSyncDate: today });
+      }
+    } catch (err) {
+      console.error('Driftless sync network error:', err);
+    }
+  } else {
+    console.log('Driftless sync: no usage entries to sync today.');
   }
 
+  // Also pull settings from the backend
+  await syncSettingsFromBackend();
+}
+
+/**
+ * Fetches user settings (Focus mode ON/OFF, Daily Limit, Streak) from the backend
+ * and synchronizes with local extension state.
+ */
+async function syncSettingsFromBackend() {
+  const { apiToken } = await chrome.storage.local.get(['apiToken']);
+  if (!apiToken) return;
+
   try {
-    const res = await fetch(`${API_BASE_URL}/api/usage/`, {
-      method:  'POST',
+    const res = await fetch(`${API_BASE_URL}/api/settings/`, {
+      method:  'GET',
       headers: {
-        'Content-Type':  'application/json',
         'Authorization': `Token ${apiToken}`,
       },
-      body: JSON.stringify(entries),
     });
 
-    if (!res.ok) {
-      const err = await res.text();
-      console.error(`Driftless sync failed (${res.status}):`, err);
-      return;
+    if (!res.ok) return;
+
+    const data = await res.json();
+
+    // 1. Focus Mode
+    if (data.focus_mode_active !== undefined) {
+      const { focusModeActive } = await chrome.storage.local.get(['focusModeActive']);
+      if (focusModeActive !== data.focus_mode_active) {
+        await chrome.storage.local.set({ focusModeActive: data.focus_mode_active });
+        if (data.focus_mode_active) {
+          await enableFocusMode();
+        } else {
+          await disableFocusMode();
+        }
+        console.log('Driftless background: synced focus mode from backend ->', data.focus_mode_active);
+      }
     }
 
-    const result = await res.json();
-    console.log(`Driftless sync success — created: ${result.created}, updated: ${result.updated}`);
-    await chrome.storage.local.set({ lastSyncDate: today });
+    // 2. Daily Time Limit
+    if (data.daily_limit_minutes !== undefined) {
+      await chrome.storage.local.set({ userTimeLimitMinutes: data.daily_limit_minutes });
+    }
+
+    // 3. Streak Days
+    if (data.streak_days !== undefined) {
+      await chrome.storage.local.set({ streakDays: data.streak_days });
+    }
   } catch (err) {
-    console.error('Driftless sync network error:', err);
+    console.debug('Driftless background: settings sync error:', err);
   }
 }
 
 /**
- * Schedules (or reschedules) the nightly midnight sync alarm.
- * Also runs an immediate sync if we haven't synced today yet.
+ * Schedules the nightly midnight sync alarm and a periodic 15-minute background sync alarm.
  */
 async function scheduleDailySync() {
-  // Clear any existing sync alarm before recreating
+  // Clear any existing alarms before recreating
   await chrome.alarms.clear(SYNC_ALARM_NAME);
+  await chrome.alarms.clear(PERIODIC_SYNC_ALARM);
 
   // Midnight tonight (local time) in ms
   const now       = new Date();
@@ -93,21 +141,27 @@ async function scheduleDailySync() {
   const msUntilMidnight = midnight.getTime() - now.getTime();
 
   chrome.alarms.create(SYNC_ALARM_NAME, {
-    when:        Date.now() + msUntilMidnight,
+    when:            Date.now() + msUntilMidnight,
     periodInMinutes: 24 * 60,  // repeat every 24 hours
   });
 
-  // If we haven't synced today, do it now
+  // Periodic settings check every 15 minutes
+  chrome.alarms.create(PERIODIC_SYNC_ALARM, {
+    periodInMinutes: 15,
+  });
+
+  // If we haven't synced today, run initial sync now
   const { lastSyncDate } = await chrome.storage.local.get(['lastSyncDate']);
   const today = now.toISOString().slice(0, 10);
   if (lastSyncDate !== today) {
     await syncToBackend();
+  } else {
+    await syncSettingsFromBackend();
   }
 
   const minsUntilMidnight = Math.round(msUntilMidnight / 60000);
-  console.log(`Driftless: daily sync alarm set (fires in ${minsUntilMidnight} min).`);
+  console.log(`Driftless: daily sync alarm set (fires in ${minsUntilMidnight} min). Periodic sync every 15 min.`);
 }
-
 
 // ─── Helper: read tracked sites from storage ─────────────────────────────────
 async function getBlockedSites() {
@@ -164,12 +218,17 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     await syncToBackend();
     console.log('Driftless: nightly sync complete.');
   }
+  // Periodic sync
+  if (alarm.name === PERIODIC_SYNC_ALARM) {
+    await syncToBackend();
+    console.log('Driftless: periodic sync complete.');
+  }
 });
 
-// Schedule the daily sync alarm on service worker startup
+// Schedule sync alarms on service worker startup
 scheduleDailySync();
 
-// 5. Storage change — handle timer reset from popup
+// 5. Storage change — handle timer reset or site changes
 chrome.storage.onChanged.addListener(async (changes, area) => {
   if (area !== 'local') return;
 
@@ -200,7 +259,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 // 6. Notification click — dismiss
 chrome.notifications.onClicked.addListener(id => chrome.notifications.clear(id));
 
-// 7. Message listener (from popup)
+// 7. Message listener (from popup or other extension parts)
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'SET_FOCUS_MODE') {
     const action = message.enabled ? enableFocusMode() : disableFocusMode();
@@ -214,6 +273,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     enableFocusMode()
       .then(() => sendResponse({ success: true }))
       .catch(err => { console.error('Rebuild rules error:', err); sendResponse({ success: false }); });
+    return true;
+  }
+
+  if (message.type === 'TRIGGER_SYNC') {
+    syncToBackend()
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });

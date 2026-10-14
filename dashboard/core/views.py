@@ -1,4 +1,4 @@
-﻿import datetime
+import datetime
 from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
@@ -11,8 +11,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .models import UsageLog
-from .serializers import RegisterSerializer, UsageLogSerializer
+from .models import UsageLog, UserSettings, classify_domain
+from .serializers import RegisterSerializer, UsageLogSerializer, UserSettingsSerializer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,7 +122,10 @@ def usage_log_view(request):
             user        = request.user,
             website_url = entry['website_url'],
             date        = entry['date'],
-            defaults    = {'time_spent_seconds': 0},
+            defaults    = {
+                'time_spent_seconds': 0,
+                'category': classify_domain(entry['website_url']),
+            },
         )
         # Accumulate — the extension sends incremental seconds
         obj.time_spent_seconds += entry['time_spent_seconds']
@@ -149,57 +152,64 @@ def summary_view(request):
     GET /api/summary/
     Header: Authorization: Token <token>
 
-    Returns:
-    {
-      "weekly": [
-        { "date": "2026-09-01", "total_seconds": 3600 },
-        ...
-      ],
-      "daily": [
-        { "website_url": "youtube.com", "total_seconds": 1800 },
-        ...
-      ],
-      "stats": {
-        "today_total_seconds": 3600,
-        "top_site": "youtube.com",
-        "streak": 3
-      }
-    }
+    Returns a rich payload with categorized weekly data, daily site breakdown,
+    KPI stats, distraction tracker entries, and user settings.
     """
     today     = datetime.date.today()
     week_ago  = today - datetime.timedelta(days=6)
 
     user_logs = UsageLog.objects.filter(user=request.user)
 
-    # Weekly: total seconds per day for the last 7 days
+    # ── Weekly: per-day per-category totals (last 7 days) ─────────────────────
     weekly_qs = (
         user_logs
         .filter(date__gte=week_ago, date__lte=today)
-        .values('date')
+        .values('date', 'category')
         .annotate(total_seconds=Sum('time_spent_seconds'))
         .order_by('date')
     )
 
-    # Build a full 7-day list, filling zeros for missing days
-    weekly_map = {row['date'].isoformat(): row['total_seconds'] for row in weekly_qs}
+    # Build full 7-day list with category breakdown
+    weekly_map = {}
+    for row in weekly_qs:
+        d = row['date'].isoformat()
+        if d not in weekly_map:
+            weekly_map[d] = {'Productivity': 0, 'Social': 0, 'Entertainment': 0}
+        cat = row['category'] or 'Productivity'
+        weekly_map[d][cat] = row['total_seconds']
+
     weekly = []
     for i in range(7):
         d = (week_ago + datetime.timedelta(days=i)).isoformat()
-        weekly.append({'date': d, 'total_seconds': weekly_map.get(d, 0)})
+        cats = weekly_map.get(d, {'Productivity': 0, 'Social': 0, 'Entertainment': 0})
+        weekly.append({
+            'date': d,
+            'total_seconds': sum(cats.values()),
+            'productivity_seconds': cats.get('Productivity', 0),
+            'social_seconds': cats.get('Social', 0),
+            'entertainment_seconds': cats.get('Entertainment', 0),
+        })
 
-    # Daily: breakdown by site for today
+    # ── Daily: breakdown by site for today ────────────────────────────────────
     daily_qs = (
         user_logs
         .filter(date=today)
-        .values('website_url')
+        .values('website_url', 'category')
         .annotate(total_seconds=Sum('time_spent_seconds'))
         .order_by('-total_seconds')
     )
-    daily = [{'website_url': r['website_url'], 'total_seconds': r['total_seconds']} for r in daily_qs]
+    daily = [{
+        'website_url': r['website_url'],
+        'total_seconds': r['total_seconds'],
+        'category': r['category'] or 'Productivity',
+    } for r in daily_qs]
 
-    # Stats
+    # ── Stats ─────────────────────────────────────────────────────────────────
     today_total = sum(r['total_seconds'] for r in daily)
     top_site    = daily[0]['website_url'] if daily else None
+
+    # Productive time today
+    productive_seconds = sum(r['total_seconds'] for r in daily if r['category'] == 'Productivity')
 
     # Simple streak: count consecutive days with any usage going back from yesterday
     streak = 0
@@ -211,12 +221,68 @@ def summary_view(request):
         else:
             break
 
+    # Include today if user has logged data today
+    if user_logs.filter(date=today).exists():
+        streak += 1
+
+    # ── User settings ─────────────────────────────────────────────────────────
+    settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
+
+    # ── Distraction tracker (sites with daily limits) ─────────────────────────
+    distractions = []
+    for entry in daily:
+        if entry['category'] in ('Social', 'Entertainment'):
+            used_mins = entry['total_seconds'] // 60
+            limit_mins = settings_obj.daily_limit_minutes
+            pct = min(round((used_mins / max(limit_mins, 1)) * 100), 100)
+            distractions.append({
+                'website_url': entry['website_url'],
+                'category': entry['category'],
+                'used_minutes': used_mins,
+                'limit_minutes': limit_mins,
+                'percentage': pct,
+            })
+
     return Response({
         'weekly': weekly,
         'daily':  daily,
         'stats': {
-            'today_total_seconds': today_total,
-            'top_site':            top_site,
-            'streak':              streak,
-        }
+            'today_total_seconds':       today_total,
+            'productive_seconds':        productive_seconds,
+            'top_site':                  top_site,
+            'streak':                    streak,
+        },
+        'distractions': distractions,
+        'settings': {
+            'focus_mode_active':     settings_obj.focus_mode_active,
+            'daily_limit_minutes':   settings_obj.daily_limit_minutes,
+            'streak_days':           settings_obj.streak_days if settings_obj.streak_days else streak,
+        },
     })
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SETTINGS API — sync focus mode, daily limits, streak between dashboard & ext
+# ─────────────────────────────────────────────────────────────────────────────
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def settings_view(request):
+    """
+    GET  /api/settings/  — returns current settings
+    PATCH /api/settings/ — updates settings
+
+    Body (PATCH): { focus_mode_active?: bool, daily_limit_minutes?: int, streak_days?: int }
+    """
+    settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
+
+    if request.method == 'GET':
+        serializer = UserSettingsSerializer(settings_obj)
+        return Response(serializer.data)
+
+    # PATCH
+    serializer = UserSettingsSerializer(settings_obj, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
