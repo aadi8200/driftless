@@ -1,0 +1,78 @@
+/* ==========================================================================
+   DRIFTLESS EXTENSION POPUP — Dual Theme Tokens
+   Calm Sky (Light) · Opal Noir (Dark)
+   Toggle: <html data-theme="dark"> / <html data-theme="light">
+   ========================================================================== */
+
+/* ── CALM SKY — Light (default) ─────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --pri:          #6463E0;
+  --pri-hover:    #534fcf;
+  --pri-light:    rgba(100, 99, 224, 0.12);
+  --accent:       #60B0E7;
+  --accent-light: rgba(96, 176, 231, 0.14);
+  --bg:           #F3F7FD;
+  --card:         #FFFFFF;
+  --ink:          #1B2340;
+  --ink-muted:    #6B7280;
+  --ink-subtle:   #9CA3AF;
+  --border:       #DDE8F5;
+  --border-focus: #6463E0;
+
+  --prod:         #10B981;
+  --prod-light:   rgba(16, 185, 129, 0.14);
+  --soc:          #F59E0B;
+  --soc-light:    rgba(245, 158, 11, 0.14);
+  --ent:          #F43F5E;
+  --ent-light:    rgba(244, 63, 94, 0.14);
+  --other:        #94A3B8;
+  --other-light:  rgba(148, 163, 184, 0.15);
+
+  --grad:         linear-gradient(135deg, #6463E0, #60B0E7);
+  --radius:       14px;
+  --radius-sm:    8px;
+  --font-family:  'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --scrollbar-thumb:  #C7D6EE;
+  --site-item-bg:     #FAFAFC;
+  --confirm-box-bg:   #FFFFFF;
+  --toggle-sun:       block;
+  --toggle-moon:      none;
+}
+
+/* ── OPAL NOIR — Dark Mode ───────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --pri:          #E2C9FF;
+  --pri-hover:    #ceb4f0;
+  --pri-light:    rgba(226, 201, 255, 0.12);
+  --accent:       #8CFFDD;
+  --accent-light: rgba(140, 255, 221, 0.12);
+  --bg:           #0A0A0A;
+  --card:         #141414;
+  --ink:          #FFFFFF;
+  --ink-muted:    #9CA3AF;
+  --ink-subtle:   #6B7280;
+  --border:       #262626;
+  --border-focus: #E2C9FF;
+
+  --prod:         #34D399;
+  --prod-light:   rgba(52, 211, 153, 0.14);
+  --soc:          #FBBF24;
+  --soc-light:    rgba(251, 191, 36, 0.14);
+  --ent:          #FB7185;
+  --ent-light:    rgba(251, 113, 133, 0.14);
+  --other:        #6B7280;
+  --other-light:  rgba(107, 114, 128, 0.15);
+
+  --grad:         linear-gradient(135deg, #E2C9FF, #8CFFDD);
+  --radius:       14px;
+  --radius-sm:    8px;
+  --font-family:  'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --scrollbar-thumb:  #333333;
+  --site-item-bg:     #1a1a1a;
+  --confirm-box-bg:   #1a1a1a;
+  --toggle-sun:       none;
+  --toggle-moon:      block;
+}

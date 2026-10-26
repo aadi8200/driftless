@@ -1,0 +1,160 @@
+/* ==========================================================================
+   DRIFTLESS SHARED DESIGN SYSTEM TOKENS  — v2 Dual Theme
+   Calm Sky (Light Mode) · Opal Noir (Dark Mode)
+   Applies to Dashboard, Auth, and Chrome Extension via CSS variables.
+   Toggle class: <html data-theme="dark">  (or "light")
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* ── CALM SKY — Light Mode (default) ─────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  /* Brand palette — Calm Sky */
+  --pri:          #6463E0;   /* Calm Sky primary violet-blue */
+  --pri-hover:    #534fcf;
+  --pri-light:    rgba(100, 99, 224, 0.10);
+  --accent:       #60B0E7;   /* Calm Sky sky-blue accent */
+  --accent-light: rgba(96, 176, 231, 0.14);
+
+  /* Page & Surface */
+  --bg:           #F3F7FD;   /* Calm Sky background — soft blue-white */
+  --card:         #FFFFFF;
+  --surface:      #FFFFFF;
+  --sidebar-bg:   #FFFFFF;
+  --header-bg:    #FFFFFF;
+
+  /* Text */
+  --ink:          #1B2340;   /* Calm Sky text — deep navy */
+  --ink-muted:    #6B7280;
+  --ink-subtle:   #9CA3AF;
+
+  /* Borders & dividers */
+  --border:       #DDE8F5;
+  --border-focus: #6463E0;
+
+  /* Category colours — unchanged for chart consistency */
+  --prod:         #10B981;
+  --prod-light:   rgba(16, 185, 129, 0.12);
+  --soc:          #F59E0B;
+  --soc-light:    rgba(245, 158, 11, 0.12);
+  --ent:          #F43F5E;
+  --ent-light:    rgba(244, 63, 94, 0.12);
+  --other:        #94A3B8;
+  --other-light:  rgba(148, 163, 184, 0.15);
+
+  /* Gradients */
+  --grad:         linear-gradient(135deg, #6463E0, #60B0E7);
+  --grad-subtle:  linear-gradient(135deg, rgba(100,99,224,0.08), rgba(96,176,231,0.08));
+  --hero-grad:    linear-gradient(145deg, #3730a3 0%, #6463E0 55%, #60B0E7 100%);
+
+  /* Shadows */
+  --shadow-sm:    0 1px 3px rgba(27, 35, 64, 0.06);
+  --shadow:       0 4px 14px rgba(100, 99, 224, 0.10);
+  --shadow-lg:    0 10px 28px rgba(100, 99, 224, 0.18);
+
+  /* Scrollbar */
+  --scrollbar-thumb: #C7D6EE;
+
+  /* Chart tooltip */
+  --tooltip-bg:     #FFFFFF;
+  --tooltip-title:  #1B2340;
+  --tooltip-body:   #6B7280;
+  --tooltip-border: #DDE8F5;
+  --chart-grid:     rgba(221, 232, 245, 0.8);
+  --chart-tick:     #9CA3AF;
+
+  /* Misc utility */
+  --radius:       14px;
+  --radius-sm:    8px;
+  --radius-lg:    20px;
+  --font-family:  'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Theme toggle icon — show sun on light, show moon when toggling */
+  --toggle-icon-display-sun:  block;
+  --toggle-icon-display-moon: none;
+}
+
+/* ── OPAL NOIR — Dark Mode ───────────────────────────────────────────────── */
+[data-theme="dark"] {
+  /* Brand palette — Opal Noir */
+  --pri:          #E2C9FF;   /* Opal Noir pastel lilac */
+  --pri-hover:    #ceb4f0;
+  --pri-light:    rgba(226, 201, 255, 0.12);
+  --accent:       #8CFFDD;   /* Opal Noir mint accent */
+  --accent-light: rgba(140, 255, 221, 0.12);
+
+  /* Page & Surface */
+  --bg:           #0A0A0A;   /* Pure near-black */
+  --card:         #141414;
+  --surface:      #141414;
+  --sidebar-bg:   #0E0E0E;
+  --header-bg:    #0E0E0E;
+
+  /* Text */
+  --ink:          #FFFFFF;
+  --ink-muted:    #9CA3AF;
+  --ink-subtle:   #6B7280;
+
+  /* Borders */
+  --border:       #262626;
+  --border-focus: #E2C9FF;
+
+  /* Category — keep same for chart continuity */
+  --prod:         #34D399;
+  --prod-light:   rgba(52, 211, 153, 0.14);
+  --soc:          #FBBF24;
+  --soc-light:    rgba(251, 191, 36, 0.14);
+  --ent:          #FB7185;
+  --ent-light:    rgba(251, 113, 133, 0.14);
+  --other:        #6B7280;
+  --other-light:  rgba(107, 114, 128, 0.15);
+
+  /* Gradients */
+  --grad:         linear-gradient(135deg, #E2C9FF, #8CFFDD);
+  --grad-subtle:  linear-gradient(135deg, rgba(226,201,255,0.12), rgba(140,255,221,0.12));
+  --hero-grad:    linear-gradient(135deg, #1a0533 0%, #2d1854 50%, #0d2b26 100%);
+
+  /* Shadows */
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.40);
+  --shadow:       0 4px 14px rgba(0, 0, 0, 0.50);
+  --shadow-lg:    0 10px 28px rgba(0, 0, 0, 0.60);
+
+  /* Scrollbar */
+  --scrollbar-thumb: #333333;
+
+  /* Chart tooltip */
+  --tooltip-bg:     #1e1e1e;
+  --tooltip-title:  #FFFFFF;
+  --tooltip-body:   #9CA3AF;
+  --tooltip-border: #333333;
+  --chart-grid:     rgba(255, 255, 255, 0.06);
+  --chart-tick:     #6B7280;
+
+  --toggle-icon-display-sun:  none;
+  --toggle-icon-display-moon: block;
+}
+
+/* ── Theme Toggle Button Styles ──────────────────────────────────────────── */
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--ink-muted);
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+  background: var(--pri-light);
+  border-color: var(--pri);
+  color: var(--pri);
+  transform: rotate(15deg);
+}
+.theme-toggle-btn svg { width: 17px; height: 17px; }
+.theme-toggle-btn .icon-sun  { display: var(--toggle-icon-display-sun, block); }
+.theme-toggle-btn .icon-moon { display: var(--toggle-icon-display-moon, none); }

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Driftless — Site Blocked</title>
+  <link rel="stylesheet" href="theme.css">
+  <script>
+    (function() {
+      var t = localStorage.getItem('driftless-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: var(--font-family);
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      transition: background 0.25s ease, color 0.25s ease;
+    }
+    .blocked-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      max-width: 480px;
+      width: 100%;
+      padding: 40px 32px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.10);
+      animation: popIn 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(0.94) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .badge-icon {
+      width: 72px; height: 72px;
+      margin: 0 auto 20px;
+      border-radius: 20px;
+      background: var(--grad);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      box-shadow: 0 8px 20px rgba(236, 72, 153, 0.35);
+    }
+    .badge-icon svg { width: 36px; height: 36px; }
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .site-pill {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 100px;
+      background: var(--pri-light);
+      color: var(--pri);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    p {
+      color: var(--ink-muted);
+      font-size: 14.5px;
+      line-height: 1.55;
+      margin-bottom: 24px;
+    }
+    .streak-alert {
+      background: rgba(244, 63, 94, 0.08);
+      border: 1px solid rgba(244, 63, 94, 0.20);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--ent);
+      font-weight: 600;
+      margin-bottom: 28px;
+      text-align: left;
+    }
+    .btn-return {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 14px 20px;
+      background: var(--grad);
+      color: white;
+      border: none;
+      border-radius: 100px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 14px rgba(124, 58, 237, 0.28);
+      transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+    .btn-return:hover {
+      opacity: 0.94;
+      transform: translateY(-2px);
+    }
+    .btn-dashboard {
+      display: block;
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--pri);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .btn-dashboard:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="blocked-card">
+    <div class="badge-icon">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+
+    <h1>Daily Limit Reached!</h1>
+    <div class="site-pill" id="siteLabel">This Website</div>
+    
+    <p>
+      You’ve exceeded your allocated time allowance for this website today.
+      Driftless is keeping your focus protected for the remainder of the day.
+    </p>
+
+    <div class="streak-alert">
+      <span>🔥</span>
+      <span>Your daily focus streak is protected! Closing this tab preserves your momentum.</span>
+    </div>
+
+    <button class="btn-return" id="backToWorkBtn">
+      <span>Back to Productive Work →</span>
+    </button>
+    
+    <a href="http://127.0.0.1:8000/dashboard/" target="_blank" class="btn-dashboard">
+      Open Driftless Analytics Dashboard
+    </a>
+  </div>
+
+  <script>
+    // Extract blocked domain from URL params if present
+    const params = new URLSearchParams(window.location.search);
+    const domain = params.get('site');
+    if (domain) {
+      document.getElementById('siteLabel').textContent = domain;
+      document.title = `Driftless — ${domain} Blocked`;
+    }
+
+    document.getElementById('backToWorkBtn').addEventListener('click', () => {
+      // Direct user to a productive workspace or close tab
+      window.location.href = 'https://github.com';
+    });
+  </script>
+</body>
+</html>
