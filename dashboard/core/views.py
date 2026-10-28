@@ -36,7 +36,8 @@ from .serializers import (
     UserSettingsSerializer,
     SiteLimitSerializer,
     CategoryOverrideSerializer,
-    FocusSessionSerializer
+    FocusSessionSerializer,
+    apply_persona_defaults
 )
 
 
@@ -224,6 +225,14 @@ def summary_view(request):
 
     user_logs = UsageLog.objects.filter(user=request.user)
     settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+    # Auto-populate recommended site lists from user persona if unseeded
+    has_blocked = bool(settings_obj.blocked_sites and settings_obj.blocked_sites.strip())
+    has_allowed = bool(settings_obj.allowed_sites and settings_obj.allowed_sites.strip())
+    if not has_blocked and not has_allowed:
+        apply_persona_defaults(request.user, getattr(profile, 'persona', 'student'))
+        settings_obj.refresh_from_db()
 
     # ── Weekly: per-day per-category totals (Productive, Distracting, Others) ─
     weekly_qs = (

@@ -47,9 +47,9 @@ def apply_persona_defaults(user, persona: str):
     p_def = PERSONA_DEFAULTS.get(key, PERSONA_DEFAULTS['student'])
 
     settings, _ = UserSettings.objects.get_or_create(user=user)
-    if not settings.blocked_sites:
+    if not settings.blocked_sites or not settings.blocked_sites.strip():
         settings.blocked_sites = '\n'.join(p_def['distracting'])
-    if not settings.allowed_sites:
+    if not settings.allowed_sites or not settings.allowed_sites.strip():
         settings.allowed_sites = '\n'.join(p_def['productive'])
     settings.save()
 

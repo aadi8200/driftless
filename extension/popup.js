@@ -193,15 +193,17 @@ function setupOnboardingFlow() {
 
   // Persona card clicks
   document.querySelectorAll('.persona-card').forEach(card => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', async () => {
       document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       selectedPersona = card.dataset.persona || 'Student';
+      await seedPersonaDefaults(selectedPersona, true);
     });
   });
 
   if (step1Next) {
-    step1Next.addEventListener('click', () => {
+    step1Next.addEventListener('click', async () => {
+      await seedPersonaDefaults(selectedPersona, true);
       step1.style.display = 'none';
       step2.style.display = 'block';
     });
@@ -289,10 +291,28 @@ async function loadPopupState() {
   const siteLimits = data.siteLimits || {};
 
   // Resolve distracting sites (already seeded into storage, or empty if user cleared)
-  const distracting = data.distractingSites || data.blockedSites || [];
+  let distracting = data.distractingSites || data.blockedSites || [];
+  let productive = data.productiveSites || data.allowedSites || [];
 
-  // Resolve productive sites
-  const productive = data.productiveSites || data.allowedSites || [];
+  if (!data.defaultsSeeded && distracting.length === 0 && productive.length === 0) {
+    const pKey = getPersonaKey(data.persona || selectedPersona || 'Student');
+    const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
+    distracting = [...pDef.distracting];
+    productive = [...pDef.productive];
+    await chrome.storage.local.set({
+      defaultsSeeded: true,
+      persona: pKey,
+      distractingSites: distracting,
+      blockedSites: distracting,
+      productiveSites: productive,
+      allowedSites: productive
+    });
+    chrome.runtime.sendMessage({
+      type: 'UPDATE_SITE_LISTS',
+      distractingSites: distracting,
+      productiveSites: productive
+    });
+  }
 
   // 1. Header Streak
   renderStreakBadge(streakDays);

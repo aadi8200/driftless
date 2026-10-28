@@ -18,6 +18,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <!-- Unified Design Tokens (Calm Sky + Opal Noir) -->
+  <link rel="icon" type="image/png" href="/static/img/logo_symbol.png" />
   <link rel="stylesheet" href="/static/css/theme.css" />
 
   <!-- Restore theme before paint to avoid FOUC -->
@@ -281,15 +282,10 @@
 
     <!-- Brand -->
     <div class="flex items-center gap-3 px-6 py-5 border-b" style="border-color:var(--border);">
-      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow" style="background:var(--grad);">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 7v5l3 3"/>
-        </svg>
-      </div>
+      <img src="/static/img/logo_symbol.png" alt="Driftless" class="w-9 h-9 object-contain rounded-xl shadow-sm">
       <div>
         <div class="text-base leading-tight font-extrabold" style="color:var(--ink); letter-spacing:-0.3px;">Driftless</div>
-        <div class="text-slate-400 font-semibold" style="font-size:9.5px; letter-spacing:0.5px;">FOCUS &amp; WELLBEING</div>
+        <div class="text-slate-400 font-semibold" style="font-size:8.5px; letter-spacing:0.3px;">DIGITAL WELLBEING &amp; DISTRACTION TRACKER</div>
       </div>
     </div>
 
@@ -387,9 +383,7 @@
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" onclick="toggleMobileSidebar()"></div>
       <aside class="absolute left-0 top-0 bottom-0 w-64 flex flex-col p-5 shadow-2xl" style="background:var(--sidebar-bg);">
         <div class="flex items-center gap-3 mb-6">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center text-white" style="background:var(--grad);">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg>
-          </div>
+          <img src="/static/img/logo_symbol.png" alt="Driftless" class="w-8 h-8 object-contain rounded-lg">
           <div class="font-extrabold text-base" style="color:var(--ink);">Driftless</div>
         </div>
         <nav class="space-y-1.5 flex-1">
