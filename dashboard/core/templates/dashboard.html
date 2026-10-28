@@ -495,7 +495,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div>
                 <h2 class="text-base font-bold" style="color:var(--ink);">Browsing Breakdown</h2>
-                <p class="text-xs" style="color:var(--ink-subtle);">Time per category: Productive, Social, Entertainment, Other</p>
+                <p class="text-xs" style="color:var(--ink-subtle);">Time per category: Productive sites, Distracting sites, Others</p>
               </div>
 
               <!-- View Controls -->
@@ -509,10 +509,9 @@
 
             <!-- Legend -->
             <div class="flex flex-wrap items-center gap-4 text-xs font-semibold mb-4" style="color:var(--ink-muted);">
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--prod);"></span>Productive</span>
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--soc);"></span>Social</span>
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--ent);"></span>Entertainment</span>
-              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--other);"></span>Other</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--prod);"></span>Productive sites</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--ent);"></span>Distracting sites</span>
+              <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full" style="background:var(--other);"></span>Others</span>
             </div>
 
             <!-- Canvas Container -->
@@ -646,10 +645,9 @@
           <div class="flex flex-wrap gap-2.5 mb-5">
             <input type="text" id="catDomainInput" placeholder="e.g. twitter.com" class="px-3.5 py-2 text-xs rounded-xl border w-64 focus:outline-none" style="background:var(--card); color:var(--ink); border-color:var(--border);" />
             <select id="catSelectInput" class="px-3 py-2 text-xs rounded-xl border font-semibold focus:outline-none" style="background:var(--card); color:var(--ink); border-color:var(--border);">
-              <option value="Productivity">Productivity</option>
-              <option value="Social">Social</option>
-              <option value="Entertainment">Entertainment</option>
-              <option value="Other">Other</option>
+              <option value="Productive sites">Productive sites</option>
+              <option value="Distracting sites">Distracting sites</option>
+              <option value="Others">Others</option>
             </select>
             <button onclick="addCategoryOverride()" class="px-4 py-2 text-xs font-bold text-white rounded-xl transition hover:opacity-90" style="background:var(--pri);">
               Save Override
@@ -816,26 +814,26 @@
       const today = new Date().toISOString().slice(0, 10);
       const demoPayload = {
         weekly: [
-          { date: getDateOffset(-6), total_seconds: 14400, productivity_seconds: 10800, social_seconds: 1800, entertainment_seconds: 1800, other_seconds: 0 },
-          { date: getDateOffset(-5), total_seconds: 15600, productivity_seconds: 11400, social_seconds: 2400, entertainment_seconds: 1800, other_seconds: 0 },
-          { date: getDateOffset(-4), total_seconds: 16800, productivity_seconds: 12600, social_seconds: 1800, entertainment_seconds: 2400, other_seconds: 0 },
-          { date: getDateOffset(-3), total_seconds: 15000, productivity_seconds: 10800, social_seconds: 2400, entertainment_seconds: 1800, other_seconds: 0 },
-          { date: getDateOffset(-2), total_seconds: 17400, productivity_seconds: 12600, social_seconds: 2400, entertainment_seconds: 2400, other_seconds: 0 },
-          { date: getDateOffset(-1), total_seconds: 18000, productivity_seconds: 13200, social_seconds: 2400, entertainment_seconds: 2400, other_seconds: 0 },
-          { date: today,             total_seconds: 16200, productivity_seconds: 12000, social_seconds: 2100, entertainment_seconds: 2100, other_seconds: 0 },
+          { date: getDateOffset(-6), total_seconds: 14400, productive_seconds: 10800, distracting_seconds: 3600, others_seconds: 0 },
+          { date: getDateOffset(-5), total_seconds: 15600, productive_seconds: 11400, distracting_seconds: 4200, others_seconds: 0 },
+          { date: getDateOffset(-4), total_seconds: 16800, productive_seconds: 12600, distracting_seconds: 4200, others_seconds: 0 },
+          { date: getDateOffset(-3), total_seconds: 15000, productive_seconds: 10800, distracting_seconds: 4200, others_seconds: 0 },
+          { date: getDateOffset(-2), total_seconds: 17400, productive_seconds: 12600, distracting_seconds: 4800, others_seconds: 0 },
+          { date: getDateOffset(-1), total_seconds: 18000, productive_seconds: 13200, distracting_seconds: 4800, others_seconds: 0 },
+          { date: today,             total_seconds: 16200, productive_seconds: 12000, distracting_seconds: 4200, others_seconds: 0 },
         ],
         daily: [
-          { website_url: 'github.com', total_seconds: 5400, category: 'Productivity' },
-          { website_url: 'leetcode.com', total_seconds: 3600, category: 'Productivity' },
-          { website_url: 'docs.google.com', total_seconds: 3000, category: 'Productivity' },
-          { website_url: 'instagram.com', total_seconds: 2100, category: 'Social' },
-          { website_url: 'youtube.com', total_seconds: 2100, category: 'Entertainment' },
+          { website_url: 'github.com', total_seconds: 5400, category: 'Productive sites' },
+          { website_url: 'leetcode.com', total_seconds: 3600, category: 'Productive sites' },
+          { website_url: 'docs.google.com', total_seconds: 3000, category: 'Productive sites' },
+          { website_url: 'instagram.com', total_seconds: 2100, category: 'Distracting sites' },
+          { website_url: 'youtube.com', total_seconds: 2100, category: 'Distracting sites' },
         ],
         stats: {
           today_total_seconds: 16200,
           productive_seconds: 12000,
-          social_seconds: 2100,
-          entertainment_seconds: 2100,
+          distracting_seconds: 4200,
+          others_seconds: 0,
           focus_efficiency: 74,
           streak: 14,
           today_sessions_count: 2,
@@ -843,9 +841,9 @@
           data_days_count: 14,
         },
         distractions: [
-          { website_url: 'instagram.com', category: 'Social', used_minutes: 35, limit_minutes: 45, percentage: 78, enabled: true },
-          { website_url: 'youtube.com', category: 'Entertainment', used_minutes: 35, limit_minutes: 60, percentage: 58, enabled: true },
-          { website_url: 'reddit.com', category: 'Social', used_minutes: 15, limit_minutes: 30, percentage: 50, enabled: true },
+          { website_url: 'instagram.com', category: 'Distracting sites', used_minutes: 35, limit_minutes: 45, percentage: 78, enabled: true },
+          { website_url: 'youtube.com', category: 'Distracting sites', used_minutes: 35, limit_minutes: 60, percentage: 58, enabled: true },
+          { website_url: 'reddit.com', category: 'Distracting sites', used_minutes: 15, limit_minutes: 30, percentage: 50, enabled: true },
         ],
         settings: {
           focus_mode_active: false,
@@ -853,6 +851,8 @@
           focus_goal_minutes: 180,
           streak_days: 14,
           require_challenge: false,
+          blocked_sites: 'instagram.com\nyoutube.com\nreddit.com\nx.com',
+          allowed_sites: 'github.com\nleetcode.com\ndocs.google.com',
         }
       };
       cachedSummary = demoPayload;
@@ -898,6 +898,14 @@
       if (fToggle) fToggle.checked = !!settings.focus_mode_active;
       applyFocusUI(!!settings.focus_mode_active);
 
+      // Settings Fields (Section 6 & 7)
+      const bText = document.getElementById('blockedSitesText');
+      if (bText && settings.blocked_sites !== undefined) bText.value = settings.blocked_sites;
+      const aText = document.getElementById('allowedSitesText');
+      if (aText && settings.allowed_sites !== undefined) aText.value = settings.allowed_sites;
+      const rcCheck = document.getElementById('requireChallengeCheck');
+      if (rcCheck && settings.require_challenge !== undefined) rcCheck.checked = !!settings.require_challenge;
+
       // Render Charts & Insights
       renderChart(data.weekly || []);
       renderInsights(data.weekly || [], stats.data_days_count || (isDemo ? 14 : 0));
@@ -909,6 +917,35 @@
       renderDetailedLogs(data.daily || []);
     }
 
+    async function saveSiteListsAndSettings() {
+      const blockedText = document.getElementById('blockedSitesText').value;
+      const allowedText = document.getElementById('allowedSitesText').value;
+      const reqChallenge = document.getElementById('requireChallengeCheck').checked;
+
+      try {
+        const res = await fetch('/api/settings/', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Token ' + API_TOKEN
+          },
+          body: JSON.stringify({
+            blocked_sites: blockedText,
+            allowed_sites: allowedText,
+            require_challenge: reqChallenge
+          })
+        });
+        if (res.ok) {
+          alert('Settings saved successfully!');
+          loadData();
+        } else {
+          alert('Failed to save settings.');
+        }
+      } catch (err) {
+        alert('Error saving settings: ' + err.message);
+      }
+    }
+
     // ── Chart.js Setup (Reads CSS Theme Tokens) ──────────────────────────────
     function renderChart(weeklyData) {
       const canvas = document.getElementById('weeklyChart');
@@ -917,7 +954,6 @@
 
       const style = getComputedStyle(document.documentElement);
       const cProd  = style.getPropertyValue('--prod').trim()  || '#10B981';
-      const cSoc   = style.getPropertyValue('--soc').trim()   || '#F59E0B';
       const cEnt   = style.getPropertyValue('--ent').trim()   || '#F43F5E';
       const cOther = style.getPropertyValue('--other').trim() || '#94A3B8';
 
@@ -926,10 +962,9 @@
         return dt.toLocaleDateString('en-US', { weekday: 'short' });
       });
 
-      const prodM = weeklyData.map(d => Math.round((d.productivity_seconds || 0) / 60));
-      const socM  = weeklyData.map(d => Math.round((d.social_seconds || 0) / 60));
-      const entM  = weeklyData.map(d => Math.round((d.entertainment_seconds || 0) / 60));
-      const othM  = weeklyData.map(d => Math.round((d.other_seconds || 0) / 60));
+      const prodM = weeklyData.map(d => Math.round((d.productive_seconds || d.productivity_seconds || 0) / 60));
+      const distM = weeklyData.map(d => Math.round((d.distracting_seconds || (d.social_seconds || 0) + (d.entertainment_seconds || 0)) / 60));
+      const othM  = weeklyData.map(d => Math.round((d.others_seconds || d.other_seconds || 0) / 60));
 
       if (chartInstance) chartInstance.destroy();
 
@@ -941,7 +976,7 @@
           labels,
           datasets: [
             {
-              label: 'Productive',
+              label: 'Productive sites',
               data: prodM,
               backgroundColor: isLine ? 'rgba(16,185,129,0.15)' : cProd,
               borderColor: cProd,
@@ -951,18 +986,8 @@
               tension: 0.35,
             },
             {
-              label: 'Social',
-              data: socM,
-              backgroundColor: isLine ? 'rgba(245,158,11,0.15)' : cSoc,
-              borderColor: cSoc,
-              borderWidth: isLine ? 2.5 : 0,
-              borderRadius: 6,
-              fill: isLine,
-              tension: 0.35,
-            },
-            {
-              label: 'Entertainment',
-              data: entM,
+              label: 'Distracting sites',
+              data: distM,
               backgroundColor: isLine ? 'rgba(244,63,94,0.15)' : cEnt,
               borderColor: cEnt,
               borderWidth: isLine ? 2.5 : 0,
@@ -971,7 +996,7 @@
               tension: 0.35,
             },
             {
-              label: 'Other',
+              label: 'Others',
               data: othM,
               backgroundColor: isLine ? 'rgba(148,163,184,0.15)' : cOther,
               borderColor: cOther,

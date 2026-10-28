@@ -22,6 +22,9 @@ from .models import (
     FocusSession,
     classify_domain,
     clean_domain,
+    CATEGORY_PRODUCTIVE,
+    CATEGORY_DISTRACTING,
+    CATEGORY_OTHERS,
     CATEGORY_PRODUCTIVITY,
     CATEGORY_SOCIAL,
     CATEGORY_ENTERTAINMENT,
@@ -220,13 +223,13 @@ def summary_view(request):
     week_ago = today - datetime.timedelta(days=6)
 
     user_logs = UsageLog.objects.filter(user=request.user)
+    settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
 
-    # ── Weekly: per-day per-category totals ──────────────────────────────────
+    # ── Weekly: per-day per-category totals (Productive, Distracting, Others) ─
     weekly_qs = (
         user_logs
         .filter(date__gte=week_ago, date__lte=today)
-        .values('date', 'category')
-        .annotate(total_seconds=Sum('time_spent_seconds'))
+        .values('date', 'website_url', 'time_spent_seconds')
         .order_by('date')
     )
 
@@ -235,59 +238,68 @@ def summary_view(request):
         d = row['date'].isoformat()
         if d not in weekly_map:
             weekly_map[d] = {
-                CATEGORY_PRODUCTIVITY: 0,
-                CATEGORY_SOCIAL: 0,
-                CATEGORY_ENTERTAINMENT: 0,
-                CATEGORY_OTHER: 0,
+                CATEGORY_PRODUCTIVE: 0,
+                CATEGORY_DISTRACTING: 0,
+                CATEGORY_OTHERS: 0,
             }
-        cat = row['category'] or CATEGORY_OTHER
-        if cat in weekly_map[d]:
-            weekly_map[d][cat] = row['total_seconds']
+        cat = classify_domain(row['website_url'], user=request.user)
+        if cat in (CATEGORY_PRODUCTIVE, 'Productivity'):
+            weekly_map[d][CATEGORY_PRODUCTIVE] += row['time_spent_seconds']
+        elif cat in (CATEGORY_DISTRACTING, 'Social', 'Entertainment'):
+            weekly_map[d][CATEGORY_DISTRACTING] += row['time_spent_seconds']
         else:
-            weekly_map[d][CATEGORY_OTHER] += row['total_seconds']
+            weekly_map[d][CATEGORY_OTHERS] += row['time_spent_seconds']
 
     weekly = []
     for i in range(7):
         d = (week_ago + datetime.timedelta(days=i)).isoformat()
         cats = weekly_map.get(d, {
-            CATEGORY_PRODUCTIVITY: 0,
-            CATEGORY_SOCIAL: 0,
-            CATEGORY_ENTERTAINMENT: 0,
-            CATEGORY_OTHER: 0,
+            CATEGORY_PRODUCTIVE: 0,
+            CATEGORY_DISTRACTING: 0,
+            CATEGORY_OTHERS: 0,
         })
+        p_sec = cats.get(CATEGORY_PRODUCTIVE, 0)
+        dist_sec = cats.get(CATEGORY_DISTRACTING, 0)
+        oth_sec = cats.get(CATEGORY_OTHERS, 0)
         weekly.append({
             'date': d,
-            'total_seconds': sum(cats.values()),
-            'productivity_seconds':  cats.get(CATEGORY_PRODUCTIVITY, 0),
-            'social_seconds':        cats.get(CATEGORY_SOCIAL, 0),
-            'entertainment_seconds': cats.get(CATEGORY_ENTERTAINMENT, 0),
-            'other_seconds':         cats.get(CATEGORY_OTHER, 0),
+            'total_seconds': p_sec + dist_sec + oth_sec,
+            'productive_seconds':  p_sec,
+            'distracting_seconds': dist_sec,
+            'others_seconds':      oth_sec,
+            # Backward-compatibility aliases
+            'productivity_seconds':  p_sec,
+            'social_seconds':        dist_sec,
+            'entertainment_seconds': 0,
+            'other_seconds':         oth_sec,
         })
 
     # ── Daily: breakdown by site for today ────────────────────────────────────
     daily_qs = (
         user_logs
         .filter(date=today)
-        .values('website_url', 'category')
+        .values('website_url')
         .annotate(total_seconds=Sum('time_spent_seconds'))
         .order_by('-total_seconds')
     )
     daily = [{
         'website_url':   r['website_url'],
         'total_seconds': r['total_seconds'],
-        'category':      r['category'] or CATEGORY_OTHER,
+        'category':      classify_domain(r['website_url'], user=request.user),
     } for r in daily_qs]
 
     # ── Stats & Focus Efficiency ──────────────────────────────────────────────
-    today_total        = sum(r['total_seconds'] for r in daily)
-    top_site           = daily[0]['website_url'] if daily else None
-    productive_seconds = sum(r['total_seconds'] for r in daily if r['category'] == CATEGORY_PRODUCTIVITY)
-    social_seconds     = sum(r['total_seconds'] for r in daily if r['category'] == CATEGORY_SOCIAL)
-    entertainment_sec  = sum(r['total_seconds'] for r in daily if r['category'] == CATEGORY_ENTERTAINMENT)
+    today_total         = sum(r['total_seconds'] for r in daily)
+    top_site            = daily[0]['website_url'] if daily else None
+    productive_seconds  = sum(r['total_seconds'] for r in daily if r['category'] == CATEGORY_PRODUCTIVE)
+    distracting_seconds = sum(r['total_seconds'] for r in daily if r['category'] == CATEGORY_DISTRACTING)
+    others_seconds      = sum(r['total_seconds'] for r in daily if r['category'] == CATEGORY_OTHERS)
 
-    denominator = productive_seconds + social_seconds + entertainment_sec
+    denominator = productive_seconds + distracting_seconds
     if denominator > 0:
         focus_efficiency = round((productive_seconds / denominator) * 100)
+    elif today_total > 0:
+        focus_efficiency = round((productive_seconds / today_total) * 100)
     else:
         focus_efficiency = 0
 
@@ -297,7 +309,6 @@ def summary_view(request):
         l.domain: l.daily_limit_minutes * 60
         for l in SiteLimit.objects.filter(user=request.user, enabled=True)
     }
-    settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
     global_limit_sec = settings_obj.daily_limit_minutes * 60
 
     streak = 0
@@ -310,11 +321,12 @@ def summary_view(request):
 
         day_failed = False
         for log in day_logs:
+            cat = classify_domain(log.website_url, user=request.user)
             site_limit = limits_dict.get(log.website_url, None)
             if site_limit is not None and log.time_spent_seconds > site_limit:
                 day_failed = True
                 break
-            elif site_limit is None and log.category in (CATEGORY_SOCIAL, CATEGORY_ENTERTAINMENT):
+            elif site_limit is None and cat == CATEGORY_DISTRACTING:
                 if log.time_spent_seconds > global_limit_sec:
                     day_failed = True
                     break
@@ -330,11 +342,12 @@ def summary_view(request):
     today_exceeded = False
     if today_logs.exists():
         for log in today_logs:
+            cat = classify_domain(log.website_url, user=request.user)
             site_limit = limits_dict.get(log.website_url, None)
             if site_limit is not None and log.time_spent_seconds > site_limit:
                 today_exceeded = True
                 break
-            elif site_limit is None and log.category in (CATEGORY_SOCIAL, CATEGORY_ENTERTAINMENT):
+            elif site_limit is None and cat == CATEGORY_DISTRACTING:
                 if log.time_spent_seconds > global_limit_sec:
                     today_exceeded = True
                     break
@@ -346,32 +359,36 @@ def summary_view(request):
     settings_obj.save(update_fields=['streak_days'])
 
     # ── Per-Site Distraction Tracker ──────────────────────────────────────────
-    # Combines daily usage with configured SiteLimit models
+    # Combines daily usage with configured SiteLimit models and blocked_sites list
     site_limits = {
         sl.domain: sl
         for sl in SiteLimit.objects.filter(user=request.user)
     }
 
+    blocked_domains = [clean_domain(s) for s in re.split(r'[\r\n,]+', settings_obj.blocked_sites) if clean_domain(s)]
+    # All distracting domains to track
+    all_distracting = list(dict.fromkeys(blocked_domains + list(site_limits.keys())))
+
     distractions = []
-    # Include all configured limits even if 0 seconds today
-    for domain, sl in site_limits.items():
+    for domain in all_distracting:
+        sl = site_limits.get(domain)
         used_secs = next((r['total_seconds'] for r in daily if r['website_url'] == domain), 0)
         used_mins = used_secs // 60
-        limit_mins = sl.daily_limit_minutes
+        limit_mins = sl.daily_limit_minutes if sl else settings_obj.daily_limit_minutes
         pct = min(round((used_mins / max(limit_mins, 1)) * 100), 100)
         distractions.append({
             'website_url':   domain,
-            'category':      classify_domain(domain, user=request.user),
+            'category':      CATEGORY_DISTRACTING,
             'used_minutes':  used_mins,
             'limit_minutes': limit_mins,
             'percentage':    pct,
-            'enabled':       sl.enabled,
-            'limit_id':      sl.id,
+            'enabled':       sl.enabled if sl else True,
+            'limit_id':      sl.id if sl else None,
         })
 
     # Also include any unlisted distracting sites that had usage today
     for entry in daily:
-        if entry['website_url'] not in site_limits and entry['category'] in (CATEGORY_SOCIAL, CATEGORY_ENTERTAINMENT):
+        if entry['website_url'] not in all_distracting and entry['category'] == CATEGORY_DISTRACTING:
             used_mins = entry['total_seconds'] // 60
             limit_mins = settings_obj.daily_limit_minutes
             pct = min(round((used_mins / max(limit_mins, 1)) * 100), 100)
@@ -408,8 +425,10 @@ def summary_view(request):
         'stats': {
             'today_total_seconds':       today_total,
             'productive_seconds':        productive_seconds,
-            'social_seconds':            social_seconds,
-            'entertainment_seconds':     entertainment_sec,
+            'distracting_seconds':       distracting_seconds,
+            'others_seconds':            others_seconds,
+            'social_seconds':            distracting_seconds,
+            'entertainment_seconds':     0,
             'focus_efficiency':          focus_efficiency,
             'top_site':                  top_site,
             'streak':                    streak,
@@ -534,9 +553,15 @@ def categories_list_create_view(request):
         return Response(serializer.data)
 
     domain = clean_domain(request.data.get('domain', ''))
-    category = request.data.get('category', '').capitalize()
+    raw_cat = (request.data.get('category', '') or '').strip()
     
-    if not domain or category not in (CATEGORY_PRODUCTIVITY, CATEGORY_SOCIAL, CATEGORY_ENTERTAINMENT, CATEGORY_OTHER):
+    if raw_cat in ('Productive sites', 'Productivity', 'Productive', CATEGORY_PRODUCTIVE):
+        category = CATEGORY_PRODUCTIVE
+    elif raw_cat in ('Distracting sites', 'Social', 'Entertainment', 'Distracting', CATEGORY_DISTRACTING):
+        category = CATEGORY_DISTRACTING
+    elif raw_cat in ('Others', 'Other', CATEGORY_OTHERS):
+        category = CATEGORY_OTHERS
+    else:
         return Response({'error': 'Valid domain and category are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
     obj, created = CategoryOverride.objects.update_or_create(

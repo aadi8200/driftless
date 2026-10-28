@@ -5,13 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Driftless</title>
   <link rel="stylesheet" href="theme.css">
-  <!-- Restore theme before paint -->
-  <script>
-    (function() {
-      var t = localStorage.getItem('driftless-theme') || 'light';
-      document.documentElement.setAttribute('data-theme', t);
-    })();
-  </script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     ::-webkit-scrollbar { width: 4px; }
@@ -22,13 +15,13 @@
     }
 
     body {
-      width: 340px;
-      max-height: 580px;
+      width: 350px;
+      max-height: 600px;
       overflow-y: auto;
       background: var(--bg);
       color: var(--ink);
       font-family: var(--font-family);
-      font-size: 13.5px;
+      font-size: 13px;
       padding: 16px;
       line-height: 1.45;
       -webkit-font-smoothing: antialiased;
@@ -70,10 +63,15 @@
       background: rgba(245, 158, 11, 0.12);
       color: #b45309;
       border: 1px solid rgba(245, 158, 11, 0.24);
-      padding: 4px 10px;
+      padding: 4px 9px;
       border-radius: 100px;
       font-size: 11px;
       font-weight: 700;
+    }
+    [data-theme="dark"] .streak-badge {
+      color: #FBBF24;
+      background: rgba(251, 191, 36, 0.15);
+      border-color: rgba(251, 191, 36, 0.3);
     }
 
     /* Cards */
@@ -81,12 +79,12 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px;
-      margin-bottom: 12px;
+      padding: 13px 14px;
+      margin-bottom: 11px;
       box-shadow: 0 2px 8px rgba(42, 27, 61, 0.04);
     }
     .card-title {
-      font-size: 12.5px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--ink);
       text-transform: uppercase;
@@ -102,18 +100,18 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
     }
     .switch {
       position: relative;
       display: inline-block;
       width: 44px;
       height: 24px;
+      flex-shrink: 0;
     }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; cursor: pointer; inset: 0;
-      background-color: #E2E8F0;
+      background-color: var(--border);
       transition: .25s;
       border-radius: 34px;
     }
@@ -128,47 +126,21 @@
     input:checked + .slider { background: var(--grad); }
     input:checked + .slider:before { transform: translateX(20px); }
 
-    .focus-timer-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      margin-top: 8px;
-    }
-    .timer-btn {
-      padding: 7px 0;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      font-size: 11.5px;
-      font-weight: 700;
-      color: var(--ink);
-      cursor: pointer;
-      font-family: inherit;
-      transition: all 0.15s ease;
-    }
-    .timer-btn:hover {
-      background: var(--pri-light);
-      border-color: var(--pri);
-      color: var(--pri);
-    }
-    .timer-btn.active {
-      background: var(--grad);
-      color: white;
-      border-color: transparent;
-    }
-
-    /* Site limits list */
+    /* Site lists */
     .site-list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 7px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding-right: 2px;
     }
     .site-item {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      padding: 8px 10px;
-      border-radius: 10px;
+      padding: 7px 9px;
+      border-radius: 9px;
       background: var(--site-item-bg, #FAFAFC);
       border: 1px solid var(--border);
     }
@@ -176,34 +148,89 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 6px;
     }
-    .site-name {
-      font-weight: 600;
-      font-size: 12.5px;
-      color: var(--ink);
+    .site-name-wrap {
       display: flex;
       align-items: center;
       gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+    .site-name {
+      font-weight: 600;
+      font-size: 12px;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .site-dot {
       width: 7px; height: 7px; border-radius: 50%;
+      flex-shrink: 0;
     }
     .site-dot.productive { background: var(--prod); }
-    .site-dot.social { background: var(--soc); }
-    .site-dot.entertainment { background: var(--ent); }
+    .site-dot.distracting { background: var(--ent); }
     .site-dot.other { background: var(--other); }
 
-    .site-timer {
-      font-size: 11.5px;
-      font-weight: 700;
+    .site-controls {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .site-time-text {
+      font-size: 11px;
+      font-weight: 600;
       color: var(--ink-muted);
     }
+
+    .limit-pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--pri);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .limit-pill:hover {
+      border-color: var(--pri);
+      background: var(--pri-light);
+    }
+    .limit-pill.is-custom {
+      background: var(--pri-light);
+      border-color: var(--pri);
+      color: var(--pri);
+    }
+
+    .delete-btn {
+      width: 20px;
+      height: 20px;
+      border: none;
+      background: transparent;
+      color: var(--ink-subtle);
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      transition: all 0.15s ease;
+    }
+    .delete-btn:hover {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--ent);
+    }
+
     .mini-bar {
-      height: 4px;
+      height: 3.5px;
       border-radius: 4px;
       background: var(--border);
       overflow: hidden;
-      margin-top: 2px;
     }
     .mini-bar-inner {
       height: 100%;
@@ -212,18 +239,18 @@
       transition: width 0.3s ease;
     }
 
-    /* Add site limit row */
-    .add-limit-row {
+    /* Add site row */
+    .add-row {
       display: flex;
       gap: 6px;
-      margin-top: 10px;
+      margin-top: 8px;
     }
     .add-input {
       flex: 1;
-      padding: 6px 10px;
-      border-radius: 8px;
+      padding: 5px 9px;
+      border-radius: 7px;
       border: 1px solid var(--border);
-      font-size: 12px;
+      font-size: 11.5px;
       font-family: inherit;
       outline: none;
       background: var(--card);
@@ -233,17 +260,37 @@
       border-color: var(--pri);
     }
     .add-btn {
-      padding: 6px 12px;
+      padding: 5px 11px;
       background: var(--pri);
       color: white;
       border: none;
-      border-radius: 8px;
-      font-size: 11.5px;
+      border-radius: 7px;
+      font-size: 11px;
       font-weight: 700;
       cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+    .add-btn:hover { opacity: 0.9; }
+
+    .global-timer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: var(--pri-light);
+      color: var(--pri);
+      border: 1px solid rgba(100, 99, 224, 0.25);
+      font-size: 10.5px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: none;
+    }
+    .global-timer-badge:hover {
+      opacity: 0.85;
     }
 
-    /* Status dot & actions */
+    /* Footer & actions */
     .footer-bar {
       display: flex;
       align-items: center;
@@ -261,6 +308,7 @@
       width: 6px; height: 6px; border-radius: 50%;
       background: var(--prod);
     }
+    .status-dot.not-linked { background: var(--ent); }
     .btn-action-text {
       background: none; border: none;
       color: var(--ink-muted);
@@ -270,57 +318,36 @@
       text-decoration: underline;
     }
     .btn-action-text:hover { color: var(--ent); }
-    
+
     .link-dashboard {
       display: block;
       width: 100%;
       text-align: center;
-      padding: 9px 0;
+      padding: 8.5px 0;
       background: var(--grad);
       color: white;
       text-decoration: none;
       border-radius: 10px;
       font-weight: 700;
-      font-size: 12.5px;
+      font-size: 12px;
       margin-top: 10px;
       box-shadow: 0 4px 10px rgba(124, 58, 237, 0.22);
     }
 
-    /* Modal / Prompt */
-    .confirm-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      display: none; align-items: center; justify-content: center;
-      padding: 16px; z-index: 100;
-    }
-    .confirm-box {
-      background: var(--confirm-box-bg, white);
-      border: 1px solid var(--border);
-      border-radius: 14px; padding: 18px;
-      width: 100%; max-width: 280px; text-align: center;
-    }
-    .confirm-title { font-weight: 700; font-size: 14px; margin-bottom: 6px; color: var(--ink); }
-    .confirm-text { font-size: 12px; color: var(--ink-muted); margin-bottom: 14px; }
-    .confirm-actions { display: flex; gap: 8px; }
-    .confirm-btn {
-      flex: 1; padding: 8px 0; border-radius: 8px; border: none; font-size: 12px; font-weight: 700; cursor: pointer;
-    }
-    .btn-cancel { background: var(--border); color: var(--ink); }
-    .btn-danger { background: var(--ent); color: white; }
-
-    /* ── Popup theme toggle ─────────────────────────────────────────── */
+    /* Theme toggle button */
     .theme-toggle-btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
-      height: 30px;
+      width: 28px;
+      height: 28px;
       border-radius: 50%;
-      border: 1.5px solid var(--border);
+      border: 1px solid var(--border);
       background: var(--card);
       color: var(--ink-muted);
       cursor: pointer;
-      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
       flex-shrink: 0;
+      transition: all 0.15s ease;
     }
     .theme-toggle-btn:hover {
       background: var(--pri-light);
@@ -330,27 +357,98 @@
     .theme-toggle-btn svg { width: 14px; height: 14px; }
     .theme-toggle-btn .icon-sun  { display: var(--toggle-sun, block); }
     .theme-toggle-btn .icon-moon { display: var(--toggle-moon, none); }
+
+    /* Modals / Overlays */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: none; align-items: center; justify-content: center;
+      padding: 16px; z-index: 100;
+    }
+    .modal-box {
+      background: var(--confirm-box-bg, white);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px;
+      width: 100%; max-width: 290px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    }
+    .modal-title { font-weight: 700; font-size: 13.5px; margin-bottom: 4px; color: var(--ink); }
+    .modal-text { font-size: 11.5px; color: var(--ink-muted); margin-bottom: 12px; }
+    .modal-actions { display: flex; gap: 7px; margin-top: 10px; }
+    .modal-btn {
+      flex: 1; padding: 7px 0; border-radius: 7px; border: none; font-size: 11.5px; font-weight: 700; cursor: pointer;
+      text-align: center;
+    }
+    .btn-pri { background: var(--pri); color: white; }
+    .btn-cancel { background: var(--border); color: var(--ink); }
+    .btn-danger { background: var(--ent); color: white; }
+    .btn-subtle { background: transparent; border: 1px solid var(--border); color: var(--ink-muted); }
+
+    /* ── Onboarding View ────────────────────────────────────────────── */
+    #onboardingView {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .onboard-step-pill {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: var(--pri);
+      background: var(--pri-light);
+      padding: 3px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-bottom: 4px;
+    }
+    .persona-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 7px;
+      margin: 8px 0;
+    }
+    .persona-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border);
+      background: var(--card);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .persona-card:hover {
+      border-color: var(--pri);
+      background: var(--pri-light);
+    }
+    .persona-card.selected {
+      border-color: var(--pri);
+      background: var(--pri-light);
+      box-shadow: 0 0 0 1px var(--pri);
+    }
+    .persona-icon { font-size: 18px; }
+    .persona-name { font-weight: 700; font-size: 12.5px; color: var(--ink); }
+    .persona-desc { font-size: 10.5px; color: var(--ink-muted); }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <div class="header">
-    <div class="brand-wrap">
-      <div class="brand-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <circle cx="12" cy="12" r="9"/>
-          <path d="M12 7v5l3 3"/>
-        </svg>
+
+  <!-- ==================== ONBOARDING VIEW ==================== -->
+  <div id="onboardingView">
+    <!-- Header -->
+    <div class="header" style="margin-bottom:8px;">
+      <div class="brand-wrap">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7v5l3 3"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Driftless</div>
+          <div style="font-size:10.5px; color:var(--ink-muted);">First-Run Setup</div>
+        </div>
       </div>
-      <div class="brand-title">Driftless</div>
-    </div>
-    <div style="display:flex; align-items:center; gap:6px;">
-      <div class="streak-badge" id="streakBadge">
-        <span>🔥</span>
-        <span id="streakCountText">0 Days</span>
-      </div>
-      <!-- Popup theme toggle -->
-      <button id="popupThemeToggle" class="theme-toggle-btn" aria-label="Toggle theme" title="Toggle theme">
+      <button id="onboardThemeToggle" class="theme-toggle-btn" aria-label="Toggle theme">
         <svg class="icon-sun" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"/>
           <path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
@@ -360,105 +458,240 @@
         </svg>
       </button>
     </div>
-  </div>
 
-  <!-- Focus Mode & Timer -->
-  <div class="card">
-    <div class="focus-mode-row">
-      <div>
-        <div style="font-weight:700; font-size:13.5px;" id="focusModeLabel">Focus Mode</div>
-        <div style="font-size:11px; color:var(--ink-muted);" id="focusModeSub">Blocks distracting sites</div>
+    <!-- Step 1: Select Persona -->
+    <div id="onboardStep1" class="card">
+      <span class="onboard-step-pill">Step 1 of 2</span>
+      <div class="modal-title" style="font-size:14px; margin-top:2px;">Select Your Persona</div>
+      <p class="modal-text" style="margin-bottom:8px;">Pre-configures recommended distracting and productive sites.</p>
+
+      <div class="persona-grid">
+        <div class="persona-card selected" data-persona="Student">
+          <span class="persona-icon">🎓</span>
+          <div>
+            <div class="persona-name">Student</div>
+            <div class="persona-desc">Focus on GitHub, StackOverflow, Google Docs</div>
+          </div>
+        </div>
+        <div class="persona-card" data-persona="Professional">
+          <span class="persona-icon">💼</span>
+          <div>
+            <div class="persona-name">Professional</div>
+            <div class="persona-desc">Optimized for Notion, Docs, StackOverflow</div>
+          </div>
+        </div>
+        <div class="persona-card" data-persona="Influencer">
+          <span class="persona-icon">📱</span>
+          <div>
+            <div class="persona-name">Influencer</div>
+            <div class="persona-desc">Work on Canva, Notion, Google Drive</div>
+          </div>
+        </div>
+        <div class="persona-card" data-persona="Creator">
+          <span class="persona-icon">🎨</span>
+          <div>
+            <div class="persona-name">Creator</div>
+            <div class="persona-desc">Work on Figma, Canva, Behance</div>
+          </div>
+        </div>
+        <div class="persona-card" data-persona="Other">
+          <span class="persona-icon">🌐</span>
+          <div>
+            <div class="persona-name">Other</div>
+            <div class="persona-desc">Balanced general productivity setup</div>
+          </div>
+        </div>
       </div>
-      <label class="switch">
-        <input type="checkbox" id="focusToggle">
-        <span class="slider"></span>
-      </label>
+
+      <button id="onboardStep1Next" class="modal-btn btn-pri" style="margin-top:6px;">Next: Connect Token →</button>
     </div>
 
-    <div class="card-title" style="margin-top:10px; margin-bottom:6px;">
-      <span>Focus Timers</span>
-      <span id="timerCountdown" style="font-size:11px; color:var(--pri); font-weight:700;"></span>
-    </div>
-    <div class="focus-timer-grid">
-      <button class="timer-btn" data-min="25">25 min</button>
-      <button class="timer-btn" data-min="45">45 min</button>
-      <button class="timer-btn" data-min="60">60 min</button>
+    <!-- Step 2: Connect Token -->
+    <div id="onboardStep2" class="card" style="display:none;">
+      <span class="onboard-step-pill">Step 2 of 2</span>
+      <div class="modal-title" style="font-size:14px; margin-top:2px;">Connect Dashboard Token</div>
+      <p class="modal-text">Paste your API token from the Driftless dashboard to link sync:</p>
+
+      <input type="text" id="onboardTokenInput" class="add-input" style="width:100%; padding:8px 10px; margin-bottom:8px;" placeholder="Paste API token">
+
+      <div class="modal-actions" style="margin-top:6px;">
+        <button id="onboardBackBtn" class="modal-btn btn-cancel" style="flex:0.6;">← Back</button>
+        <button id="onboardFinishBtn" class="modal-btn btn-pri" style="flex:1.4;">Save &amp; Start</button>
+      </div>
+
+      <div style="text-align:center; margin-top:10px;">
+        <button id="onboardSkipBtn" class="btn-action-text" style="font-size:11px;">Skip for now (offline mode)</button>
+      </div>
     </div>
   </div>
 
-  <!-- Per-Site Trackers & Limits -->
-  <div class="card">
-    <div class="card-title">
-      <span>Tracked Sites &amp; Limits</span>
-      <span style="font-size:10px; color:var(--ink-muted); text-transform:none;">Today's time</span>
+  <!-- ==================== MAIN VIEW ==================== -->
+  <div id="mainView">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="brand-wrap">
+        <div class="brand-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7v5l3 3"/>
+          </svg>
+        </div>
+        <div class="brand-title">Driftless</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:6px;">
+        <div class="streak-badge" id="streakBadge">
+          <span>🔥</span>
+          <span id="streakCountText">0 Days</span>
+        </div>
+        <!-- Popup theme toggle -->
+        <button id="popupThemeToggle" class="theme-toggle-btn" aria-label="Toggle theme" title="Toggle theme">
+          <svg class="icon-sun" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <svg class="icon-moon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
-    <div class="site-list" id="siteListContainer">
-      <!-- Dynamic list of sites -->
+    <!-- 1. Focus Mode Toggle -->
+    <div class="card">
+      <div class="focus-mode-row">
+        <div>
+          <div style="font-weight:700; font-size:13px;" id="focusModeLabel">Focus Mode</div>
+          <div style="font-size:11px; color:var(--ink-muted);" id="focusModeSub">Blocks distracting sites immediately</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="focusToggle">
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
 
-    <div class="add-limit-row">
-      <input type="text" id="addDomainInput" class="add-input" placeholder="e.g. reddit.com">
-      <input type="number" id="addMinsInput" class="add-input" style="width:65px; flex:none;" placeholder="mins" min="1" max="1440">
-      <button id="addLimitBtn" class="add-btn">Add</button>
+    <!-- 2. Distracting Sites Section with Per-Site & Global Timers -->
+    <div class="card">
+      <div class="card-title">
+        <span>Distracting Sites</span>
+        <button id="openGlobalLimitModalBtn" class="global-timer-badge" title="Set global default timer for distracting sites">
+          <span>Default:</span>
+          <span id="globalLimitLabel">60m</span>
+          <span>✏️</span>
+        </button>
+      </div>
+
+      <div class="site-list" id="distractingSitesContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="add-row">
+        <input type="text" id="addDistractingInput" class="add-input" placeholder="e.g. reddit.com">
+        <button id="addDistractingBtn" class="add-btn">Add</button>
+      </div>
+    </div>
+
+    <!-- 3. Productive Sites Section -->
+    <div class="card">
+      <div class="card-title">
+        <span>Productive Sites</span>
+        <span style="font-size:10px; color:var(--ink-muted); text-transform:none;">Counts towards productive time</span>
+      </div>
+
+      <div class="site-list" id="productiveSitesContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div class="add-row">
+        <input type="text" id="addProductiveInput" class="add-input" placeholder="e.g. github.com">
+        <button id="addProductiveBtn" class="add-btn">Add</button>
+      </div>
+    </div>
+
+    <!-- 4. Sync & Account Area -->
+    <div class="card" style="margin-bottom:8px;">
+      <div class="card-title" style="margin-bottom:8px;">
+        <span>Sync &amp; Account</span>
+        <span id="syncStatusText" style="font-size:10px; color:var(--prod); font-weight:600; text-transform:none;">Connected</span>
+      </div>
+      <div style="font-size:11px; color:var(--ink-muted); margin-bottom:8px;">
+        Linked to <strong id="serverDisplay" style="color:var(--ink);">http://127.0.0.1:8000</strong>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="apiTokenInput" class="add-input" placeholder="Paste API token to link">
+        <button id="saveTokenBtn" class="add-btn" style="background:var(--ink);">Save</button>
+      </div>
+      <div id="tokenSaveMsg" style="font-size:10.5px; margin-top:4px; opacity:0; transition:opacity 0.2s;"></div>
+    </div>
+
+    <!-- Web Dashboard Button -->
+    <a href="http://127.0.0.1:8000/dashboard/" target="_blank" class="link-dashboard">
+      Open Web Dashboard →
+    </a>
+
+    <!-- Footer Bar -->
+    <div class="footer-bar">
+      <div class="status-dot-wrap">
+        <span class="status-dot" id="footerStatusDot"></span>
+        <span id="lastSyncedLabel">Synced · just now</span>
+      </div>
+      <button id="resetTimersBtn" class="btn-action-text">Reset All Timers</button>
+    </div>
+
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Per-Site Custom Limit Modal -->
+  <div class="modal-overlay" id="customLimitModal">
+    <div class="modal-box">
+      <div class="modal-title">Set Limit for <span id="modalDomainTitle" style="color:var(--pri);">site</span></div>
+      <p class="modal-text">Set a custom daily minute limit that overrides the global default.</p>
+
+      <div style="display:flex; align-items:center; gap:8px; margin: 10px 0;">
+        <input type="number" id="modalCustomLimitInput" class="add-input" min="1" max="1440" placeholder="mins" style="padding:7px 10px; font-size:13px; font-weight:700;">
+        <span style="font-size:12px; font-weight:600; color:var(--ink-muted);">minutes</span>
+      </div>
+
+      <div class="modal-actions">
+        <button id="modalSaveCustomBtn" class="modal-btn btn-pri">Save Custom</button>
+        <button id="modalRevertDefaultBtn" class="modal-btn btn-subtle" title="Clear override and use global default">Use Default</button>
+        <button id="modalCancelCustomBtn" class="modal-btn btn-cancel">Cancel</button>
+      </div>
     </div>
   </div>
 
-  <!-- Connection / Account -->
-  <div class="card" style="margin-bottom:8px;">
-    <div class="card-title" style="margin-bottom:8px;">
-      <span>Sync &amp; Account</span>
-      <span id="syncStatusText" style="font-size:10px; color:var(--prod); font-weight:600; text-transform:none;">Connected</span>
-    </div>
-    <div style="font-size:11.5px; color:var(--ink-muted); margin-bottom:8px;">
-      Linked to <strong id="serverDisplay" style="color:var(--ink);">http://127.0.0.1:8000</strong>
-    </div>
-    <div style="display:flex; gap:6px;">
-      <input type="text" id="apiTokenInput" class="add-input" placeholder="Paste API token to link">
-      <button id="saveTokenBtn" class="add-btn" style="background:var(--ink);">Save</button>
-    </div>
-  </div>
+  <!-- Global Default Limit Modal -->
+  <div class="modal-overlay" id="globalLimitModal">
+    <div class="modal-box">
+      <div class="modal-title">Global Default Timer</div>
+      <p class="modal-text">Applies to all distracting sites that do not have their own custom limit.</p>
 
-  <a href="http://127.0.0.1:8000/dashboard/" target="_blank" class="link-dashboard">
-    Open Web Dashboard →
-  </a>
+      <div style="display:flex; align-items:center; gap:8px; margin: 10px 0;">
+        <input type="number" id="modalGlobalLimitInput" class="add-input" min="1" max="1440" placeholder="mins" style="padding:7px 10px; font-size:13px; font-weight:700;">
+        <span style="font-size:12px; font-weight:600; color:var(--ink-muted);">minutes</span>
+      </div>
 
-  <!-- Footer Actions -->
-  <div class="footer-bar">
-    <div class="status-dot-wrap">
-      <span class="status-dot"></span>
-      <span id="lastSyncedLabel">Synced · just now</span>
+      <div class="modal-actions">
+        <button id="modalSaveGlobalBtn" class="modal-btn btn-pri">Save Default</button>
+        <button id="modalCancelGlobalBtn" class="modal-btn btn-cancel">Cancel</button>
+      </div>
     </div>
-    <button id="resetTimersBtn" class="btn-action-text">Reset All Timers</button>
   </div>
 
   <!-- Confirmation Dialog for Reset -->
-  <div class="confirm-overlay" id="confirmOverlay">
-    <div class="confirm-box">
-      <div class="confirm-title">Reset All Timers?</div>
-      <div class="confirm-text">This will clear today's local tracked minutes and reset active site limits on this device.</div>
-      <div class="confirm-actions">
-        <button class="confirm-btn btn-cancel" id="cancelResetBtn">Cancel</button>
-        <button class="confirm-btn btn-danger" id="confirmResetBtn">Reset</button>
+  <div class="modal-overlay" id="confirmOverlay">
+    <div class="modal-box" style="text-align:center;">
+      <div class="modal-title">Reset All Timers?</div>
+      <div class="modal-text">This will clear today's local tracked minutes and reset active site limits on this device.</div>
+      <div class="modal-actions">
+        <button class="modal-btn btn-cancel" id="cancelResetBtn">Cancel</button>
+        <button class="modal-btn btn-danger" id="confirmResetBtn">Reset</button>
       </div>
     </div>
   </div>
 
-  <script>
-    // ── Popup Theme Toggle ─────────────────────────────────────────────────
-    (function() {
-      const btn = document.getElementById('popupThemeToggle');
-      if (!btn) return;
-      function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('driftless-theme', theme);
-      }
-      btn.addEventListener('click', () => {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        applyTheme(current === 'dark' ? 'light' : 'dark');
-      });
-    })();
-  </script>
   <script src="popup.js"></script>
 </body>
 </html>

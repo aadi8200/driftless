@@ -17,46 +17,47 @@ def normalize_phone(phone: str) -> str:
     return re.sub(r'[\s\-()]+', '', phone.strip())
 
 
-def apply_persona_defaults(user, persona: str):
-    """Initializes default site limits according to the chosen persona."""
-    persona_limits = {
-        'student': [
-            ('instagram.com', 30),
-            ('youtube.com', 45),
-            ('reddit.com', 20),
-            ('netflix.com', 40),
-        ],
-        'professional': [
-            ('twitter.com', 20),
-            ('x.com', 20),
-            ('instagram.com', 15),
-            ('youtube.com', 30),
-            ('reddit.com', 15),
-        ],
-        'influencer': [
-            ('netflix.com', 30),
-            ('twitch.tv', 25),
-            ('reddit.com', 20),
-        ],
-        'creator': [
-            ('instagram.com', 45),
-            ('youtube.com', 60),
-            ('reddit.com', 20),
-            ('netflix.com', 30),
-        ],
-        'other': [
-            ('instagram.com', 30),
-            ('youtube.com', 45),
-            ('reddit.com', 20),
-        ],
-    }
+PERSONA_DEFAULTS = {
+    'student': {
+        'distracting': ['instagram.com', 'facebook.com', 'reddit.com', 'youtube.com'],
+        'productive': ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org'],
+    },
+    'professional': {
+        'distracting': ['instagram.com', 'facebook.com', 'youtube.com', 'x.com'],
+        'productive': ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com'],
+    },
+    'influencer': {
+        'distracting': ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
+        'productive': ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so'],
+    },
+    'creator': {
+        'distracting': ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
+        'productive': ['canva.com', 'figma.com', 'behance.net', 'docs.google.com'],
+    },
+    'other': {
+        'distracting': ['instagram.com', 'youtube.com', 'facebook.com', 'reddit.com'],
+        'productive': ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org'],
+    },
+}
 
-    limits_to_apply = persona_limits.get(persona, persona_limits['student'])
-    for domain, mins in limits_to_apply:
+
+def apply_persona_defaults(user, persona: str):
+    """Initializes default distracting/productive lists and limits according to chosen persona."""
+    key = (persona or 'student').lower()
+    p_def = PERSONA_DEFAULTS.get(key, PERSONA_DEFAULTS['student'])
+
+    settings, _ = UserSettings.objects.get_or_create(user=user)
+    if not settings.blocked_sites:
+        settings.blocked_sites = '\n'.join(p_def['distracting'])
+    if not settings.allowed_sites:
+        settings.allowed_sites = '\n'.join(p_def['productive'])
+    settings.save()
+
+    for domain in p_def['distracting']:
         SiteLimit.objects.get_or_create(
             user=user,
             domain=domain,
-            defaults={'daily_limit_minutes': mins, 'enabled': True}
+            defaults={'daily_limit_minutes': settings.daily_limit_minutes or 60, 'enabled': True}
         )
 
 

@@ -27,68 +27,72 @@ class UserProfile(models.Model):
 
 
 # ─── Site Categorisation ──────────────────────────────────────────────────────
-CATEGORY_PRODUCTIVITY  = 'Productivity'
-CATEGORY_SOCIAL        = 'Social'
-CATEGORY_ENTERTAINMENT = 'Entertainment'
-CATEGORY_OTHER         = 'Other'
+CATEGORY_PRODUCTIVE   = 'Productive sites'
+CATEGORY_DISTRACTING  = 'Distracting sites'
+CATEGORY_OTHERS       = 'Others'
+
+# Backward compatibility aliases
+CATEGORY_PRODUCTIVITY  = CATEGORY_PRODUCTIVE
+CATEGORY_SOCIAL        = CATEGORY_DISTRACTING
+CATEGORY_ENTERTAINMENT = CATEGORY_DISTRACTING
+CATEGORY_OTHER         = CATEGORY_OTHERS
 
 CATEGORY_CHOICES = [
-    (CATEGORY_PRODUCTIVITY,  'Productivity'),
-    (CATEGORY_SOCIAL,        'Social'),
-    (CATEGORY_ENTERTAINMENT, 'Entertainment'),
-    (CATEGORY_OTHER,         'Other'),
+    (CATEGORY_PRODUCTIVE,   'Productive sites'),
+    (CATEGORY_DISTRACTING,  'Distracting sites'),
+    (CATEGORY_OTHERS,       'Others'),
 ]
 
-# Static master category mapping as required by Section 2
+# Static master category mapping
 CATEGORY_MAP = {
     # Productive
-    'github.com':         CATEGORY_PRODUCTIVITY,
-    'stackoverflow.com':  CATEGORY_PRODUCTIVITY,
-    'docs.google.com':    CATEGORY_PRODUCTIVITY,
-    'leetcode.com':       CATEGORY_PRODUCTIVITY,
-    'geeksforgeeks.org':  CATEGORY_PRODUCTIVITY,
-    'coursera.org':       CATEGORY_PRODUCTIVITY,
-    'notion.so':          CATEGORY_PRODUCTIVITY,
-    'chat.openai.com':    CATEGORY_PRODUCTIVITY,
-    'chatgpt.com':        CATEGORY_PRODUCTIVITY,
-    'claude.ai':          CATEGORY_PRODUCTIVITY,
-    'w3schools.com':      CATEGORY_PRODUCTIVITY,
-    'developer.mozilla.org': CATEGORY_PRODUCTIVITY,
-    'kaggle.com':         CATEGORY_PRODUCTIVITY,
-    'figma.com':          CATEGORY_PRODUCTIVITY,
-    'slack.com':          CATEGORY_PRODUCTIVITY,
-    'jira.atlassian.com': CATEGORY_PRODUCTIVITY,
+    'github.com':            CATEGORY_PRODUCTIVE,
+    'stackoverflow.com':     CATEGORY_PRODUCTIVE,
+    'docs.google.com':       CATEGORY_PRODUCTIVE,
+    'leetcode.com':          CATEGORY_PRODUCTIVE,
+    'geeksforgeeks.org':     CATEGORY_PRODUCTIVE,
+    'coursera.org':          CATEGORY_PRODUCTIVE,
+    'notion.so':             CATEGORY_PRODUCTIVE,
+    'canva.com':             CATEGORY_PRODUCTIVE,
+    'figma.com':             CATEGORY_PRODUCTIVE,
+    'behance.net':           CATEGORY_PRODUCTIVE,
+    'drive.google.com':      CATEGORY_PRODUCTIVE,
+    'chat.openai.com':       CATEGORY_PRODUCTIVE,
+    'chatgpt.com':           CATEGORY_PRODUCTIVE,
+    'claude.ai':             CATEGORY_PRODUCTIVE,
+    'w3schools.com':         CATEGORY_PRODUCTIVE,
+    'developer.mozilla.org': CATEGORY_PRODUCTIVE,
+    'kaggle.com':            CATEGORY_PRODUCTIVE,
+    'slack.com':             CATEGORY_PRODUCTIVE,
+    'jira.atlassian.com':    CATEGORY_PRODUCTIVE,
 
-    # Social
-    'instagram.com':      CATEGORY_SOCIAL,
-    'facebook.com':       CATEGORY_SOCIAL,
-    'twitter.com':        CATEGORY_SOCIAL,
-    'x.com':              CATEGORY_SOCIAL,
-    'reddit.com':         CATEGORY_SOCIAL,
-    'snapchat.com':       CATEGORY_SOCIAL,
-    'tiktok.com':         CATEGORY_SOCIAL,
-    'threads.net':        CATEGORY_SOCIAL,
-    'linkedin.com':       CATEGORY_SOCIAL,
-    'web.whatsapp.com':   CATEGORY_SOCIAL,
-    'whatsapp.com':       CATEGORY_SOCIAL,
-    'pinterest.com':      CATEGORY_SOCIAL,
-    'tumblr.com':         CATEGORY_SOCIAL,
-    'mastodon.social':    CATEGORY_SOCIAL,
-
-    # Entertainment
-    'youtube.com':        CATEGORY_ENTERTAINMENT,
-    'netflix.com':        CATEGORY_ENTERTAINMENT,
-    'primevideo.com':     CATEGORY_ENTERTAINMENT,
-    'hotstar.com':        CATEGORY_ENTERTAINMENT,
-    'twitch.tv':          CATEGORY_ENTERTAINMENT,
-    'spotify.com':        CATEGORY_ENTERTAINMENT,
-    'disneyplus.com':     CATEGORY_ENTERTAINMENT,
-    'crunchyroll.com':    CATEGORY_ENTERTAINMENT,
-    'hulu.com':           CATEGORY_ENTERTAINMENT,
-    '9gag.com':           CATEGORY_ENTERTAINMENT,
-    'buzzfeed.com':       CATEGORY_ENTERTAINMENT,
-    'imdb.com':           CATEGORY_ENTERTAINMENT,
-    'soundcloud.com':     CATEGORY_ENTERTAINMENT,
+    # Distracting (Social & Entertainment)
+    'instagram.com':         CATEGORY_DISTRACTING,
+    'facebook.com':          CATEGORY_DISTRACTING,
+    'twitter.com':           CATEGORY_DISTRACTING,
+    'x.com':                 CATEGORY_DISTRACTING,
+    'reddit.com':            CATEGORY_DISTRACTING,
+    'snapchat.com':          CATEGORY_DISTRACTING,
+    'tiktok.com':            CATEGORY_DISTRACTING,
+    'threads.net':           CATEGORY_DISTRACTING,
+    'web.whatsapp.com':      CATEGORY_DISTRACTING,
+    'whatsapp.com':          CATEGORY_DISTRACTING,
+    'pinterest.com':         CATEGORY_DISTRACTING,
+    'tumblr.com':            CATEGORY_DISTRACTING,
+    'mastodon.social':       CATEGORY_DISTRACTING,
+    'youtube.com':           CATEGORY_DISTRACTING,
+    'netflix.com':           CATEGORY_DISTRACTING,
+    'primevideo.com':        CATEGORY_DISTRACTING,
+    'hotstar.com':           CATEGORY_DISTRACTING,
+    'twitch.tv':             CATEGORY_DISTRACTING,
+    'spotify.com':           CATEGORY_DISTRACTING,
+    'disneyplus.com':        CATEGORY_DISTRACTING,
+    'crunchyroll.com':       CATEGORY_DISTRACTING,
+    'hulu.com':              CATEGORY_DISTRACTING,
+    '9gag.com':              CATEGORY_DISTRACTING,
+    'buzzfeed.com':          CATEGORY_DISTRACTING,
+    'imdb.com':              CATEGORY_DISTRACTING,
+    'soundcloud.com':        CATEGORY_DISTRACTING,
 }
 
 
@@ -105,36 +109,49 @@ def clean_domain(domain: str) -> str:
 
 def classify_domain(domain: str, user=None) -> str:
     """
-    Classifies a domain based on:
-    1. User's custom CategoryOverride
-    2. User persona rules (e.g. Influencers treat instagram/youtube as work/Productivity)
-    3. Academic domain pattern (*.edu, *.ac.in) -> Productivity
+    Classifies a domain into exactly three categories:
+    1. Productive sites
+    2. Distracting sites
+    3. Others
+
+    Decision hierarchy:
+    1. User's custom CategoryOverride (supports new and legacy category names)
+    2. User's popup/dashboard lists:
+       - Whitelisted work sites (allowed_sites) -> Productive sites
+       - Distracting sites (blocked_sites) -> Distracting sites
+    3. Academic domain pattern (*.edu, *.ac.in) -> Productive sites
     4. CATEGORY_MAP dictionary lookup
-    5. Fallback -> 'Other' (neutral grey, not counted in productive ratio)
+    5. Fallback -> Others
     """
     d = clean_domain(domain)
     if not d:
-        return CATEGORY_OTHER
+        return CATEGORY_OTHERS
 
     # 1. User manual override
     if user and user.is_authenticated:
         override = CategoryOverride.objects.filter(user=user, domain=d).first()
         if override:
-            return override.category
+            cat = override.category
+            if cat in ('Productivity', 'Productive', CATEGORY_PRODUCTIVE):
+                return CATEGORY_PRODUCTIVE
+            elif cat in ('Social', 'Entertainment', 'Distracting', CATEGORY_DISTRACTING):
+                return CATEGORY_DISTRACTING
+            return CATEGORY_OTHERS
 
-    # 2. Persona adjustments
+    # 2. User's popup & dashboard lists
     if user and user.is_authenticated:
-        profile = getattr(user, 'profile', None)
-        if profile and profile.persona == 'influencer':
-            if d in {'instagram.com', 'youtube.com', 'tiktok.com', 'threads.net'}:
-                return CATEGORY_PRODUCTIVITY
-        elif profile and profile.persona == 'professional':
-            if d in {'linkedin.com', 'slack.com', 'jira.atlassian.com'}:
-                return CATEGORY_PRODUCTIVITY
+        settings = getattr(user, 'settings', None)
+        if settings:
+            allowed = [clean_domain(s) for s in re.split(r'[\r\n,]+', settings.allowed_sites) if clean_domain(s)]
+            blocked = [clean_domain(s) for s in re.split(r'[\r\n,]+', settings.blocked_sites) if clean_domain(s)]
+            if d in allowed:
+                return CATEGORY_PRODUCTIVE
+            if d in blocked:
+                return CATEGORY_DISTRACTING
 
     # 3. Academic domains
     if d.endswith('.edu') or d.endswith('.ac.in') or '.edu.' in d:
-        return CATEGORY_PRODUCTIVITY
+        return CATEGORY_PRODUCTIVE
 
     # 4. Global map lookup
     if d in CATEGORY_MAP:
@@ -145,8 +162,8 @@ def classify_domain(domain: str, user=None) -> str:
         if d.endswith('.' + known_domain):
             return cat
 
-    # 5. Default fallback to Other
-    return CATEGORY_OTHER
+    # 5. Fallback to Others
+    return CATEGORY_OTHERS
 
 
 # ─── Category Override Model ──────────────────────────────────────────────────

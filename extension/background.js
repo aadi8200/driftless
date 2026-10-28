@@ -1,25 +1,54 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // DRIFTLESS BACKGROUND SERVICE WORKER (Manifest V3)
-// Full domain tracking (Productive + Distracting + Other)
-// Per-site limits, 3-tier escalation logic (80% Nudge -> 100% Alert -> +5m DNR block)
-// Focus timer session logging & bidirectional sync with Django REST API.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ALARM_CHECK_TIMER       = 'driftless_check_timer';
-const ALARM_MIDNIGHT_RESET    = 'driftless_midnight_reset';
-const ALARM_PERIODIC_SYNC     = 'driftless_periodic_sync';
-const ALARM_FOCUS_TIMER_END   = 'driftless_focus_timer_end';
+const ALARM_MIDNIGHT_RESET     = 'driftless_midnight_reset';
+const ALARM_PERIODIC_SYNC      = 'driftless_periodic_sync';
+const ALARM_TICK               = 'driftless_tick';
 
-const FOCUS_RULE_BASE_ID      = 100;
-const LIMIT_BLOCK_RULE_BASE_ID= 1000;
-const DEFAULT_SERVER_URL      = 'http://127.0.0.1:8000';
+const FOCUS_RULE_BASE_ID       = 100;    // Dynamic rules 100..899 for Focus Mode
+const LIMIT_BLOCK_RULE_BASE_ID = 1000;   // Dynamic rules 1000..9999 for 100% limit reached
+const DEFAULT_SERVER_URL       = 'http://127.0.0.1:8000';
 
-let currentTabDomain  = null;
-let currentTabStartTime = null;
-let isWindowFocused   = true;
-let isUserActive      = true;
+const PERSONA_DEFAULTS = {
+  Student: {
+    distracting: ['instagram.com', 'facebook.com', 'reddit.com', 'youtube.com'],
+    productive: ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org']
+  },
+  Professional: {
+    distracting: ['instagram.com', 'facebook.com', 'youtube.com', 'x.com'],
+    productive: ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com']
+  },
+  Influencer: {
+    distracting: ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
+    productive: ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so']
+  },
+  Creator: {
+    distracting: ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
+    productive: ['canva.com', 'figma.com', 'behance.net', 'docs.google.com']
+  },
+  Other: {
+    distracting: ['instagram.com', 'youtube.com', 'facebook.com', 'reddit.com'],
+    productive: ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org']
+  }
+};
 
-console.log('Driftless Background Service Worker initialized.');
+function getPersonaKey(raw) {
+  if (!raw) return 'Student';
+  const norm = raw.trim().toLowerCase();
+  if (norm.startsWith('stud')) return 'Student';
+  if (norm.startsWith('prof')) return 'Professional';
+  if (norm.startsWith('influ')) return 'Influencer';
+  if (norm.startsWith('creat')) return 'Creator';
+  return 'Other';
+}
+
+let currentTabDomain   = null;
+let currentTabStartTime= null;
+let isWindowFocused    = true;
+let isUserActive       = true;
+
+console.log('Driftless Background Service Worker started.');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +70,23 @@ async function getServerUrl() {
   return (serverUrl && serverUrl.trim()) ? serverUrl.trim().replace(/\/+$/, '') : DEFAULT_SERVER_URL;
 }
 
+function buildBlockRule(id, domain) {
+  return {
+    id,
+    priority: 1,
+    action: { type: 'block' },
+    condition: {
+      urlFilter: `||${domain}`,
+      resourceTypes: [
+        'main_frame', 'sub_frame', 'xmlhttprequest',
+        'script', 'image', 'stylesheet', 'font', 'media', 'websocket', 'other'
+      ]
+    }
+  };
+}
+
 // ── Time Accumulation ────────────────────────────────────────────────────────
+// "Time counts only while that site's tab is the active tab in a focused window."
 
 async function commitActiveTime() {
   if (!currentTabDomain || !currentTabStartTime || !isWindowFocused || !isUserActive) {
@@ -51,9 +96,9 @@ async function commitActiveTime() {
 
   const now = Date.now();
   const elapsedSeconds = Math.floor((now - currentTabStartTime) / 1000);
-  currentTabStartTime = now;
-
   if (elapsedSeconds <= 0) return;
+
+  currentTabStartTime = now;
 
   const { siteTimes = {}, unsyncedDeltas = {} } = await chrome.storage.local.get([
     'siteTimes', 'unsyncedDeltas'
@@ -66,71 +111,72 @@ async function commitActiveTime() {
   await evaluateSiteLimits(currentTabDomain, siteTimes[currentTabDomain]);
 }
 
-// ── Escalation Logic (80% Nudge -> 100% Alert -> +5m Block) ──────────────────
+// ── Escalation & Limit Enforcement for Distracting Sites ─────────────────────
 
 async function evaluateSiteLimits(domain, totalSeconds) {
   const {
+    distractingSites = [],
+    blockedSites = [],
     siteLimits = {},
     userTimeLimitMinutes = 60,
-    escalationState = {} // { [domain]: { nudged: bool, alerted: bool, blocked: bool } }
-  } = await chrome.storage.local.get(['siteLimits', 'userTimeLimitMinutes', 'escalationState']);
+    escalationState = {} // { [domain]: { nudged: bool, blocked: bool } }
+  } = await chrome.storage.local.get([
+    'distractingSites', 'blockedSites', 'siteLimits', 'userTimeLimitMinutes', 'escalationState'
+  ]);
 
-  const siteConfig = siteLimits[domain];
-  let limitMins = userTimeLimitMinutes;
-  let isEnabled = true;
-
-  if (siteConfig && typeof siteConfig.daily_limit_minutes === 'number') {
-    limitMins = siteConfig.daily_limit_minutes;
-    isEnabled = siteConfig.enabled !== false;
+  // Combined distracting list
+  const allDistracting = Array.from(new Set([...distractingSites, ...blockedSites]));
+  if (!allDistracting.includes(domain)) {
+    // Only distracting sites have limits or blocks. Productive sites have NO timers/blocks.
+    return;
   }
 
-  if (!isEnabled) return;
+  // Determine effective limit for this domain
+  let limitMins = userTimeLimitMinutes || 60;
+  const customLimit = siteLimits[domain];
+  if (customLimit && typeof customLimit.daily_limit_minutes === 'number' && customLimit.daily_limit_minutes > 0) {
+    limitMins = customLimit.daily_limit_minutes;
+  }
+  if (limitMins < 1) limitMins = 1;
 
   const limitSeconds = limitMins * 60;
-  const gracePeriodSeconds = 5 * 60; // 5 minutes grace past 100%
-  const state = escalationState[domain] || { nudged: false, alerted: false, blocked: false };
+  const nudgeSeconds = Math.floor(limitSeconds * 0.8);
+  const state = escalationState[domain] || { nudged: false, blocked: false };
 
-  // 1. 80% Threshold — Gentle Nudge
-  if (totalSeconds >= limitSeconds * 0.8 && !state.nudged) {
+  // 1. At 80% of limit: send ONE Chrome notification as a nudge
+  if (totalSeconds >= nudgeSeconds && !state.nudged) {
     state.nudged = true;
     escalationState[domain] = state;
     await chrome.storage.local.set({ escalationState });
-    sendNudgeNotification(domain, Math.round(totalSeconds / 60), limitMins);
+    sendNudgeNotification(domain);
   }
 
-  // 2. 100% Threshold — Alert
-  if (totalSeconds >= limitSeconds && !state.alerted) {
-    state.alerted = true;
-    escalationState[domain] = state;
-    await chrome.storage.local.set({ escalationState, streakAtRisk: true });
-    sendAlertNotification(domain, limitMins);
-  }
-
-  // 3. 100% + 5m Grace Period Exceeded — Block Site
-  if (totalSeconds >= (limitSeconds + gracePeriodSeconds) && !state.blocked) {
+  // 2. At 100%: send ONE Chrome notification AND block that site with declarativeNetRequest
+  if (totalSeconds >= limitSeconds && !state.blocked) {
     state.blocked = true;
     escalationState[domain] = state;
     await chrome.storage.local.set({ escalationState });
+    sendLimitReachedNotification(domain);
     await blockDomainViaDNR(domain);
   }
 }
 
-function sendNudgeNotification(domain, currentMins, limitMins) {
+function sendNudgeNotification(domain) {
   chrome.notifications.create(`nudge-${domain}-${Date.now()}`, {
     type:     'basic',
     iconUrl:  'icons/icon-128.png',
-    title:    'Driftless — Nudge ⏳',
-    message:  `You've used ${currentMins}m of your ${limitMins}m daily limit on ${domain}.`,
+    title:    'Driftless — Focus Alert',
+    message:  `You've used 80% of your time on ${domain}. Time to get back to your work.`,
     priority: 1
   });
 }
 
-function sendAlertNotification(domain, limitMins) {
-  chrome.notifications.create(`alert-${domain}-${Date.now()}`, {
+function sendLimitReachedNotification(domain) {
+  chrome.notifications.create(`limit-${domain}-${Date.now()}`, {
     type:     'basic',
     iconUrl:  'icons/icon-128.png',
-    title:    'Driftless — 100% Limit Reached ⚠️',
-    message:  `Daily limit of ${limitMins}m reached on ${domain}! 5m grace period active before site is blocked.`,
+    title:    'Driftless — Focus Alert',
+    message:  `Time's up for ${domain}`,
     priority: 2
   });
 }
@@ -138,39 +184,71 @@ function sendAlertNotification(domain, limitMins) {
 async function blockDomainViaDNR(domain) {
   try {
     const existing = await chrome.declarativeNetRequest.getDynamicRules();
-    const existingRule = existing.find(r => r.condition && r.condition.urlFilter === `||${domain}`);
-    
+    const existingRule = existing.find(r => r.id >= LIMIT_BLOCK_RULE_BASE_ID && r.condition && r.condition.urlFilter === `||${domain}`);
     if (existingRule) return;
 
-    const newId = LIMIT_BLOCK_RULE_BASE_ID + Math.floor(Math.random() * 8000);
-    const redirectUrl = chrome.runtime.getURL(`blocked.html?site=${encodeURIComponent(domain)}`);
+    // Generate unique ID in the 1000+ range
+    const usedIds = new Set(existing.map(r => r.id));
+    let newId = LIMIT_BLOCK_RULE_BASE_ID;
+    while (usedIds.has(newId)) newId++;
+
+    const rule = {
+      ...buildBlockRule(newId, domain),
+      priority: 2
+    };
 
     await chrome.declarativeNetRequest.updateDynamicRules({
-      addRules: [{
-        id: newId,
-        priority: 2,
-        action: {
-          type: 'redirect',
-          redirect: { url: redirectUrl }
-        },
-        condition: {
-          urlFilter: `||${domain}`,
-          resourceTypes: ['main_frame']
-        }
-      }],
+      addRules: [rule],
       removeRuleIds: []
     });
+    console.log(`Driftless: 100% daily limit DNR block applied to ${domain} (rule id: ${newId})`);
 
-    console.log(`Driftless: DNR block rule applied to ${domain}`);
-    
-    // Redirect existing active tab if currently on this site
+    // If user's active tab is currently on this domain, reload to trigger DNR block immediately
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (activeTab && cleanDomain(activeTab.url) === domain) {
-      chrome.tabs.update(activeTab.id, { url: redirectUrl });
+      chrome.tabs.reload(activeTab.id);
     }
   } catch (err) {
-    console.error('DNR block rule error:', err);
+    console.error('DNR limit block rule error:', err);
   }
+}
+
+// ── Focus Mode (DNR Rules) ───────────────────────────────────────────────────
+
+async function enableFocusMode() {
+  const { distractingSites = [], blockedSites = [] } = await chrome.storage.local.get([
+    'distractingSites', 'blockedSites'
+  ]);
+  const defaultBlocked = ['instagram.com', 'youtube.com', 'reddit.com', 'x.com'];
+  const rawList = distractingSites.length > 0 ? distractingSites : (blockedSites.length > 0 ? blockedSites : defaultBlocked);
+  const sitesToBlock = Array.from(new Set(rawList.map(cleanDomain).filter(Boolean)));
+
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeIds = existing.filter(r => r.id >= FOCUS_RULE_BASE_ID && r.id < LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
+
+  const addRules = sitesToBlock.map((domain, i) => buildBlockRule(FOCUS_RULE_BASE_ID + i, domain));
+
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: removeIds,
+    addRules
+  });
+  console.log('Driftless: Focus Mode ON — blocking:', sitesToBlock.join(', '));
+
+  // Reload tab if currently viewing a blocked distracting site
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (activeTab && sitesToBlock.includes(cleanDomain(activeTab.url))) {
+    chrome.tabs.reload(activeTab.id);
+  }
+}
+
+async function disableFocusMode() {
+  const existing = await chrome.declarativeNetRequest.getDynamicRules();
+  const removeIds = existing.filter(r => r.id >= FOCUS_RULE_BASE_ID && r.id < LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: removeIds,
+    addRules: []
+  });
+  console.log('Driftless: Focus Mode OFF — dynamic focus rules cleared.');
 }
 
 // ── Tab & Window Tracking Events ─────────────────────────────────────────────
@@ -204,19 +282,24 @@ chrome.windows.onFocusChanged.addListener(async windowId => {
   currentTabStartTime = Date.now();
 });
 
-// Idle Detection (do not count idle time)
-chrome.idle.setDetectionInterval(60); // 60 seconds of inactivity
+// Idle Detection
+chrome.idle.setDetectionInterval(60);
 chrome.idle.onStateChanged.addListener(async newState => {
   await commitActiveTime();
   isUserActive = (newState === 'active');
   currentTabStartTime = Date.now();
 });
 
+// Regular ticker to commit time accurately while browsing on active tab
+setInterval(async () => {
+  await commitActiveTime();
+}, 1000);
+
 // ── Midnight Reset ────────────────────────────────────────────────────────────
 
 async function scheduleMidnightReset() {
   await chrome.alarms.clear(ALARM_MIDNIGHT_RESET);
-  
+
   const now = new Date();
   const midnight = new Date(now);
   midnight.setHours(24, 0, 0, 0);
@@ -233,7 +316,7 @@ async function performMidnightReset() {
   await commitActiveTime();
   await syncToBackend(); // Final flush for yesterday
 
-  // Clear DNR dynamic limit block rules
+  // Clear DNR dynamic limit block rules (1000+)
   const dynamicRules = await chrome.declarativeNetRequest.getDynamicRules();
   const limitRuleIds = dynamicRules
     .filter(r => r.id >= LIMIT_BLOCK_RULE_BASE_ID)
@@ -246,19 +329,19 @@ async function performMidnightReset() {
     });
   }
 
-  // Reset daily usage counters & escalation states
+  // Reset daily counters & escalation states
   await chrome.storage.local.set({
     siteTimes: {},
     unsyncedDeltas: {},
     escalationState: {},
-    streakAtRisk: false,
     lastResetDate: new Date().toISOString().slice(0, 10)
   });
 
-  console.log('Driftless: midnight reset performed successfully.');
+  console.log('Driftless: midnight reset performed successfully. All counters and blocks cleared.');
+  scheduleMidnightReset();
 }
 
-// ── Backend Sync (POST deltas, pull settings & limits) ─────────────────────────
+// ── Backend Sync (Bidirectional Sync) ─────────────────────────────────────────
 
 async function syncToBackend() {
   await commitActiveTime();
@@ -266,15 +349,19 @@ async function syncToBackend() {
   const {
     apiToken,
     unsyncedDeltas = {},
-    siteTimes = {}
-  } = await chrome.storage.local.get(['apiToken', 'unsyncedDeltas', 'siteTimes']);
+    siteTimes = {},
+    distractingSites = [],
+    productiveSites = []
+  } = await chrome.storage.local.get([
+    'apiToken', 'unsyncedDeltas', 'siteTimes', 'distractingSites', 'productiveSites'
+  ]);
 
   if (!apiToken) return;
 
   const serverUrl = await getServerUrl();
   const today = new Date().toISOString().slice(0, 10);
 
-  // Send batch of deltas if any
+  // 1. Push unsynced usage deltas
   const entries = Object.entries(unsyncedDeltas)
     .filter(([, secs]) => secs > 0)
     .map(([website_url, time_spent_seconds]) => ({
@@ -295,88 +382,162 @@ async function syncToBackend() {
       });
 
       if (res.ok) {
-        // Clear synced deltas
-        const remainingDeltas = {};
-        await chrome.storage.local.set({ unsyncedDeltas: remainingDeltas, lastSyncedTime: Date.now() });
+        await chrome.storage.local.set({ unsyncedDeltas: {}, lastSyncedTime: Date.now() });
         console.log(`Driftless sync: pushed ${entries.length} domain logs.`);
       }
     } catch (err) {
-      console.warn('Driftless sync offline / network error:', err);
+      console.warn('Driftless sync offline / push error:', err);
     }
   }
 
-  // Pull settings & site limits from backend
-  await pullBackendConfig(serverUrl, apiToken);
-}
-
-async function pullBackendConfig(serverUrl, apiToken) {
+  // 2. Pull settings, summary, and limits from server (Single Source of Truth)
   try {
-    // 1. Settings
-    const sRes = await fetch(`${serverUrl}/api/settings/`, {
+    const sRes = await fetch(`${serverUrl}/api/summary/`, {
       headers: { 'Authorization': `Token ${apiToken}` }
     });
+
     if (sRes.ok) {
-      const settings = await sRes.json();
-      await chrome.storage.local.set({
-        focusModeActive: settings.focus_mode_active,
-        userTimeLimitMinutes: settings.daily_limit_minutes,
-        streakDays: settings.streak_days,
-        requireChallenge: settings.require_challenge
+      const summary = await sRes.json();
+      const settings = summary.settings || {};
+      const stats = summary.stats || {};
+      const daily = summary.daily || [];
+      const distractions = summary.distractions || [];
+
+      // Streak
+      const streak = settings.streak_days !== undefined ? settings.streak_days : (stats.streak || 0);
+
+      // Focus Mode Active
+      const focusModeActive = !!settings.focus_mode_active;
+
+      // Global Daily Limit
+      const userTimeLimitMinutes = settings.daily_limit_minutes || 60;
+
+      // Synchronize Site Lists:
+      // STRICT RULE: A sync from the server must NEVER replace a non-empty local list with an empty list.
+      const { defaultsSeeded = false, persona = 'Student' } = await chrome.storage.local.get(['defaultsSeeded', 'persona']);
+      const serverPersona = (summary.user && summary.user.persona) ? summary.user.persona : persona;
+      let didSeed = defaultsSeeded;
+
+      let newDistracting = [...distractingSites];
+      if (settings.blocked_sites && settings.blocked_sites.trim()) {
+        const parsedBlocked = settings.blocked_sites.split(/[\r\n,]+/).map(cleanDomain).filter(Boolean);
+        if (parsedBlocked.length > 0) {
+          newDistracting = parsedBlocked;
+        } else if (distractingSites.length > 0) {
+          // Keep non-empty local list and push to server
+          fetch(`${serverUrl}/api/settings/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+            body: JSON.stringify({ blocked_sites: distractingSites.join('\n') })
+          }).catch(() => {});
+        }
+      } else if (distractingSites.length > 0) {
+        // Push local distracting list to server
+        fetch(`${serverUrl}/api/settings/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+          body: JSON.stringify({ blocked_sites: distractingSites.join('\n') })
+        }).catch(() => {});
+      }
+
+      let newProductive = [...productiveSites];
+      if (settings.allowed_sites && settings.allowed_sites.trim()) {
+        const parsedAllowed = settings.allowed_sites.split(/[\r\n,]+/).map(cleanDomain).filter(Boolean);
+        if (parsedAllowed.length > 0) {
+          newProductive = parsedAllowed;
+        } else if (productiveSites.length > 0) {
+          // Keep non-empty local list and push to server
+          fetch(`${serverUrl}/api/settings/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+            body: JSON.stringify({ allowed_sites: productiveSites.join('\n') })
+          }).catch(() => {});
+        }
+      } else if (productiveSites.length > 0) {
+        // Push local productive list to server
+        fetch(`${serverUrl}/api/settings/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+          body: JSON.stringify({ allowed_sites: productiveSites.join('\n') })
+        }).catch(() => {});
+      }
+
+      // If user had empty lists and defaults were never seeded, seed them once from persona
+      if (!defaultsSeeded && newDistracting.length === 0 && newProductive.length === 0) {
+        const pKey = getPersonaKey(serverPersona);
+        const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
+        newDistracting = [...pDef.distracting];
+        newProductive = [...pDef.productive];
+        didSeed = true;
+
+        fetch(`${serverUrl}/api/settings/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+          body: JSON.stringify({
+            blocked_sites: newDistracting.join('\n'),
+            allowed_sites: newProductive.join('\n')
+          })
+        }).catch(() => {});
+      }
+
+      // Never replace non-empty local list with empty list
+      if (distractingSites.length > 0 && newDistracting.length === 0) {
+        newDistracting = distractingSites;
+      }
+      if (productiveSites.length > 0 && newProductive.length === 0) {
+        newProductive = productiveSites;
+      }
+
+      // Sync siteTimes: server today seconds is ground truth, preserve any local unsynced deltas
+      const updatedSiteTimes = { ...siteTimes };
+      daily.forEach(item => {
+        const domain = cleanDomain(item.website_url);
+        if (domain) {
+          const localDelta = (unsyncedDeltas[domain] || 0);
+          updatedSiteTimes[domain] = Math.max(item.total_seconds + localDelta, updatedSiteTimes[domain] || 0);
+        }
       });
-      if (settings.focus_mode_active) {
+
+      // Sync siteLimits
+      const { siteLimits = {} } = await chrome.storage.local.get(['siteLimits']);
+      const updatedSiteLimits = { ...siteLimits };
+      distractions.forEach(item => {
+        const domain = cleanDomain(item.website_url);
+        if (domain && item.limit_id) {
+          updatedSiteLimits[domain] = {
+            id: item.limit_id,
+            domain,
+            daily_limit_minutes: item.limit_minutes,
+            enabled: item.enabled,
+            is_custom: true
+          };
+        }
+      });
+
+      await chrome.storage.local.set({
+        defaultsSeeded: didSeed,
+        streakDays: streak,
+        focusModeActive,
+        userTimeLimitMinutes,
+        distractingSites: newDistracting,
+        blockedSites: newDistracting,
+        productiveSites: newProductive,
+        allowedSites: newProductive,
+        siteTimes: updatedSiteTimes,
+        siteLimits: updatedSiteLimits,
+        lastSyncedTime: Date.now()
+      });
+
+      if (focusModeActive) {
         await enableFocusMode();
       } else {
         await disableFocusMode();
       }
-    }
-
-    // 2. Per-Site Limits
-    const lRes = await fetch(`${serverUrl}/api/limits/`, {
-      headers: { 'Authorization': `Token ${apiToken}` }
-    });
-    if (lRes.ok) {
-      const limitsList = await lRes.json();
-      const siteLimits = {};
-      limitsList.forEach(item => {
-        siteLimits[item.domain] = item;
-      });
-      await chrome.storage.local.set({ siteLimits });
+      console.log('Driftless: bidirectional sync complete.');
     }
   } catch (err) {
-    console.debug('Driftless config pull error:', err);
+    console.debug('Driftless sync pull error:', err);
   }
-}
-
-// ── Focus Mode (DNR Rules) ───────────────────────────────────────────────────
-
-async function enableFocusMode() {
-  const { blockedSites = [] } = await chrome.storage.local.get(['blockedSites']);
-  const defaultBlocked = ['instagram.com', 'youtube.com', 'reddit.com', 'x.com', 'twitter.com', 'tiktok.com', 'netflix.com'];
-  const sitesToBlock = blockedSites.length > 0 ? blockedSites : defaultBlocked;
-
-  const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  const removeIds = existing.filter(r => r.id >= FOCUS_RULE_BASE_ID && r.id < LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
-
-  const addRules = sitesToBlock.map((domain, i) => ({
-    id: FOCUS_RULE_BASE_ID + i,
-    priority: 1,
-    action: {
-      type: 'redirect',
-      redirect: { url: chrome.runtime.getURL(`blocked.html?site=${encodeURIComponent(domain)}`) }
-    },
-    condition: {
-      urlFilter: `||${domain}`,
-      resourceTypes: ['main_frame']
-    }
-  }));
-
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeIds, addRules });
-}
-
-async function disableFocusMode() {
-  const existing = await chrome.declarativeNetRequest.getDynamicRules();
-  const removeIds = existing.filter(r => r.id >= FOCUS_RULE_BASE_ID && r.id < LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
-  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
 }
 
 // ── Alarms & Message Handlers ────────────────────────────────────────────────
@@ -386,53 +547,129 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     await performMidnightReset();
   } else if (alarm.name === ALARM_PERIODIC_SYNC) {
     await syncToBackend();
-  } else if (alarm.name === ALARM_FOCUS_TIMER_END) {
-    // Focus timer completed
-    await disableFocusMode();
-    await chrome.storage.local.set({ focusModeActive: false, focusTimerActive: false });
-    
-    // Log session to backend
-    const { apiToken, lastFocusTimerDuration = 25 } = await chrome.storage.local.get(['apiToken', 'lastFocusTimerDuration']);
-    if (apiToken) {
-      const serverUrl = await getServerUrl();
-      fetch(`${serverUrl}/api/sessions/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-        body: JSON.stringify({ duration_minutes: lastFocusTimerDuration })
-      }).catch(e => console.debug('Session log error:', e));
-    }
-
-    chrome.notifications.create(`focus-done-${Date.now()}`, {
-      type: 'basic',
-      iconUrl: 'icons/icon-128.png',
-      title: 'Driftless — Focus Session Completed! 🎯',
-      message: `Great job! Your ${lastFocusTimerDuration}-minute focus block is complete.`,
-      priority: 2
-    });
   }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message.type === 'START_FOCUS_TIMER') {
-    const durationMins = message.durationMinutes || 25;
-    enableFocusMode()
-      .then(() => chrome.storage.local.set({
-        focusModeActive: true,
-        focusTimerActive: true,
-        focusTimerEndTime: Date.now() + (durationMins * 60 * 1000),
-        lastFocusTimerDuration: durationMins
-      }))
-      .then(() => chrome.alarms.create(ALARM_FOCUS_TIMER_END, { delayInMinutes: durationMins }))
-      .then(() => sendResponse({ success: true }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+  if (message.type === 'SET_FOCUS_MODE') {
+    const isEnabled = !!message.enabled;
+    const action = isEnabled ? enableFocusMode() : disableFocusMode();
+    action
+      .then(() => chrome.storage.local.set({ focusModeActive: isEnabled }))
+      .then(async () => {
+        // Sync to backend if token present
+        const { apiToken } = await chrome.storage.local.get(['apiToken']);
+        if (apiToken) {
+          const serverUrl = await getServerUrl();
+          fetch(`${serverUrl}/api/settings/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+            body: JSON.stringify({ focus_mode_active: isEnabled })
+          }).catch(() => {});
+        }
+        sendResponse({ success: true, focusModeActive: isEnabled });
+      })
+      .catch(err => {
+        console.error('Focus mode error:', err);
+        sendResponse({ success: false, error: err.message });
+      });
     return true;
   }
 
-  if (message.type === 'STOP_FOCUS_TIMER') {
-    chrome.alarms.clear(ALARM_FOCUS_TIMER_END);
-    disableFocusMode()
-      .then(() => chrome.storage.local.set({ focusModeActive: false, focusTimerActive: false }))
-      .then(() => sendResponse({ success: true }));
+  if (message.type === 'UPDATE_SITE_LISTS') {
+    (async () => {
+      const { distractingSites, productiveSites } = message;
+      await chrome.storage.local.set({
+        distractingSites,
+        blockedSites: distractingSites,
+        productiveSites,
+        allowedSites: productiveSites
+      });
+
+      const { focusModeActive, apiToken } = await chrome.storage.local.get(['focusModeActive', 'apiToken']);
+      if (focusModeActive) {
+        await enableFocusMode();
+      }
+
+      // Sync to backend
+      if (apiToken) {
+        const serverUrl = await getServerUrl();
+        fetch(`${serverUrl}/api/settings/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+          body: JSON.stringify({
+            blocked_sites: distractingSites.join('\n'),
+            allowed_sites: productiveSites.join('\n')
+          })
+        }).catch(() => {});
+      }
+
+      sendResponse({ success: true });
+    })();
+    return true;
+  }
+
+  if (message.type === 'SET_GLOBAL_LIMIT') {
+    (async () => {
+      const limitMinutes = parseInt(message.limitMinutes, 10) || 60;
+      await chrome.storage.local.set({ userTimeLimitMinutes: limitMinutes });
+
+      const { apiToken } = await chrome.storage.local.get(['apiToken']);
+      if (apiToken) {
+        const serverUrl = await getServerUrl();
+        fetch(`${serverUrl}/api/settings/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+          body: JSON.stringify({ daily_limit_minutes: limitMinutes })
+        }).catch(() => {});
+      }
+      sendResponse({ success: true });
+    })();
+    return true;
+  }
+
+  if (message.type === 'SET_CUSTOM_LIMIT') {
+    (async () => {
+      const { domain, limitMinutes } = message;
+      const { siteLimits = {}, apiToken } = await chrome.storage.local.get(['siteLimits', 'apiToken']);
+      siteLimits[domain] = {
+        domain,
+        daily_limit_minutes: limitMinutes,
+        enabled: true,
+        is_custom: true
+      };
+      await chrome.storage.local.set({ siteLimits });
+
+      if (apiToken) {
+        const serverUrl = await getServerUrl();
+        fetch(`${serverUrl}/api/limits/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+          body: JSON.stringify({ domain, daily_limit_minutes: limitMinutes, enabled: true })
+        }).catch(() => {});
+      }
+      sendResponse({ success: true });
+    })();
+    return true;
+  }
+
+  if (message.type === 'REMOVE_CUSTOM_LIMIT') {
+    (async () => {
+      const { domain } = message;
+      const { siteLimits = {}, apiToken } = await chrome.storage.local.get(['siteLimits', 'apiToken']);
+      const limitObj = siteLimits[domain];
+      delete siteLimits[domain];
+      await chrome.storage.local.set({ siteLimits });
+
+      if (apiToken && limitObj && limitObj.id) {
+        const serverUrl = await getServerUrl();
+        fetch(`${serverUrl}/api/limits/${limitObj.id}/`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Token ${apiToken}` }
+        }).catch(() => {});
+      }
+      sendResponse({ success: true });
+    })();
     return true;
   }
 
@@ -444,23 +681,25 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message.type === 'RESET_ALL_TIMERS') {
-    chrome.storage.local.set({
-      siteTimes: {},
-      unsyncedDeltas: {},
-      escalationState: {}
-    }).then(async () => {
-      // Clear dynamic block rules
+    (async () => {
+      // Clear limit block rules
       const rules = await chrome.declarativeNetRequest.getDynamicRules();
       const limitIds = rules.filter(r => r.id >= LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
       if (limitIds.length > 0) {
         await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: limitIds, addRules: [] });
       }
+
+      await chrome.storage.local.set({
+        siteTimes: {},
+        unsyncedDeltas: {},
+        escalationState: {}
+      });
       sendResponse({ success: true });
-    });
+    })();
     return true;
   }
 });
 
-// Periodic sync alarm: every 1 minute as requested in Section 4
+// Periodic sync alarm every 1 minute
 chrome.alarms.create(ALARM_PERIODIC_SYNC, { periodInMinutes: 1 });
 scheduleMidnightReset();

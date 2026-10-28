@@ -143,3 +143,61 @@ class DriftlessApiAndDataIsolationTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {new_token}')
         res_new = self.client.get('/api/summary/')
         self.assertEqual(res_new.status_code, 200)
+
+    def test_three_categories_classification(self):
+        # 1. Productive site from allowed_sites list
+        settings = UserSettings.objects.create(
+            user=self.user_a,
+            allowed_sites='github.com\ncustomworksite.org',
+            blocked_sites='instagram.com\ncustomfun.xyz'
+        )
+        self.assertEqual(classify_domain('customworksite.org', user=self.user_a), 'Productive sites')
+        self.assertEqual(classify_domain('customfun.xyz', user=self.user_a), 'Distracting sites')
+        self.assertEqual(classify_domain('unknownunrelated.com', user=self.user_a), 'Others')
+
+    def test_site_lists_and_limits_summary(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
+        settings = UserSettings.objects.create(
+            user=self.user_a,
+            blocked_sites='reddit.com\nyoutube.com',
+            allowed_sites='github.com',
+            daily_limit_minutes=45
+        )
+
+        # Set custom limit on reddit.com = 15m
+        self.client.post('/api/limits/', {
+            'domain': 'reddit.com',
+            'daily_limit_minutes': 15,
+            'enabled': True
+        }, format='json')
+
+        # Log 6m on reddit.com
+        today = datetime.date.today().isoformat()
+        self.client.post('/api/usage/', [{
+            'website_url': 'reddit.com',
+            'time_spent_seconds': 360,
+            'date': today
+        }], format='json')
+
+        # Summary check
+        res = self.client.get('/api/summary/')
+        self.assertEqual(res.status_code, 200)
+        data = res.data
+
+        # Check distractions list: reddit.com has custom limit 15m, 6m used
+        reddit_entry = next((d for d in data['distractions'] if d['website_url'] == 'reddit.com'), None)
+        self.assertIsNotNone(reddit_entry)
+        self.assertEqual(reddit_entry['used_minutes'], 6)
+        self.assertEqual(reddit_entry['limit_minutes'], 15)
+
+        # youtube.com uses global default 45m, 0m used
+        youtube_entry = next((d for d in data['distractions'] if d['website_url'] == 'youtube.com'), None)
+        self.assertIsNotNone(youtube_entry)
+        self.assertEqual(youtube_entry['used_minutes'], 0)
+        self.assertEqual(youtube_entry['limit_minutes'], 45)
+
+        # Verify weekly categories
+        self.assertIn('productive_seconds', data['weekly'][0])
+        self.assertIn('distracting_seconds', data['weekly'][0])
+        self.assertIn('others_seconds', data['weekly'][0])
+
