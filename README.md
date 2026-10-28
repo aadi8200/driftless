@@ -1,107 +1,86 @@
 # Driftless — Digital Wellbeing & Distraction Tracker
 
-> A modern, distraction-free digital wellbeing companion designed to help students, creators, and professionals understand their screen habits, protect deep focus, and maintain daily productivity streaks.
+Driftless is a digital wellbeing tool consisting of a Chrome extension (Manifest V3) and a Django web dashboard. It helps users understand their browsing habits, maintain deep focus, and build daily productivity streaks by automatically categorizing browsing time into **Productive sites**, **Distracting sites**, and **Others**, providing per-site timers, Focus Mode blocking, and bidirectional synchronization.
 
 ---
 
-## 🎯 Architecture Diagram
+## 📁 Project Structure
 
-```mermaid
-graph LR
-    subgraph Browser["User Browser"]
-        EXT["Chrome Extension<br/>(Manifest V3 Service Worker)"]
-        DASH["Web Dashboard<br/>(HTML5 / Chart.js / CSS Tokens)"]
-    end
-
-    subgraph Backend["Django REST API"]
-        AUTH["Token & Session Auth<br/>(/api/auth/)"]
-        USAGE["Delta Usage Ingestion<br/>(/api/usage/)"]
-        LIMITS["Per-Site Limits Engine<br/>(/api/limits/)"]
-        ANALYTICS["Summary & Analytics<br/>(/api/summary/)"]
-    end
-
-    subgraph Database["SQLite / Relational DB"]
-        DB[("Models:<br/>UsageLog<br/>SiteLimit<br/>CategoryOverride<br/>FocusSession<br/>UserSettings")]
-    end
-
-    EXT -- "Active tab dwell & sync (every 60s)" --> USAGE
-    EXT -- "Pull per-site limits & settings" --> LIMITS
-    DASH -- "Fetch 7-day stats & streaks" --> ANALYTICS
-    USAGE --> DB
-    LIMITS --> DB
-    ANALYTICS --> DB
+```
+driftless/
+├── dashboard/               # Django + DRF backend & analytics web dashboard
+│   ├── core/                # Core Django app (models, views, serializers, tests)
+│   ├── driftless/           # Django project configuration (settings, urls, wsgi)
+│   ├── staticfiles/         # Production static assets served by WhiteNoise
+│   ├── manage.py            # Django management CLI
+│   └── requirements.txt     # Python dependencies
+├── docs/                    # Technical & architectural documentation (Markdown)
+├── extension/               # Chrome Extension (Manifest V3)
+│   ├── background.js        # Background service worker (DNR blocking, tracking, sync)
+│   ├── popup.html           # Extension popup interface
+│   ├── popup.js             # Popup controller & state management
+│   ├── manifest.json        # Extension Manifest V3 configuration
+│   ├── theme.css            # Extension styling & theme tokens
+│   └── icons/               # Extension icons (16px, 48px, 128px)
+├── scripts/                 # Developer utility scripts (build_extension.py, build_extension.sh)
+├── .gitignore               # Git ignore patterns
+└── README.md                # Project documentation
 ```
 
 ---
 
-## ✨ Key Features
+## 🚀 How to Run the Backend
 
-1. **Unified Design System**: Single shared design-token system (`theme.css`) with synchronized color palettes, micro-interactions, and typography across the Chrome extension, dashboard, and login portal.
-2. **Universal Productive Time Tracking**: Tracks both productive domains (GitHub, StackOverflow, LeetCode, docs, `.edu`) and distracting sites. Focus efficiency calculates strictly as `Productive / (Productive + Social + Entertainment)`.
-3. **Per-Site Timers & 3-Tier Escalation Logic**:
-   - **80% of limit**: Gentle Chrome notification nudge.
-   - **100% of limit**: Alert notification warning that streak is at risk.
-   - **100% + 5m grace period**: Automatic dynamic blocking via `declarativeNetRequest` redirecting to `blocked.html`.
-4. **Persona Presets**: Student, Professional, Influencer, and Creator personas configure intelligent default limits (e.g. Influencers categorize Instagram/YouTube as work/productive).
-5. **Category Overrides & Whitelists**: Manage domain categories and whitelist critical work portals from the dashboard settings.
-6. **Focus Timer Blocks**: Preset focus sprints (25, 45, 60 minutes) in the popup with session logging and daily focus goal rings.
-7. **Strict Privacy Architecture**: Only domains and seconds are stored. Driftless never accesses page content, passwords, or browsing history. Includes 1-click JSON Data Export and Data Erase.
+1. **Navigate to the dashboard directory**:
+   ```bash
+   cd dashboard
+   ```
 
----
+2. **Activate the virtual environment**:
+   - Windows (PowerShell):
+     ```powershell
+     .\venv\Scripts\Activate.ps1
+     ```
+   - Windows (CMD):
+     ```cmd
+     .\venv\Scripts\activate.bat
+     ```
+   - Linux / macOS:
+     ```bash
+     source venv/bin/activate
+     ```
 
-## 🛠️ Technology Stack
+3. **Apply database migrations**:
+   ```bash
+   python manage.py migrate
+   ```
 
-- **Backend**: Python 3.10+, Django 4.2 LTS, Django REST Framework, django-cors-headers, WhiteNoise
-- **Frontend**: Django Templates, Vanilla CSS Variables (`theme.css`), Tailwind CSS utility bridge, Chart.js 4.4
-- **Chrome Extension**: Manifest V3 Service Worker, `chrome.declarativeNetRequest`, `chrome.storage.local`, `chrome.alarms`, `chrome.idle`
-- **Database**: SQLite (local/dev & PythonAnywhere) / PostgreSQL ready
-
----
-
-## 🚀 Getting Started
-
-### 1. Clone & Set Up the Backend
-```powershell
-# Navigate to project root
-cd c:\Users\AADI\Desktop\driftless\dashboard
-
-# Activate virtual environment
-.\venv\Scripts\Activate.ps1
-
-# Run database migrations
-python manage.py migrate
-
-# Seed evaluator account with 14 days of realistic consistent history
-python manage.py seed_demo
-
-# Start the dev server
-python manage.py runserver 0.0.0.0:8000
-```
-
-### 2. Evaluator Demo Account
-- **Username / Email**: `demo@driftless.app` (or `demo`)
-- **Password**: `demo123456`
-- **Pre-loaded with**: 14 days of consistent usage data, a 14-day unbroken streak, and custom site limits.
-
-### 3. Load the Chrome Extension
-1. Open Google Chrome and go to `chrome://extensions`.
-2. Toggle on **Developer mode** (top-right).
-3. Click **Load unpacked** and select the `/extension` directory (or use `driftless-extension.zip`).
-4. Click the Driftless extension icon in your toolbar, log in or paste your API token from the dashboard.
+4. **Start the development server**:
+   ```bash
+   python manage.py runserver 127.0.0.1:8000
+   ```
+   The dashboard is now live at [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
 
 ---
 
-## 🧪 Running Automated Tests
-```powershell
-cd dashboard
-python manage.py test
-```
-*Runs all unit and API tests validating data isolation, domain classification, and token authentication.*
+## 🧩 How to Load the Chrome Extension
+
+1. Open Google Chrome and navigate to:
+   ```
+   chrome://extensions
+   ```
+2. Enable **Developer mode** using the toggle switch in the top-right corner.
+3. Click the **Load unpacked** button in the top-left corner.
+4. Select the `extension/` folder located inside the `driftless` repository.
+5. The **Driftless** icon will now appear in your browser toolbar and extensions menu.
 
 ---
 
-## 📸 Screenshots & Previews
+## 🔗 How to Link the Token
 
-| Auth & Landing Portal | Analytics Dashboard | Chrome Extension Popup | Site Blocked Notice |
-| :---: | :---: | :---: | :---: |
-| Clean theme gradient & persona selector | Focus goal rings, bar/trend charts | Per-site timers & focus sprints | Streak-protective block page |
+1. Open the Driftless web dashboard at [http://127.0.0.1:8000/](http://127.0.0.1:8000/).
+2. Log in to your account (or create a new account).
+3. In the dashboard top-right header or Settings, copy your **API Token** (e.g. `9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b`).
+4. Click the **Driftless extension icon** in your browser toolbar to open the popup.
+5. In the **Sync & Account** card, paste your API token into the **API Token** input field.
+6. Click **Save**. The status dot will turn green (**Connected**) and your lists, daily timers, limits, and streaks will automatically synchronize with the server.

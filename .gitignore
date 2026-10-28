@@ -1,3 +1,19 @@
+# ── DRIFTLESS — Essential Ignore Patterns ─────────────────────────────────────
+venv/
+**/venv/
+__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+db.sqlite3
+db.sqlite3-journal
+.env
+.DS_Store
+Thumbs.db
+node_modules/
+*.zip
+*.log
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
