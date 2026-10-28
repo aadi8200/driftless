@@ -92,11 +92,6 @@ async function seedPersonaDefaults(personaName, force = false) {
     'apiToken'
   ]);
 
-  // If already seeded once and not forced, do not re-seed (preserves user deletions)
-  if (data.defaultsSeeded && !force) {
-    return false;
-  }
-
   const existingDist = (data.distractingSites && data.distractingSites.length > 0)
     ? data.distractingSites
     : (data.blockedSites && data.blockedSites.length > 0 ? data.blockedSites : []);
@@ -104,6 +99,7 @@ async function seedPersonaDefaults(personaName, force = false) {
     ? data.productiveSites
     : (data.allowedSites && data.allowedSites.length > 0 ? data.allowedSites : []);
 
+  // If both lists already have items and not forcing, keep existing user choices
   if (existingDist.length > 0 && existingProd.length > 0 && !force) {
     await chrome.storage.local.set({ defaultsSeeded: true });
     return false;
@@ -176,9 +172,9 @@ async function checkOnboardingState() {
     if (onboardingView) onboardingView.style.display = 'none';
     if (mainView) mainView.style.display = 'block';
 
-    // Seed defaults once if lists are empty and never seeded (e.g. existing user/token)
-    if (!defaultsSeeded && !hasLists) {
-      await seedPersonaDefaults(persona || 'Student');
+    // Ensure defaults are populated if lists are empty
+    if (!hasLists) {
+      await seedPersonaDefaults(persona || 'Student', true);
     }
   }
 }
@@ -294,7 +290,7 @@ async function loadPopupState() {
   let distracting = data.distractingSites || data.blockedSites || [];
   let productive = data.productiveSites || data.allowedSites || [];
 
-  if (!data.defaultsSeeded && distracting.length === 0 && productive.length === 0) {
+  if (distracting.length === 0 && productive.length === 0) {
     const pKey = getPersonaKey(data.persona || selectedPersona || 'Student');
     const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
     distracting = [...pDef.distracting];
@@ -387,7 +383,7 @@ function renderLastSynced(lastSyncedTime) {
 // ── Distracting Sites List ───────────────────────────────────────────────────
 
 function renderDistractingSites(sites, siteTimes, siteLimits, globalLimit) {
-  const container = document.getElementById('distractingListContainer');
+  const container = document.getElementById('distractingSitesContainer') || document.getElementById('distractingListContainer');
   if (!container) return;
 
   if (!sites || sites.length === 0) {
@@ -451,7 +447,7 @@ function renderDistractingSites(sites, siteTimes, siteLimits, globalLimit) {
 // ── Productive Sites List ────────────────────────────────────────────────────
 
 function renderProductiveSites(sites, siteTimes) {
-  const container = document.getElementById('productiveListContainer');
+  const container = document.getElementById('productiveSitesContainer') || document.getElementById('productiveListContainer');
   if (!container) return;
 
   if (!sites || sites.length === 0) {
@@ -696,12 +692,14 @@ function setupEventListeners() {
   if (focusToggle) {
     focusToggle.addEventListener('change', async e => {
       const isChecked = e.target.checked;
+      await chrome.storage.local.set({ focusModeActive: isChecked });
       chrome.runtime.sendMessage({
         type: 'SET_FOCUS_MODE',
         enabled: isChecked
       }, res => {
         if (!res || !res.success) {
           focusToggle.checked = !isChecked;
+          chrome.storage.local.set({ focusModeActive: !isChecked });
         }
       });
     });

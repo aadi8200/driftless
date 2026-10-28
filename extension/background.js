@@ -43,23 +43,44 @@ function getPersonaKey(raw) {
   return 'Other';
 }
 
-let currentTabDomain   = null;
-let currentTabStartTime= null;
-let isWindowFocused    = true;
-let isUserActive       = true;
+let currentTabDomain    = null;
+let lastCommitTimestamp = Date.now();
+let isWindowFocused     = true;
+let isUserActive        = true;
+let isCommitting        = false;
 
 console.log('Driftless Background Service Worker started.');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function cleanDomain(url) {
-  if (!url) return null;
+  if (!url || typeof url !== 'string') return null;
+  let str = url.trim().toLowerCase();
+  if (!str) return null;
+  if (str.startsWith('chrome:') || str.startsWith('about:') || str.startsWith('edge:') || str.startsWith('chrome-extension:')) {
+    return null;
+  }
+  if (!/^https?:\/\//i.test(str)) {
+    str = 'https://' + str;
+  }
   try {
-    const u = new URL(url);
+    const u = new URL(str);
     if (!['http:', 'https:'].includes(u.protocol)) return null;
     let host = u.hostname.toLowerCase();
     if (host.startsWith('www.')) host = host.slice(4);
-    return host;
+    return host || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getActiveTabSafe() {
+  try {
+    let [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true }).catch(() => []);
+    if (!tab) {
+      [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+    }
+    return tab || null;
   } catch (e) {
     return null;
   }
@@ -86,29 +107,76 @@ function buildBlockRule(id, domain) {
 }
 
 // ── Time Accumulation ────────────────────────────────────────────────────────
-// "Time counts only while that site's tab is the active tab in a focused window."
+// Driven by active tab events, setInterval when active, and chrome.alarms when waking up.
 
 async function commitActiveTime() {
-  if (!currentTabDomain || !currentTabStartTime || !isWindowFocused || !isUserActive) {
-    currentTabStartTime = Date.now();
-    return;
+  if (isCommitting) return;
+  isCommitting = true;
+  try {
+    const now = Date.now();
+    const data = await chrome.storage.local.get([
+      'activeTrackingSession',
+      'siteTimes',
+      'unsyncedDeltas'
+    ]);
+
+    const session = data.activeTrackingSession || {};
+    const siteTimes = data.siteTimes || {};
+    const unsyncedDeltas = data.unsyncedDeltas || {};
+
+    const domain = currentTabDomain || session.domain || null;
+    const lastTime = session.lastCommitTimestamp || lastCommitTimestamp || now;
+    const focused = isWindowFocused && (session.isWindowFocused !== false);
+    const active = isUserActive && (session.isUserActive !== false);
+
+    if (!domain || !focused || !active) {
+      lastCommitTimestamp = now;
+      await chrome.storage.local.set({
+        activeTrackingSession: {
+          domain: currentTabDomain,
+          lastCommitTimestamp: now,
+          isWindowFocused,
+          isUserActive
+        }
+      });
+      return;
+    }
+
+    const elapsedSeconds = Math.floor((now - lastTime) / 1000);
+    if (elapsedSeconds <= 0) return;
+
+    // Cap elapsed time to 300s (5m) to avoid runaway accumulation across system suspends
+    let effectiveElapsed = Math.min(elapsedSeconds, 300);
+    try {
+      const idleState = await chrome.idle.queryState(60);
+      if (idleState !== 'active') {
+        isUserActive = false;
+        effectiveElapsed = Math.min(effectiveElapsed, 60);
+      }
+    } catch (e) {}
+
+    lastCommitTimestamp = now;
+
+    siteTimes[domain] = (siteTimes[domain] || 0) + effectiveElapsed;
+    unsyncedDeltas[domain] = (unsyncedDeltas[domain] || 0) + effectiveElapsed;
+
+    await chrome.storage.local.set({
+      siteTimes,
+      unsyncedDeltas,
+      activeTrackingSession: {
+        domain,
+        lastCommitTimestamp: now,
+        isWindowFocused,
+        isUserActive
+      }
+    });
+
+    await evaluateSiteLimits(domain, siteTimes[domain]);
+  } catch (err) {
+    console.error('Error committing active time:', err);
+  } finally {
+    isCommitting = false;
   }
-
-  const now = Date.now();
-  const elapsedSeconds = Math.floor((now - currentTabStartTime) / 1000);
-  if (elapsedSeconds <= 0) return;
-
-  currentTabStartTime = now;
-
-  const { siteTimes = {}, unsyncedDeltas = {} } = await chrome.storage.local.get([
-    'siteTimes', 'unsyncedDeltas'
-  ]);
-
-  siteTimes[currentTabDomain] = (siteTimes[currentTabDomain] || 0) + elapsedSeconds;
-  unsyncedDeltas[currentTabDomain] = (unsyncedDeltas[currentTabDomain] || 0) + elapsedSeconds;
-
-  await chrome.storage.local.set({ siteTimes, unsyncedDeltas });
-  await evaluateSiteLimits(currentTabDomain, siteTimes[currentTabDomain]);
 }
 
 // ── Escalation & Limit Enforcement for Distracting Sites ─────────────────────
@@ -125,7 +193,7 @@ async function evaluateSiteLimits(domain, totalSeconds) {
   ]);
 
   // Combined distracting list
-  const allDistracting = Array.from(new Set([...distractingSites, ...blockedSites]));
+  const allDistracting = Array.from(new Set([...distractingSites, ...blockedSites].map(cleanDomain).filter(Boolean)));
   if (!allDistracting.includes(domain)) {
     // Only distracting sites have limits or blocks. Productive sites have NO timers/blocks.
     return;
@@ -204,7 +272,7 @@ async function blockDomainViaDNR(domain) {
     console.log(`Driftless: 100% daily limit DNR block applied to ${domain} (rule id: ${newId})`);
 
     // If user's active tab is currently on this domain, reload to trigger DNR block immediately
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const activeTab = await getActiveTabSafe();
     if (activeTab && cleanDomain(activeTab.url) === domain) {
       chrome.tabs.reload(activeTab.id);
     }
@@ -216,12 +284,20 @@ async function blockDomainViaDNR(domain) {
 // ── Focus Mode (DNR Rules) ───────────────────────────────────────────────────
 
 async function enableFocusMode() {
-  const { distractingSites = [], blockedSites = [] } = await chrome.storage.local.get([
-    'distractingSites', 'blockedSites'
+  const {
+    distractingSites = [],
+    blockedSites = [],
+    productiveSites = [],
+    allowedSites = []
+  } = await chrome.storage.local.get([
+    'distractingSites', 'blockedSites', 'productiveSites', 'allowedSites'
   ]);
   const defaultBlocked = ['instagram.com', 'youtube.com', 'reddit.com', 'x.com'];
   const rawList = distractingSites.length > 0 ? distractingSites : (blockedSites.length > 0 ? blockedSites : defaultBlocked);
-  const sitesToBlock = Array.from(new Set(rawList.map(cleanDomain).filter(Boolean)));
+  const productiveList = new Set([...productiveSites, ...allowedSites].map(cleanDomain).filter(Boolean));
+  // Productive sites stay accessible as normal
+  const sitesToBlock = Array.from(new Set(rawList.map(cleanDomain).filter(Boolean)))
+    .filter(domain => !productiveList.has(domain));
 
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeIds = existing.filter(r => r.id >= FOCUS_RULE_BASE_ID && r.id < LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
@@ -235,7 +311,7 @@ async function enableFocusMode() {
   console.log('Driftless: Focus Mode ON — blocking:', sitesToBlock.join(', '));
 
   // Reload tab if currently viewing a blocked distracting site
-  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const activeTab = await getActiveTabSafe();
   if (activeTab && sitesToBlock.includes(cleanDomain(activeTab.url))) {
     chrome.tabs.reload(activeTab.id);
   }
@@ -256,9 +332,17 @@ async function disableFocusMode() {
 async function onActiveTabChanged() {
   await commitActiveTime();
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = await getActiveTabSafe();
     currentTabDomain = cleanDomain(tab?.url);
-    currentTabStartTime = Date.now();
+    lastCommitTimestamp = Date.now();
+    await chrome.storage.local.set({
+      activeTrackingSession: {
+        domain: currentTabDomain,
+        lastCommitTimestamp,
+        isWindowFocused,
+        isUserActive
+      }
+    });
   } catch (e) {
     currentTabDomain = null;
   }
@@ -272,14 +356,30 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
     await commitActiveTime();
     currentTabDomain = cleanDomain(tab.url);
-    currentTabStartTime = Date.now();
+    lastCommitTimestamp = Date.now();
+    await chrome.storage.local.set({
+      activeTrackingSession: {
+        domain: currentTabDomain,
+        lastCommitTimestamp,
+        isWindowFocused,
+        isUserActive
+      }
+    });
   }
 });
 
 chrome.windows.onFocusChanged.addListener(async windowId => {
   await commitActiveTime();
   isWindowFocused = (windowId !== chrome.windows.WINDOW_ID_NONE);
-  currentTabStartTime = Date.now();
+  lastCommitTimestamp = Date.now();
+  await chrome.storage.local.set({
+    activeTrackingSession: {
+      domain: currentTabDomain,
+      lastCommitTimestamp,
+      isWindowFocused,
+      isUserActive
+    }
+  });
 });
 
 // Idle Detection
@@ -287,7 +387,15 @@ chrome.idle.setDetectionInterval(60);
 chrome.idle.onStateChanged.addListener(async newState => {
   await commitActiveTime();
   isUserActive = (newState === 'active');
-  currentTabStartTime = Date.now();
+  lastCommitTimestamp = Date.now();
+  await chrome.storage.local.set({
+    activeTrackingSession: {
+      domain: currentTabDomain,
+      lastCommitTimestamp,
+      isWindowFocused,
+      isUserActive
+    }
+  });
 });
 
 // Regular ticker to commit time accurately while browsing on active tab
@@ -462,8 +570,8 @@ async function syncToBackend() {
         }).catch(() => {});
       }
 
-      // If user had empty lists and defaults were never seeded, seed them once from persona
-      if (!defaultsSeeded && newDistracting.length === 0 && newProductive.length === 0) {
+      // If user has empty lists, seed them from persona defaults
+      if (newDistracting.length === 0 && newProductive.length === 0) {
         const pKey = getPersonaKey(serverPersona);
         const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
         newDistracting = [...pDef.distracting];
@@ -542,21 +650,48 @@ async function syncToBackend() {
 
 // ── Alarms & Message Handlers ────────────────────────────────────────────────
 
+chrome.runtime.onInstalled.addListener(async () => {
+  const data = await chrome.storage.local.get(['distractingSites', 'productiveSites', 'persona']);
+  const hasDist = Array.isArray(data.distractingSites) && data.distractingSites.length > 0;
+  const hasProd = Array.isArray(data.productiveSites) && data.productiveSites.length > 0;
+  if (!hasDist || !hasProd) {
+    const pKey = getPersonaKey(data.persona || 'Student');
+    const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
+    const distractingSites = hasDist ? data.distractingSites : [...pDef.distracting];
+    const productiveSites = hasProd ? data.productiveSites : [...pDef.productive];
+    await chrome.storage.local.set({
+      defaultsSeeded: true,
+      persona: pKey,
+      distractingSites,
+      blockedSites: distractingSites,
+      productiveSites,
+      allowedSites: productiveSites
+    });
+  }
+});
+
 chrome.alarms.onAlarm.addListener(async alarm => {
   if (alarm.name === ALARM_MIDNIGHT_RESET) {
     await performMidnightReset();
   } else if (alarm.name === ALARM_PERIODIC_SYNC) {
     await syncToBackend();
+  } else if (alarm.name === ALARM_TICK) {
+    await commitActiveTime();
   }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'SET_FOCUS_MODE') {
-    const isEnabled = !!message.enabled;
-    const action = isEnabled ? enableFocusMode() : disableFocusMode();
-    action
-      .then(() => chrome.storage.local.set({ focusModeActive: isEnabled }))
-      .then(async () => {
+    (async () => {
+      try {
+        const isEnabled = !!message.enabled;
+        await chrome.storage.local.set({ focusModeActive: isEnabled });
+        if (isEnabled) {
+          await enableFocusMode();
+        } else {
+          await disableFocusMode();
+        }
+
         // Sync to backend if token present
         const { apiToken } = await chrome.storage.local.get(['apiToken']);
         if (apiToken) {
@@ -568,11 +703,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           }).catch(() => {});
         }
         sendResponse({ success: true, focusModeActive: isEnabled });
-      })
-      .catch(err => {
+      } catch (err) {
         console.error('Focus mode error:', err);
         sendResponse({ success: false, error: err.message });
-      });
+      }
+    })();
     return true;
   }
 
@@ -631,21 +766,45 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'SET_CUSTOM_LIMIT') {
     (async () => {
       const { domain, limitMinutes } = message;
-      const { siteLimits = {}, apiToken } = await chrome.storage.local.get(['siteLimits', 'apiToken']);
-      siteLimits[domain] = {
-        domain,
+      const cleanDom = cleanDomain(domain) || domain;
+      const { siteLimits = {}, siteTimes = {}, escalationState = {}, apiToken } = await chrome.storage.local.get([
+        'siteLimits', 'siteTimes', 'escalationState', 'apiToken'
+      ]);
+      siteLimits[cleanDom] = {
+        domain: cleanDom,
         daily_limit_minutes: limitMinutes,
         enabled: true,
         is_custom: true
       };
-      await chrome.storage.local.set({ siteLimits });
+
+      // If user increased limit above current usage, reset blocked state and remove dynamic DNR limit block
+      const currentSeconds = siteTimes[cleanDom] || 0;
+      const newLimitSeconds = limitMinutes * 60;
+      const newNudgeSeconds = Math.floor(newLimitSeconds * 0.8);
+      const state = escalationState[cleanDom] || { nudged: false, blocked: false };
+
+      if (currentSeconds < newLimitSeconds && state.blocked) {
+        state.blocked = false;
+        const rules = await chrome.declarativeNetRequest.getDynamicRules();
+        const ruleToRemove = rules.find(r => r.id >= LIMIT_BLOCK_RULE_BASE_ID && r.condition && r.condition.urlFilter === `||${cleanDom}`);
+        if (ruleToRemove) {
+          await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [ruleToRemove.id], addRules: [] });
+        }
+      }
+      if (currentSeconds < newNudgeSeconds) {
+        state.nudged = false;
+      }
+      escalationState[cleanDom] = state;
+
+      await chrome.storage.local.set({ siteLimits, escalationState });
+      await evaluateSiteLimits(cleanDom, currentSeconds);
 
       if (apiToken) {
         const serverUrl = await getServerUrl();
         fetch(`${serverUrl}/api/limits/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
-          body: JSON.stringify({ domain, daily_limit_minutes: limitMinutes, enabled: true })
+          body: JSON.stringify({ domain: cleanDom, daily_limit_minutes: limitMinutes, enabled: true })
         }).catch(() => {});
       }
       sendResponse({ success: true });
@@ -700,6 +859,58 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-// Periodic sync alarm every 1 minute
-chrome.alarms.create(ALARM_PERIODIC_SYNC, { periodInMinutes: 1 });
-scheduleMidnightReset();
+// ── Alarms & Tracker Initialization ──────────────────────────────────────────
+
+async function setupAlarms() {
+  const existing = await chrome.alarms.getAll();
+  const existingNames = new Set(existing.map(a => a.name));
+
+  if (!existingNames.has(ALARM_TICK)) {
+    chrome.alarms.create(ALARM_TICK, { periodInMinutes: 1 });
+  }
+  if (!existingNames.has(ALARM_PERIODIC_SYNC)) {
+    chrome.alarms.create(ALARM_PERIODIC_SYNC, { periodInMinutes: 1 });
+  }
+  scheduleMidnightReset();
+}
+
+async function initTracker() {
+  try {
+    const lastFocused = await chrome.windows.getLastFocused({ populate: false }).catch(() => null);
+    if (lastFocused) {
+      isWindowFocused = !!lastFocused.focused;
+    }
+    const tab = await getActiveTabSafe();
+    if (tab && tab.url) {
+      currentTabDomain = cleanDomain(tab.url);
+    }
+    lastCommitTimestamp = Date.now();
+    await commitActiveTime();
+  } catch (e) {
+    console.error('Failed to init tracker:', e);
+  }
+}
+
+// Storage change listener to ensure Focus Mode is applied whenever storage changes
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+  if (areaName !== 'local') return;
+  if (changes.focusModeActive && changes.focusModeActive.oldValue !== changes.focusModeActive.newValue) {
+    const isEnabled = !!changes.focusModeActive.newValue;
+    if (isEnabled) {
+      await enableFocusMode();
+    } else {
+      await disableFocusMode();
+    }
+  }
+});
+
+// Run tracker initialization and setup alarms
+initTracker();
+setupAlarms();
+
+// Also check Focus Mode state on startup to ensure rules are active if enabled
+chrome.storage.local.get(['focusModeActive'], async ({ focusModeActive }) => {
+  if (focusModeActive) {
+    await enableFocusMode();
+  }
+});
