@@ -7,23 +7,33 @@ const DEFAULT_SERVER_URL = 'http://127.0.0.1:8000';
 const PERSONA_DEFAULTS = {
   Student: {
     distracting: ['instagram.com', 'facebook.com', 'reddit.com', 'youtube.com'],
-    productive: ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org']
+    productive: ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org'],
+    scheduleStart: '20:00',
+    scheduleEnd: '22:30'
   },
   Professional: {
     distracting: ['instagram.com', 'facebook.com', 'youtube.com', 'x.com'],
-    productive: ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com']
+    productive: ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com'],
+    scheduleStart: '09:00',
+    scheduleEnd: '12:00'
   },
   Influencer: {
     distracting: ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
-    productive: ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so']
+    productive: ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so'],
+    scheduleStart: '14:00',
+    scheduleEnd: '17:00'
   },
   Creator: {
     distracting: ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
-    productive: ['canva.com', 'figma.com', 'behance.net', 'docs.google.com']
+    productive: ['canva.com', 'figma.com', 'behance.net', 'docs.google.com'],
+    scheduleStart: '10:00',
+    scheduleEnd: '13:00'
   },
   Other: {
     distracting: ['instagram.com', 'youtube.com', 'facebook.com', 'reddit.com'],
-    productive: ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org']
+    productive: ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org'],
+    scheduleStart: '19:00',
+    scheduleEnd: '21:00'
   }
 };
 
@@ -110,6 +120,9 @@ async function seedPersonaDefaults(personaName, force = false) {
 
   const distractingSites = [...pDef.distracting];
   const productiveSites = [...pDef.productive];
+  const scheduleStart = data.scheduleStart || pDef.scheduleStart || '20:00';
+  const scheduleEnd = data.scheduleEnd || pDef.scheduleEnd || '22:30';
+  const scheduleEnabled = data.scheduleEnabled !== undefined ? data.scheduleEnabled : false;
 
   await chrome.storage.local.set({
     defaultsSeeded: true,
@@ -117,7 +130,18 @@ async function seedPersonaDefaults(personaName, force = false) {
     distractingSites,
     blockedSites: distractingSites,
     productiveSites,
-    allowedSites: productiveSites
+    allowedSites: productiveSites,
+    scheduleStart,
+    scheduleEnd,
+    scheduleEnabled
+  });
+
+  // Notify background to update schedule
+  chrome.runtime.sendMessage({
+    type: 'UPDATE_SCHEDULE',
+    scheduleStart,
+    scheduleEnd,
+    scheduleEnabled
   });
 
   // Notify background to update DNR rules and internal tracking immediately
@@ -317,6 +341,10 @@ async function loadPopupState() {
   const focusToggle = document.getElementById('focusToggle');
   if (focusToggle) focusToggle.checked = focusModeActive;
 
+  // 2b. Scheduled Focus Mode
+  const { scheduleEnabled = false, scheduleStart = '20:00', scheduleEnd = '22:00' } = data;
+  renderScheduleStatus(scheduleEnabled, scheduleStart, scheduleEnd);
+
   // 3. Global Default Timer
   const globalLabel = document.getElementById('globalLimitLabel');
   if (globalLabel) globalLabel.textContent = `${globalLimit}m`;
@@ -361,6 +389,52 @@ function renderStreakBadge(streak) {
     textEl.textContent = '1-Day Streak';
   } else {
     textEl.textContent = `${count}-Day Streak`;
+  }
+}
+
+function formatTime12h(timeStr) {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return timeStr;
+  let h = parseInt(parts[0], 10);
+  const m = parts[1].padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+function isInsideSchedule(startStr, endStr) {
+  if (!startStr || !endStr) return false;
+  const sParts = startStr.split(':').map(Number);
+  const eParts = endStr.split(':').map(Number);
+  if (isNaN(sParts[0]) || isNaN(eParts[0])) return false;
+  const startMin = sParts[0] * 60 + (sParts[1] || 0);
+  const endMin = eParts[0] * 60 + (eParts[1] || 0);
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  if (startMin < endMin) {
+    return nowMin >= startMin && nowMin < endMin;
+  } else {
+    return nowMin >= startMin || nowMin < endMin;
+  }
+}
+
+function renderScheduleStatus(enabled, startStr = '20:00', endStr = '22:00') {
+  const toggle = document.getElementById('scheduleToggle');
+  const statusText = document.getElementById('scheduleStatusText');
+  if (toggle) toggle.checked = !!enabled;
+  if (!statusText) return;
+
+  if (!enabled) {
+    statusText.textContent = 'Schedule off';
+  } else {
+    const inside = isInsideSchedule(startStr, endStr);
+    if (inside) {
+      statusText.textContent = `Active until ${formatTime12h(endStr)}`;
+    } else {
+      statusText.textContent = `Next focus: ${formatTime12h(startStr)}`;
+    }
   }
 }
 
@@ -705,6 +779,22 @@ function setupEventListeners() {
     });
   }
 
+  // 1b. Scheduled Focus Mode Toggle
+  const schedToggle = document.getElementById('scheduleToggle');
+  if (schedToggle) {
+    schedToggle.addEventListener('change', async e => {
+      const isChecked = e.target.checked;
+      chrome.runtime.sendMessage({
+        type: 'UPDATE_SCHEDULE',
+        scheduleEnabled: isChecked
+      }, res => {
+        chrome.storage.local.get(['scheduleStart', 'scheduleEnd'], d => {
+          renderScheduleStatus(isChecked, d.scheduleStart || '20:00', d.scheduleEnd || '22:00');
+        });
+      });
+    });
+  }
+
   // 2. Add Distracting Site
   const addDistBtn = document.getElementById('addDistractingBtn');
   const addDistInput = document.getElementById('addDistractingInput');
@@ -872,3 +962,17 @@ function setupEventListeners() {
     });
   }
 }
+
+// Keep popup in sync if storage changes while popup is open
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (changes.scheduleEnabled || changes.scheduleStart || changes.scheduleEnd) {
+    chrome.storage.local.get(['scheduleEnabled', 'scheduleStart', 'scheduleEnd'], d => {
+      renderScheduleStatus(d.scheduleEnabled, d.scheduleStart, d.scheduleEnd);
+    });
+  }
+  if (changes.focusModeActive) {
+    const fToggle = document.getElementById('focusToggle');
+    if (fToggle) fToggle.checked = !!changes.focusModeActive.newValue;
+  }
+});

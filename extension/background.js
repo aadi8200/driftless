@@ -5,6 +5,8 @@
 const ALARM_MIDNIGHT_RESET     = 'driftless_midnight_reset';
 const ALARM_PERIODIC_SYNC      = 'driftless_periodic_sync';
 const ALARM_TICK               = 'driftless_tick';
+const ALARM_SCHEDULE_START     = 'driftless_schedule_start';
+const ALARM_SCHEDULE_END       = 'driftless_schedule_end';
 
 const FOCUS_RULE_BASE_ID       = 100;    // Dynamic rules 100..899 for Focus Mode
 const LIMIT_BLOCK_RULE_BASE_ID = 1000;   // Dynamic rules 1000..9999 for 100% limit reached
@@ -13,23 +15,33 @@ const DEFAULT_SERVER_URL       = 'http://127.0.0.1:8000';
 const PERSONA_DEFAULTS = {
   Student: {
     distracting: ['instagram.com', 'facebook.com', 'reddit.com', 'youtube.com'],
-    productive: ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org']
+    productive: ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org'],
+    scheduleStart: '20:00',
+    scheduleEnd: '22:30'
   },
   Professional: {
     distracting: ['instagram.com', 'facebook.com', 'youtube.com', 'x.com'],
-    productive: ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com']
+    productive: ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com'],
+    scheduleStart: '09:00',
+    scheduleEnd: '12:00'
   },
   Influencer: {
     distracting: ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
-    productive: ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so']
+    productive: ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so'],
+    scheduleStart: '14:00',
+    scheduleEnd: '17:00'
   },
   Creator: {
     distracting: ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
-    productive: ['canva.com', 'figma.com', 'behance.net', 'docs.google.com']
+    productive: ['canva.com', 'figma.com', 'behance.net', 'docs.google.com'],
+    scheduleStart: '10:00',
+    scheduleEnd: '13:00'
   },
   Other: {
     distracting: ['instagram.com', 'youtube.com', 'facebook.com', 'reddit.com'],
-    productive: ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org']
+    productive: ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org'],
+    scheduleStart: '19:00',
+    scheduleEnd: '21:00'
   }
 };
 
@@ -327,6 +339,145 @@ async function disableFocusMode() {
   console.log('Driftless: Focus Mode OFF — dynamic focus rules cleared.');
 }
 
+// ── Scheduled Focus Mode (Manifest V3 Alarms) ────────────────────────────────
+
+function parseTimeMinutes(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const parts = timeStr.trim().split(':');
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return h * 60 + m;
+}
+
+function isWithinScheduleWindow(startStr, endStr, now = new Date()) {
+  const startMin = parseTimeMinutes(startStr);
+  const endMin = parseTimeMinutes(endStr);
+  if (startMin === null || endMin === null || startMin === endMin) return false;
+
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+
+  if (startMin < endMin) {
+    // Normal window on same calendar day (e.g. 09:00 to 12:00)
+    return nowMin >= startMin && nowMin < endMin;
+  } else {
+    // Window crosses midnight (e.g. 22:00 to 02:00)
+    return nowMin >= startMin || nowMin < endMin;
+  }
+}
+
+function getNextOccurrenceMs(timeStr, now = new Date()) {
+  const mins = parseTimeMinutes(timeStr);
+  if (mins === null) return null;
+  const target = new Date(now);
+  target.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
+  if (target.getTime() <= now.getTime()) {
+    target.setDate(target.getDate() + 1);
+  }
+  return target.getTime();
+}
+
+async function syncFocusModeToBackend(isEnabled) {
+  try {
+    const { apiToken } = await chrome.storage.local.get(['apiToken']);
+    if (apiToken) {
+      const serverUrl = await getServerUrl();
+      await fetch(`${serverUrl}/api/settings/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+        body: JSON.stringify({ focus_mode_active: isEnabled })
+      }).catch(() => {});
+    }
+  } catch (err) {
+    console.debug('Failed to sync focus mode to backend:', err);
+  }
+}
+
+async function updateScheduleAlarms() {
+  try {
+    await chrome.alarms.clear(ALARM_SCHEDULE_START);
+    await chrome.alarms.clear(ALARM_SCHEDULE_END);
+
+    const { scheduleEnabled = false, scheduleStart = '20:00', scheduleEnd = '22:00' } = await chrome.storage.local.get([
+      'scheduleEnabled', 'scheduleStart', 'scheduleEnd'
+    ]);
+
+    if (!scheduleEnabled) {
+      console.log('Driftless: Schedule is disabled. Schedule alarms cleared.');
+      return;
+    }
+
+    const startMs = getNextOccurrenceMs(scheduleStart);
+    const endMs = getNextOccurrenceMs(scheduleEnd);
+
+    if (startMs) {
+      chrome.alarms.create(ALARM_SCHEDULE_START, {
+        when: startMs,
+        periodInMinutes: 24 * 60
+      });
+      console.log(`Driftless: Alarm ${ALARM_SCHEDULE_START} set for ${new Date(startMs).toLocaleTimeString()}`);
+    }
+    if (endMs) {
+      chrome.alarms.create(ALARM_SCHEDULE_END, {
+        when: endMs,
+        periodInMinutes: 24 * 60
+      });
+      console.log(`Driftless: Alarm ${ALARM_SCHEDULE_END} set for ${new Date(endMs).toLocaleTimeString()}`);
+    }
+  } catch (err) {
+    console.error('Failed to update schedule alarms:', err);
+  }
+}
+
+async function evaluateScheduleState(reason = '') {
+  try {
+    const {
+      scheduleEnabled = false,
+      scheduleStart = '20:00',
+      scheduleEnd = '22:00',
+      focusModeActive = false,
+      focusModeSource = null
+    } = await chrome.storage.local.get([
+      'scheduleEnabled', 'scheduleStart', 'scheduleEnd', 'focusModeActive', 'focusModeSource'
+    ]);
+
+    if (!scheduleEnabled) {
+      // If schedule turned OFF and focus mode was ON via schedule, disable it
+      if (focusModeActive && focusModeSource === 'schedule') {
+        console.log(`Driftless: Schedule disabled, turning OFF scheduled Focus Mode (${reason})`);
+        await chrome.storage.local.set({ focusModeActive: false, focusModeSource: null });
+        await disableFocusMode();
+        await syncFocusModeToBackend(false);
+      }
+      return;
+    }
+
+    const inWindow = isWithinScheduleWindow(scheduleStart, scheduleEnd);
+
+    if (inWindow) {
+      // Currently inside prime time window: should be ON
+      if (!focusModeActive) {
+        console.log(`Driftless: Scheduled focus window active (${scheduleStart} - ${scheduleEnd}), activating Focus Mode (${reason})`);
+        await chrome.storage.local.set({ focusModeActive: true, focusModeSource: 'schedule' });
+        await enableFocusMode();
+        await syncFocusModeToBackend(true);
+      }
+    } else {
+      // Currently outside prime time window
+      // Requirement 7: If the user had already turned Focus Mode ON manually, the schedule must NOT turn it OFF
+      if (focusModeActive && focusModeSource === 'schedule') {
+        console.log(`Driftless: Scheduled focus window ended (${scheduleStart} - ${scheduleEnd}), turning Focus Mode OFF (${reason})`);
+        await chrome.storage.local.set({ focusModeActive: false, focusModeSource: null });
+        await disableFocusMode();
+        await syncFocusModeToBackend(false);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to evaluate schedule state:', err);
+  }
+}
+
 // ── Tab & Window Tracking Events ─────────────────────────────────────────────
 
 async function onActiveTabChanged() {
@@ -622,6 +773,11 @@ async function syncToBackend() {
         }
       });
 
+      // Sync Schedule from backend
+      const serverScheduleEnabled = settings.schedule_enabled !== undefined ? !!settings.schedule_enabled : false;
+      const serverScheduleStart = settings.schedule_start || '20:00';
+      const serverScheduleEnd = settings.schedule_end || '22:00';
+
       await chrome.storage.local.set({
         defaultsSeeded: didSeed,
         streakDays: streak,
@@ -633,8 +789,14 @@ async function syncToBackend() {
         allowedSites: newProductive,
         siteTimes: updatedSiteTimes,
         siteLimits: updatedSiteLimits,
+        scheduleEnabled: serverScheduleEnabled,
+        scheduleStart: serverScheduleStart,
+        scheduleEnd: serverScheduleEnd,
         lastSyncedTime: Date.now()
       });
+
+      await updateScheduleAlarms();
+      await evaluateScheduleState('sync');
 
       if (focusModeActive) {
         await enableFocusMode();
@@ -677,6 +839,10 @@ chrome.alarms.onAlarm.addListener(async alarm => {
     await syncToBackend();
   } else if (alarm.name === ALARM_TICK) {
     await commitActiveTime();
+    await evaluateScheduleState('tick');
+  } else if (alarm.name === ALARM_SCHEDULE_START || alarm.name === ALARM_SCHEDULE_END) {
+    await evaluateScheduleState(alarm.name);
+    await updateScheduleAlarms();
   }
 });
 
@@ -685,7 +851,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     (async () => {
       try {
         const isEnabled = !!message.enabled;
-        await chrome.storage.local.set({ focusModeActive: isEnabled });
+        await chrome.storage.local.set({
+          focusModeActive: isEnabled,
+          focusModeSource: isEnabled ? 'manual' : null
+        });
         if (isEnabled) {
           await enableFocusMode();
         } else {
@@ -705,6 +874,43 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ success: true, focusModeActive: isEnabled });
       } catch (err) {
         console.error('Focus mode error:', err);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'UPDATE_SCHEDULE') {
+    (async () => {
+      try {
+        const { scheduleEnabled, scheduleStart, scheduleEnd } = message;
+        const updates = {};
+        if (scheduleEnabled !== undefined) updates.scheduleEnabled = !!scheduleEnabled;
+        if (scheduleStart !== undefined) updates.scheduleStart = scheduleStart;
+        if (scheduleEnd !== undefined) updates.scheduleEnd = scheduleEnd;
+
+        await chrome.storage.local.set(updates);
+        await updateScheduleAlarms();
+        await evaluateScheduleState('update_schedule');
+
+        // Sync to backend if token present
+        const { apiToken } = await chrome.storage.local.get(['apiToken']);
+        if (apiToken) {
+          const serverUrl = await getServerUrl();
+          const patchData = {};
+          if (scheduleEnabled !== undefined) patchData.schedule_enabled = !!scheduleEnabled;
+          if (scheduleStart !== undefined) patchData.schedule_start = scheduleStart;
+          if (scheduleEnd !== undefined) patchData.schedule_end = scheduleEnd;
+
+          fetch(`${serverUrl}/api/settings/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${apiToken}` },
+            body: JSON.stringify(patchData)
+          }).catch(() => {});
+        }
+        sendResponse({ success: true, ...updates });
+      } catch (err) {
+        console.error('Update schedule error:', err);
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -872,7 +1078,21 @@ async function setupAlarms() {
     chrome.alarms.create(ALARM_PERIODIC_SYNC, { periodInMinutes: 1 });
   }
   scheduleMidnightReset();
+  await updateScheduleAlarms();
 }
+
+// Re-create alarms & evaluate schedule on browser startup and install
+chrome.runtime.onStartup.addListener(async () => {
+  await setupAlarms();
+  await updateScheduleAlarms();
+  await evaluateScheduleState('onStartup');
+});
+
+chrome.runtime.onInstalled.addListener(async () => {
+  await setupAlarms();
+  await updateScheduleAlarms();
+  await evaluateScheduleState('onInstalled');
+});
 
 async function initTracker() {
   try {
@@ -902,11 +1122,17 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
       await disableFocusMode();
     }
   }
+  if (changes.scheduleEnabled || changes.scheduleStart || changes.scheduleEnd) {
+    await updateScheduleAlarms();
+    await evaluateScheduleState('storage_change');
+  }
 });
 
 // Run tracker initialization and setup alarms
 initTracker();
 setupAlarms();
+updateScheduleAlarms();
+evaluateScheduleState('script_init');
 
 // Also check Focus Mode state on startup to ensure rules are active if enabled
 chrome.storage.local.get(['focusModeActive'], async ({ focusModeActive }) => {

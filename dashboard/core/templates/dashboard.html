@@ -481,6 +481,63 @@
           </div>
         </div>
 
+        <!-- GREEN GROVE CARD (Forest Visual Progress) -->
+        <div class="rounded-2xl p-5 sm:p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🌳</span>
+                <h2 class="text-base font-bold" style="color:var(--ink);">Green Grove</h2>
+              </div>
+              <p class="text-xs mt-0.5" style="color:var(--ink-subtle);">
+                30-day focus discipline visual · Visual progress indicator only (not real-world tree planting)
+              </p>
+            </div>
+
+            <!-- Stats next to the grove -->
+            <div class="flex items-center gap-3">
+              <div class="px-3.5 py-1.5 rounded-xl border flex items-center gap-2" style="background:var(--bg); border-color:var(--border);">
+                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-muted);">Total Trees:</span>
+                <span id="groveTotalGrown" class="text-sm font-extrabold text-emerald-600">0</span>
+              </div>
+              <div class="px-3.5 py-1.5 rounded-xl border flex items-center gap-2" style="background:var(--bg); border-color:var(--border);">
+                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-muted);">Current Streak:</span>
+                <span id="groveStreak" class="text-sm font-extrabold" style="color:var(--pri);">0 Days</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state for new users -->
+          <div id="groveEmptyState" class="p-4 mb-4 rounded-xl border text-center hidden" style="background:var(--bg); border-color:var(--border);">
+            <div class="text-2xl mb-1">🌱</div>
+            <div class="text-xs font-bold" style="color:var(--ink);">Your Grove is Ready to Flourish!</div>
+            <div class="text-xs mt-1 max-w-md mx-auto" style="color:var(--ink-subtle);">
+              Stay within your daily site limits today to grow your very first green tree. Complete each day mindfully to expand your grove.
+            </div>
+          </div>
+
+          <!-- 30-Day Trees Grid -->
+          <div id="groveContainer" class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 sm:gap-2.5">
+            <!-- 30 days rendered dynamically -->
+          </div>
+
+          <!-- Legend -->
+          <div class="flex flex-wrap items-center gap-5 mt-4 pt-3 border-t text-xs font-semibold" style="border-color:var(--border); color:var(--ink-muted);">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M12 2L6 9H9L5 15H10L8 19H16L14 15H19L15 9H18L12 2Z" fill="#10B981"/><rect x="11" y="19" width="2" height="4" rx="0.5" fill="#78350F"/></svg>
+              Grown (Goal Met)
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round"><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 16L8 12"/><path d="M12 13L16 9"/><path d="M12 9L9 6"/><path d="M12 7L14 4"/></svg>
+              Withered (Limit Exceeded)
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-full border border-dashed flex items-center justify-center" style="border-color:var(--ink-subtle);"><span class="w-1 h-1 rounded-full" style="background:var(--ink-subtle);"></span></span>
+              Empty Spot (No Data)
+            </span>
+          </div>
+        </div>
+
         <!-- MAIN CHARTS ROW -->
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
@@ -540,8 +597,11 @@
 
               <div id="focusStatusCard" class="p-3 rounded-xl border flex items-center gap-3 transition-colors bg-slate-50 border-slate-200">
                 <span class="w-2.5 h-2.5 rounded-full bg-slate-400" id="focusDot"></span>
-                <div>
-                  <p class="text-xs font-bold text-slate-700" id="focusStatusText">Focus Mode Inactive</p>
+                <div class="flex-1">
+                  <div class="flex items-center justify-between">
+                    <p class="text-xs font-bold text-slate-700" id="focusStatusText">Focus Mode Inactive</p>
+                    <span class="text-[10px] font-semibold" id="cardScheduleStatus" style="color:var(--ink-subtle);">⏰ Schedule: Off</span>
+                  </div>
                   <p class="text-xs text-slate-400" id="focusStatusSub">Turn on to block all distraction sites</p>
                 </div>
               </div>
@@ -681,6 +741,70 @@
           </div>
         </div>
 
+        <!-- Scheduled Focus Mode (Daily Prime Time) -->
+        <div class="rounded-2xl p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-white" style="background:var(--grad);">⏰</span>
+              <div>
+                <h2 class="text-base font-bold" style="color:var(--ink);">Scheduled Focus Mode (Daily Prime Time)</h2>
+                <p class="text-xs" style="color:var(--ink-subtle);">Automate Focus Mode during your peak focus hours without manual toggling</p>
+              </div>
+            </div>
+            <div>
+              <input type="checkbox" id="dashScheduleToggle" class="toggle-checkbox" onchange="updateSchedulePreview(this.checked, document.getElementById('dashSchedStart').value, document.getElementById('dashSchedEnd').value)" />
+              <label for="dashScheduleToggle" class="toggle-label"><span class="thumb"></span></label>
+            </div>
+          </div>
+
+          <p class="text-xs mb-4 leading-relaxed" style="color:var(--ink-muted);">
+            Focus Mode turns ON automatically at your Start Time (blocking distracting sites and allowing productive work) and turns OFF at your End Time. Windows that cross midnight (e.g. 10:00 PM to 12:00 AM) are fully supported in your local browser timezone.
+          </p>
+
+          <!-- Time Inputs -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-xs font-bold uppercase mb-1.5" style="color:var(--ink-muted);">Start Time (Prime Time Begins)</label>
+              <input type="time" id="dashSchedStart" value="20:00" onchange="updateSchedulePreview(document.getElementById('dashScheduleToggle').checked, this.value, document.getElementById('dashSchedEnd').value)" class="w-full text-xs font-mono p-3 rounded-xl border outline-none font-bold" style="background:var(--bg); color:var(--ink); border-color:var(--border);" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase mb-1.5" style="color:var(--ink-muted);">End Time (Prime Time Ends)</label>
+              <input type="time" id="dashSchedEnd" value="22:30" onchange="updateSchedulePreview(document.getElementById('dashScheduleToggle').checked, document.getElementById('dashSchedStart').value, this.value)" class="w-full text-xs font-mono p-3 rounded-xl border outline-none font-bold" style="background:var(--bg); color:var(--ink); border-color:var(--border);" />
+            </div>
+          </div>
+
+          <!-- Suggested Times Quick-Pills -->
+          <div class="mb-5">
+            <span class="text-xs font-bold uppercase tracking-wider block mb-2" style="color:var(--ink-subtle);">Suggested Prime Times by Persona:</span>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" onclick="setSchedulePreset('20:00', '22:30')" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition hover:opacity-90" style="background:var(--bg); border-color:var(--border); color:var(--ink);">
+                🎓 Student (8:00 PM – 10:30 PM)
+              </button>
+              <button type="button" onclick="setSchedulePreset('09:00', '12:00')" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition hover:opacity-90" style="background:var(--bg); border-color:var(--border); color:var(--ink);">
+                💼 Professional (9:00 AM – 12:00 PM)
+              </button>
+              <button type="button" onclick="setSchedulePreset('14:00', '17:00')" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition hover:opacity-90" style="background:var(--bg); border-color:var(--border); color:var(--ink);">
+                📱 Influencer (2:00 PM – 5:00 PM)
+              </button>
+              <button type="button" onclick="setSchedulePreset('10:00', '13:00')" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition hover:opacity-90" style="background:var(--bg); border-color:var(--border); color:var(--ink);">
+                🎨 Creator (10:00 AM – 1:00 PM)
+              </button>
+              <button type="button" onclick="setSchedulePreset('19:00', '21:00')" class="px-3 py-1.5 rounded-lg text-xs font-semibold border transition hover:opacity-90" style="background:var(--bg); border-color:var(--border); color:var(--ink);">
+                ⚡ Other (7:00 PM – 9:00 PM)
+              </button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-3 border-t" style="border-color:var(--border);">
+            <div class="text-xs font-medium" id="dashSchedulePreviewText" style="color:var(--ink-subtle);">
+              Status: Inactive
+            </div>
+            <button onclick="saveScheduleSettings()" class="px-4 py-2 text-xs font-bold text-white rounded-xl transition hover:opacity-90 shadow-sm" style="background:var(--pri);">
+              Save Schedule
+            </button>
+          </div>
+        </div>
+
         <!-- Privacy & Data Sovereignty (Section 5) -->
         <div class="rounded-2xl p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
           <div class="flex items-center gap-2.5 mb-2">
@@ -806,6 +930,34 @@
     async function loadDemoFallback() {
       // 14-day internally consistent reference data
       const today = new Date().toISOString().slice(0, 10);
+
+      const demoGroveDays = [];
+      let demoTotalGrown = 0;
+      for (let i = 29; i >= 0; i--) {
+        const dStr = getDateOffset(-i);
+        const dObj = new Date();
+        dObj.setDate(dObj.getDate() - i);
+        const dayFormatted = dObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        let status = 'empty';
+        if (i < 14) {
+          status = 'grown';
+          demoTotalGrown++;
+        } else if (i === 14) {
+          status = 'withered';
+        } else if (i < 20) {
+          status = 'grown';
+          demoTotalGrown++;
+        }
+
+        demoGroveDays.push({
+          date: dStr,
+          status: status,
+          formatted_date: dayFormatted,
+          day_num: dObj.getDate()
+        });
+      }
+
       const demoPayload = {
         weekly: [
           { date: getDateOffset(-6), total_seconds: 14400, productive_seconds: 10800, distracting_seconds: 3600, others_seconds: 0 },
@@ -834,6 +986,11 @@
           longest_session_minutes: 45,
           data_days_count: 14,
         },
+        grove: {
+          days: demoGroveDays,
+          total_grown: demoTotalGrown,
+          current_streak: 14
+        },
         distractions: [
           { website_url: 'instagram.com', category: 'Distracting sites', used_minutes: 35, limit_minutes: 45, percentage: 78, enabled: true },
           { website_url: 'youtube.com', category: 'Distracting sites', used_minutes: 35, limit_minutes: 60, percentage: 58, enabled: true },
@@ -847,6 +1004,9 @@
           require_challenge: false,
           blocked_sites: 'instagram.com\nyoutube.com\nreddit.com\nx.com',
           allowed_sites: 'github.com\nleetcode.com\ndocs.google.com',
+          schedule_enabled: false,
+          schedule_start: '20:00',
+          schedule_end: '22:30',
         }
       };
       cachedSummary = demoPayload;
@@ -900,6 +1060,18 @@
       const rcCheck = document.getElementById('requireChallengeCheck');
       if (rcCheck && settings.require_challenge !== undefined) rcCheck.checked = !!settings.require_challenge;
 
+      // Green Grove (Last 30 Days)
+      renderGrove(data.grove, streak);
+
+      // Schedule Settings
+      const sToggle = document.getElementById('dashScheduleToggle');
+      if (sToggle) sToggle.checked = !!settings.schedule_enabled;
+      const sStart = document.getElementById('dashSchedStart');
+      if (sStart && settings.schedule_start) sStart.value = settings.schedule_start;
+      const sEnd = document.getElementById('dashSchedEnd');
+      if (sEnd && settings.schedule_end) sEnd.value = settings.schedule_end;
+      updateSchedulePreview(!!settings.schedule_enabled, settings.schedule_start || '20:00', settings.schedule_end || '22:30');
+
       // Render Charts & Insights
       renderChart(data.weekly || []);
       renderInsights(data.weekly || [], stats.data_days_count || (isDemo ? 14 : 0));
@@ -909,6 +1081,155 @@
 
       // Render Detailed Logs
       renderDetailedLogs(data.daily || []);
+    }
+
+    // ── Green Grove Renderer ──────────────────────────────────────────────────
+    function renderGrove(groveData, streak) {
+      const container = document.getElementById('groveContainer');
+      const emptyStateEl = document.getElementById('groveEmptyState');
+      const totalGrownEl = document.getElementById('groveTotalGrown');
+      const streakEl = document.getElementById('groveStreak');
+
+      if (!container) return;
+
+      const days = (groveData && groveData.days) ? groveData.days : [];
+      const totalGrown = (groveData && groveData.total_grown !== undefined) ? groveData.total_grown : 0;
+
+      if (totalGrownEl) totalGrownEl.textContent = totalGrown;
+      if (streakEl) streakEl.textContent = `${streak || 0} Day${streak === 1 ? '' : 's'}`;
+
+      // Show friendly empty state if no activity recorded at all
+      const hasAnyData = days.some(d => d.status === 'grown' || d.status === 'withered');
+      if (emptyStateEl) {
+        emptyStateEl.style.display = hasAnyData ? 'none' : 'block';
+      }
+
+      container.innerHTML = '';
+
+      days.forEach(day => {
+        const plot = document.createElement('div');
+        plot.className = 'grove-plot flex flex-col items-center justify-center p-2 rounded-xl transition cursor-pointer relative group';
+        plot.style.background = 'var(--bg)';
+        plot.style.border = '1px solid var(--border)';
+
+        let iconSvg = '';
+        let tooltipText = '';
+
+        if (day.status === 'grown') {
+          // Lush Green Tree SVG (green foliage strictly for trees)
+          iconSvg = `
+            <svg class="w-8 h-8 transition-transform group-hover:scale-110 drop-shadow-sm" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2L6 9H9L5 15H10L8 19H16L14 15H19L15 9H18L12 2Z" fill="#10B981" />
+              <rect x="11" y="19" width="2" height="4" rx="0.5" fill="#78350F" />
+            </svg>
+          `;
+          tooltipText = `${day.formatted_date || day.date}: Limit maintained! 🌲`;
+        } else if (day.status === 'withered') {
+          // Withered Tree SVG (neutral stone/slate gray/brown bare branches - no green)
+          iconSvg = `
+            <svg class="w-8 h-8 transition-transform group-hover:scale-110 opacity-70" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="1.8" stroke-linecap="round">
+              <line x1="12" y1="22" x2="12" y2="7" />
+              <path d="M12 16L8 12" />
+              <path d="M12 13L16 9" />
+              <path d="M12 9L9 6" />
+              <path d="M12 7L14 4" />
+            </svg>
+          `;
+          tooltipText = `${day.formatted_date || day.date}: Limit exceeded 🍂`;
+        } else {
+          // Empty Soil Plot
+          iconSvg = `
+            <div class="w-8 h-8 rounded-full border-2 border-dashed flex items-center justify-center opacity-40 group-hover:opacity-75 transition" style="border-color:var(--border);">
+              <span class="w-1.5 h-1.5 rounded-full" style="background:var(--ink-subtle);"></span>
+            </div>
+          `;
+          tooltipText = `${day.formatted_date || day.date}: No browsing logged`;
+        }
+
+        plot.innerHTML = `
+          ${iconSvg}
+          <span class="text-[10px] font-bold mt-1.5" style="color:var(--ink-subtle);">${day.formatted_date || day.date}</span>
+          <div class="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col items-center z-30 pointer-events-none">
+            <div class="px-2.5 py-1 text-[11px] font-bold rounded-lg shadow-lg whitespace-nowrap text-white" style="background:#1E1B4B;">
+              ${tooltipText}
+            </div>
+            <div class="w-2 h-2 rotate-45 -mt-1" style="background:#1E1B4B;"></div>
+          </div>
+        `;
+
+        container.appendChild(plot);
+      });
+    }
+
+    // ── Scheduled Focus Mode Controls ─────────────────────────────────────────
+    async function saveScheduleSettings() {
+      const enabled = document.getElementById('dashScheduleToggle').checked;
+      const start = document.getElementById('dashSchedStart').value;
+      const end = document.getElementById('dashSchedEnd').value;
+
+      try {
+        const res = await fetch('/api/settings/', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Token ' + API_TOKEN,
+          },
+          body: JSON.stringify({
+            schedule_enabled: enabled,
+            schedule_start: start,
+            schedule_end: end,
+          })
+        });
+
+        if (res.ok) {
+          alert('Schedule saved successfully!');
+          updateSchedulePreview(enabled, start, end);
+          loadData();
+        } else {
+          alert('Failed to save schedule.');
+        }
+      } catch (err) {
+        alert('Error saving schedule: ' + err.message);
+      }
+    }
+
+    function setSchedulePreset(start, end) {
+      const sStart = document.getElementById('dashSchedStart');
+      const sEnd = document.getElementById('dashSchedEnd');
+      if (sStart) sStart.value = start;
+      if (sEnd) sEnd.value = end;
+      const toggle = document.getElementById('dashScheduleToggle');
+      updateSchedulePreview(toggle ? toggle.checked : false, start, end);
+    }
+
+    function updateSchedulePreview(enabled, start, end) {
+      const preview = document.getElementById('dashSchedulePreviewText');
+      const cardScheduleStatus = document.getElementById('cardScheduleStatus');
+      const formattedStart = format12h(start);
+      const formattedEnd = format12h(end);
+
+      let text = '';
+      if (!enabled) {
+        text = 'Schedule is currently disabled.';
+      } else {
+        text = `Active: Focus Mode runs daily from ${formattedStart} to ${formattedEnd} (browser local time).`;
+      }
+      if (preview) preview.textContent = text;
+      if (cardScheduleStatus) {
+        cardScheduleStatus.textContent = enabled ? `⏰ Schedule: ${formattedStart} – ${formattedEnd}` : '⏰ Schedule: Off';
+      }
+    }
+
+    function format12h(timeStr) {
+      if (!timeStr) return '';
+      const parts = timeStr.split(':');
+      if (parts.length < 2) return timeStr;
+      let h = parseInt(parts[0], 10);
+      const m = parts[1].padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+      return `${h}:${m} ${ampm}`;
     }
 
     async function saveSiteListsAndSettings() {

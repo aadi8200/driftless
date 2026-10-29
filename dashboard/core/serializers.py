@@ -21,28 +21,38 @@ PERSONA_DEFAULTS = {
     'student': {
         'distracting': ['instagram.com', 'facebook.com', 'reddit.com', 'youtube.com'],
         'productive': ['github.com', 'stackoverflow.com', 'docs.google.com', 'geeksforgeeks.org'],
+        'schedule_start': '20:00',
+        'schedule_end': '22:30',
     },
     'professional': {
         'distracting': ['instagram.com', 'facebook.com', 'youtube.com', 'x.com'],
         'productive': ['github.com', 'docs.google.com', 'notion.so', 'stackoverflow.com'],
+        'schedule_start': '09:00',
+        'schedule_end': '12:00',
     },
     'influencer': {
         'distracting': ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
         'productive': ['canva.com', 'docs.google.com', 'drive.google.com', 'notion.so'],
+        'schedule_start': '14:00',
+        'schedule_end': '17:00',
     },
     'creator': {
         'distracting': ['facebook.com', 'reddit.com', 'netflix.com', 'x.com'],
         'productive': ['canva.com', 'figma.com', 'behance.net', 'docs.google.com'],
+        'schedule_start': '10:00',
+        'schedule_end': '13:00',
     },
     'other': {
         'distracting': ['instagram.com', 'youtube.com', 'facebook.com', 'reddit.com'],
         'productive': ['github.com', 'docs.google.com', 'stackoverflow.com', 'coursera.org'],
+        'schedule_start': '19:00',
+        'schedule_end': '21:00',
     },
 }
 
 
 def apply_persona_defaults(user, persona: str):
-    """Initializes default distracting/productive lists and limits according to chosen persona."""
+    """Initializes default distracting/productive lists, limits and suggested focus schedule according to chosen persona."""
     key = (persona or 'student').lower()
     p_def = PERSONA_DEFAULTS.get(key, PERSONA_DEFAULTS['student'])
 
@@ -51,6 +61,13 @@ def apply_persona_defaults(user, persona: str):
         settings.blocked_sites = '\n'.join(p_def['distracting'])
     if not settings.allowed_sites or not settings.allowed_sites.strip():
         settings.allowed_sites = '\n'.join(p_def['productive'])
+    
+    # Pre-fill suggested schedule times if schedule has not been explicitly configured
+    if p_def.get('schedule_start') and (not settings.schedule_start or settings.schedule_start == '20:00'):
+        settings.schedule_start = p_def['schedule_start']
+    if p_def.get('schedule_end') and (not settings.schedule_end or settings.schedule_end == '22:00'):
+        settings.schedule_end = p_def['schedule_end']
+
     settings.save()
 
     for domain in p_def['distracting']:
@@ -178,5 +195,8 @@ class UserSettingsSerializer(serializers.ModelSerializer):
             'streak_days',
             'require_challenge',
             'blocked_sites',
-            'allowed_sites'
+            'allowed_sites',
+            'schedule_enabled',
+            'schedule_start',
+            'schedule_end',
         )

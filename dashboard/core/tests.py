@@ -201,3 +201,82 @@ class DriftlessApiAndDataIsolationTests(TestCase):
         self.assertIn('distracting_seconds', data['weekly'][0])
         self.assertIn('others_seconds', data['weekly'][0])
 
+    def test_scheduled_focus_mode_settings(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
+        
+        # Initial GET
+        res = self.client.get('/api/settings/')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('schedule_enabled', res.data)
+        self.assertIn('schedule_start', res.data)
+        self.assertIn('schedule_end', res.data)
+
+        # PATCH update schedule
+        patch_res = self.client.patch('/api/settings/', {
+            'schedule_enabled': True,
+            'schedule_start': '21:30',
+            'schedule_end': '23:45',
+        }, format='json')
+        self.assertEqual(patch_res.status_code, 200)
+        self.assertTrue(patch_res.data['schedule_enabled'])
+        self.assertEqual(patch_res.data['schedule_start'], '21:30')
+        self.assertEqual(patch_res.data['schedule_end'], '23:45')
+
+        # Verify persisted in DB
+        settings = UserSettings.objects.get(user=self.user_a)
+        self.assertTrue(settings.schedule_enabled)
+        self.assertEqual(settings.schedule_start, '21:30')
+        self.assertEqual(settings.schedule_end, '23:45')
+
+    def test_green_grove_summary(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Token {self.token_a.key}')
+        settings = UserSettings.objects.create(
+            user=self.user_a,
+            daily_limit_minutes=30
+        )
+        SiteLimit.objects.create(
+            user=self.user_a,
+            domain='youtube.com',
+            daily_limit_minutes=20,
+            enabled=True
+        )
+
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        two_days_ago = today - datetime.timedelta(days=2)
+
+        # Day -2: Successful day (spent 10m on youtube.com, limit is 20m) -> 'grown'
+        UsageLog.objects.create(
+            user=self.user_a,
+            website_url='youtube.com',
+            time_spent_seconds=600,
+            date=two_days_ago
+        )
+
+        # Day -1: Exceeded limit (spent 25m on youtube.com, limit is 20m) -> 'withered'
+        UsageLog.objects.create(
+            user=self.user_a,
+            website_url='youtube.com',
+            time_spent_seconds=1500,
+            date=yesterday
+        )
+
+        res = self.client.get('/api/summary/')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('grove', res.data)
+        grove = res.data['grove']
+        self.assertEqual(len(grove['days']), 30)
+
+        # Find status for day -2 and day -1
+        day_minus_2 = next((d for d in grove['days'] if d['date'] == two_days_ago.isoformat()), None)
+        day_minus_1 = next((d for d in grove['days'] if d['date'] == yesterday.isoformat()), None)
+
+        self.assertIsNotNone(day_minus_2)
+        self.assertEqual(day_minus_2['status'], 'grown')
+
+        self.assertIsNotNone(day_minus_1)
+        self.assertEqual(day_minus_1['status'], 'withered')
+
+        self.assertGreaterEqual(grove['total_grown'], 1)
+
+

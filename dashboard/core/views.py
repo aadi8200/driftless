@@ -428,6 +428,85 @@ def summary_view(request):
     # Count days of data for smart insights (hiding fake insights if < 2 days)
     data_days_count = user_logs.values('date').distinct().count()
 
+    # ── Green Grove (Last 30 Days) ───────────────────────────────────────────
+    # Forest-style visual showing progress as a grove of trees:
+    # - grown tree = successful day (using the exact same strict streak rules)
+    # - withered tree = user exceeded a limit that day
+    # - empty spot = no browsing data logged / future day
+    grove_start_date = today - datetime.timedelta(days=29)
+    grove_logs_qs = (
+        user_logs
+        .filter(date__gte=grove_start_date, date__lte=today)
+        .values('date', 'website_url', 'time_spent_seconds')
+    )
+    grove_logs_by_date = {}
+    for row in grove_logs_qs:
+        d_str = row['date'].isoformat()
+        if d_str not in grove_logs_by_date:
+            grove_logs_by_date[d_str] = []
+        grove_logs_by_date[d_str].append(row)
+
+    grove_days = []
+    total_trees_grown = 0
+
+    for i in range(29, -1, -1):
+        d_obj = today - datetime.timedelta(days=i)
+        d_str = d_obj.isoformat()
+        day_logs = grove_logs_by_date.get(d_str, [])
+
+        if not day_logs:
+            grove_days.append({
+                'date': d_str,
+                'status': 'empty',
+                'day_name': d_obj.strftime('%a'),
+                'day_num': d_obj.day,
+                'formatted_date': d_obj.strftime('%b %d'),
+                'total_seconds': 0,
+            })
+        else:
+            day_exceeded = False
+            day_total_sec = 0
+            for log in day_logs:
+                day_total_sec += log['time_spent_seconds']
+                cat = classify_domain(log['website_url'], user=request.user)
+                site_limit = limits_dict.get(log['website_url'], None)
+                if site_limit is not None and log['time_spent_seconds'] > site_limit:
+                    day_exceeded = True
+                    break
+                elif site_limit is None and cat == CATEGORY_DISTRACTING:
+                    if log['time_spent_seconds'] > global_limit_sec:
+                        day_exceeded = True
+                        break
+
+            if not day_exceeded and day_total_sec > 0:
+                grove_days.append({
+                    'date': d_str,
+                    'status': 'grown',
+                    'day_name': d_obj.strftime('%a'),
+                    'day_num': d_obj.day,
+                    'formatted_date': d_obj.strftime('%b %d'),
+                    'total_seconds': day_total_sec,
+                })
+                total_trees_grown += 1
+            elif day_exceeded:
+                grove_days.append({
+                    'date': d_str,
+                    'status': 'withered',
+                    'day_name': d_obj.strftime('%a'),
+                    'day_num': d_obj.day,
+                    'formatted_date': d_obj.strftime('%b %d'),
+                    'total_seconds': day_total_sec,
+                })
+            else:
+                grove_days.append({
+                    'date': d_str,
+                    'status': 'empty',
+                    'day_name': d_obj.strftime('%a'),
+                    'day_num': d_obj.day,
+                    'formatted_date': d_obj.strftime('%b %d'),
+                    'total_seconds': day_total_sec,
+                })
+
     return Response({
         'weekly': weekly,
         'daily':  daily,
@@ -445,6 +524,11 @@ def summary_view(request):
             'longest_session_minutes':   longest_session,
             'data_days_count':           data_days_count,
         },
+        'grove': {
+            'days':           grove_days,
+            'total_grown':    total_trees_grown,
+            'current_streak': streak,
+        },
         'distractions': distractions,
         'settings': {
             'focus_mode_active':     settings_obj.focus_mode_active,
@@ -454,6 +538,9 @@ def summary_view(request):
             'require_challenge':     settings_obj.require_challenge,
             'blocked_sites':         settings_obj.blocked_sites,
             'allowed_sites':         settings_obj.allowed_sites,
+            'schedule_enabled':      settings_obj.schedule_enabled,
+            'schedule_start':        settings_obj.schedule_start,
+            'schedule_end':          settings_obj.schedule_end,
         },
         'user': {
             'username': request.user.username,
@@ -647,6 +734,9 @@ def data_export_view(request):
         'focus_mode_active': settings_obj.focus_mode_active if settings_obj else False,
         'daily_limit_minutes': settings_obj.daily_limit_minutes if settings_obj else 60,
         'streak_days': settings_obj.streak_days if settings_obj else 0,
+        'schedule_enabled': settings_obj.schedule_enabled if settings_obj else False,
+        'schedule_start': settings_obj.schedule_start if settings_obj else '20:00',
+        'schedule_end': settings_obj.schedule_end if settings_obj else '22:00',
     }
 
     payload = {

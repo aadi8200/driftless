@@ -272,6 +272,9 @@ class UserSettings(models.Model):
     require_challenge   = models.BooleanField(default=False)       # Typing challenge to disable focus early
     blocked_sites       = models.TextField(blank=True, default='') # Custom blocked list
     allowed_sites       = models.TextField(blank=True, default='') # Whitelist
+    schedule_enabled    = models.BooleanField(default=False)
+    schedule_start      = models.CharField(max_length=5, default='20:00') # HH:MM (24h)
+    schedule_end        = models.CharField(max_length=5, default='22:00') # HH:MM (24h)
     updated_at          = models.DateTimeField(auto_now=True)
 
     def __str__(self):
