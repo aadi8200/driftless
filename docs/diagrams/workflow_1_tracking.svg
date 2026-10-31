@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320" style="background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <marker id="wfArrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+    </marker>
+  </defs>
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#0f172a">WORKFLOW 1: Precision Active Tab Dwell Tracking</text>
+  <text x="450" y="50" text-anchor="middle" font-size="12" fill="#64748b">1-Second Heartbeat Pipeline resolving Manifest V3 Service Worker Throttling</text>
+
+  <!-- Box 1: User on Tab -->
+  <rect x="30" y="80" width="180" height="200" rx="10" fill="#f8fafc" stroke="#94a3b8" />
+  <rect x="40" y="90" width="160" height="24" rx="4" fill="#334155" />
+  <text x="120" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">Active Web Browser</text>
+  <text x="45" y="130" font-size="10" font-weight="bold" fill="#0f172a">Active Tab (e.g. reddit.com)</text>
+  <text x="45" y="148" font-size="9" fill="#475569">• document.hidden == false</text>
+  <text x="45" y="163" font-size="9" fill="#475569">• document.hasFocus() == true</text>
+  <text x="45" y="185" font-size="9" fill="#16a34a">content.js active</text>
+  <text x="45" y="200" font-size="9" fill="#475569">Sends 1s tick payload:</text>
+  <text x="45" y="215" font-size="8" font-family="monospace" fill="#0369a1">{type: "PAGE_HEARTBEAT_TICK",</text>
+  <text x="45" y="228" font-size="8" font-family="monospace" fill="#0369a1"> domain, url, timestamp}</text>
+
+  <!-- Box 2: Background Receiver -->
+  <rect x="250" y="80" width="200" height="200" rx="10" fill="#eff6ff" stroke="#93c5fd" />
+  <rect x="260" y="90" width="180" height="24" rx="4" fill="#2563eb" />
+  <text x="350" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">background.js Service Worker</text>
+  <text x="265" y="130" font-size="10" font-weight="bold" fill="#1e3a8a">onMessage Listener</text>
+  <text x="265" y="148" font-size="9" fill="#475569">1. Validates sender.tab.active</text>
+  <text x="265" y="163" font-size="9" fill="#475569">2. cleanDomain(hostname)</text>
+  <text x="265" y="178" font-size="9" fill="#475569">3. Calculates delta seconds (1s)</text>
+  <text x="265" y="193" font-size="9" fill="#475569">4. Checks Shorts/Reels block</text>
+  <text x="265" y="208" font-size="9" fill="#475569">5. Checks Focus Mode active</text>
+  <text x="265" y="223" font-size="9" fill="#475569">6. Evaluates siteLimits vs 80%/100%</text>
+
+  <!-- Box 3: Storage & Response -->
+  <rect x="490" y="80" width="180" height="200" rx="10" fill="#fdf4ff" stroke="#f0abfc" />
+  <rect x="500" y="90" width="160" height="24" rx="4" fill="#a855f7" />
+  <text x="580" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">Local Storage Commit</text>
+  <text x="505" y="130" font-size="10" font-weight="bold" fill="#581c87">chrome.storage.local</text>
+  <text x="505" y="148" font-size="9" fill="#475569">• siteTimes[domain] += 1</text>
+  <text x="505" y="163" font-size="9" fill="#475569">• unsyncedDeltas[domain] += 1</text>
+  <text x="505" y="178" font-size="9" fill="#475569">• activeTrackingSession</text>
+  <text x="505" y="200" font-size="9" fill="#a855f7">Response to content.js:</text>
+  <text x="505" y="215" font-size="8" font-family="monospace" fill="#701a75">{blocked: false, elapsed,</text>
+  <text x="505" y="228" font-size="8" font-family="monospace" fill="#701a75"> limit, nudgeAt}</text>
+
+  <!-- Box 4: Blur / Inactive State -->
+  <rect x="710" y="80" width="160" height="200" rx="10" fill="#fef2f2" stroke="#fca5a5" />
+  <rect x="720" y="90" width="140" height="24" rx="4" fill="#dc2626" />
+  <text x="790" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">Tab Blur / Inactive</text>
+  <text x="725" y="130" font-size="10" font-weight="bold" fill="#991b1b">visibilitychange / blur</text>
+  <text x="725" y="148" font-size="9" fill="#475569">• clearInterval(heartbeat)</text>
+  <text x="725" y="163" font-size="9" fill="#475569">• Sends PAGE_HEARTBEAT_PAUSE</text>
+  <text x="725" y="178" font-size="9" fill="#475569">• background commits delta</text>
+  <text x="725" y="193" font-size="9" fill="#475569">• No ghost seconds added!</text>
+
+  <!-- Connectors -->
+  <line x1="210" y1="180" x2="250" y2="180" stroke="#2563eb" stroke-width="2" marker-end="url(#wfArrow)" />
+  <line x1="450" y1="180" x2="490" y2="180" stroke="#2563eb" stroke-width="2" marker-end="url(#wfArrow)" />
+  <line x1="670" y1="180" x2="710" y2="180" stroke="#2563eb" stroke-width="2" marker-end="url(#wfArrow)" />
+</svg>

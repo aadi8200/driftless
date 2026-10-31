@@ -1,2239 +1,1637 @@
-# DRIFTLESS — Complete Technical Documentation Suite
-> Complete, unabridged technical reference manual for the DRIFTLESS digital wellbeing and distraction tracker.
----
+<div class="cover-page">
+  <div class="cover-badge">DRIFTLESS OFFICIAL ENGINEERING REFERENCE</div>
+  <h1 class="cover-title">DRIFTLESS</h1>
+  <div class="cover-subtitle">Complete Technical Architecture, Implementation Manual &amp; Source Reference</div>
+  <p class="cover-desc">Chrome Extension (Manifest V3) &bull; Django 4.2+ REST API Backend &bull; 3D Neumorphic Web Dashboard</p>
+
+  <div class="cover-meta-grid">
+    <div class="meta-item"><strong>Document Version:</strong> 2.0.0 (Post-Oct 26 Refactor)</div>
+    <div class="meta-item"><strong>Audit &amp; Release Date:</strong> October 31, 2026</div>
+    <div class="meta-item"><strong>Target Audience:</strong> Engineering Team, Designers, QA, DevOps</div>
+    <div class="meta-item"><strong>Classification:</strong> Authoritative Technical Reference Manual</div>
+  </div>
+</div>
+
+<div class="section-divider"></div>
+
+<h2 id="how-to-read">How to Read This Document</h2>
+
+<p>This technical manual serves as the single source of truth for the entire <strong>DRIFTLESS</strong> platform as of <strong>October 31, 2026</strong>. All legacy documentation dated October 26, 2026 is superseded by this document due to comprehensive architectural enhancements, new database models, and timer refactoring.</p>
+
+<p>To ensure high productivity and accessibility for all team members, this document follows five foundational standards:</p>
+<ul>
+  <li><strong>Plain English First:</strong> Whenever a technical word or architecture concept appears for the first time (e.g. <em>Manifest V3</em>, <em>Service Worker</em>, <em>Declarative Net Request</em>, <em>DRF</em>, <em>ORM</em>, <em>Alarm</em>, <em>Content Script</em>), it is immediately defined in simple, non-academic terms. A full glossary is provided in <a href="#ch-18">Chapter 18</a>.</li>
+  <li><strong>Early Code Mapping:</strong> To quickly locate which file, function, or API endpoint implements any feature, consult the <a href="#ch-3">Master Table &ldquo;Feature to Code&rdquo; in Chapter 3</a>.</li>
+  <li><strong>Four Honest Status Labels:</strong> Every feature is classified using only one of four strict labels:
+    <code>IMPLEMENTED AND TESTED</code> (verified in this audit session), <code>IMPLEMENTED, NOT TESTED</code> (verified in code), <code>PARTIAL</code>, or <code>NOT BUILT</code>.
+  </li>
+  <li><strong>Exact Code Blocks &amp; Zero Character Drop:</strong> Code snippets, regexes, and selectors retain exact characters (e.g. <code>--pri</code>, <code>www.</code>, <code>icons/*</code>, <code>||youtube.com/shorts*</code>).</li>
+  <li><strong>Zero Secret Disclosure:</strong> Environment variables and configurations are referenced by variable name only; no credentials or private keys are printed.</li>
+</ul>
+
+<div class="toc-container">
+  <h2>Table of Contents</h2>
+  <div class="toc-grid">
+    <div>
+      <ol style="padding-left: 20px; margin-bottom: 0;">
+        <li><a href="#how-to-read">Cover Page &amp; How to Read This Document</a></li>
+        <li><a href="#ch-2">Project Overview &amp; Architecture</a></li>
+        <li><a href="#ch-3">Master Table &ldquo;Feature to Code&rdquo;</a></li>
+        <li><a href="#ch-4">What Changed Since Oct 26 (Changelog)</a></li>
+        <li><a href="#ch-5">Project Structure &amp; Directory Tree</a></li>
+        <li><a href="#ch-6">Technology Stack &amp; Architectural Rationale</a></li>
+        <li><a href="#ch-7">File-by-File Analysis</a></li>
+        <li><a href="#ch-8">Chrome Extension Architecture (Manifest V3)</a></li>
+        <li><a href="#ch-9">Django Backend Architecture</a></li>
+      </ol>
+    </div>
+    <div>
+      <ol start="10" style="padding-left: 20px; margin-bottom: 0;">
+        <li><a href="#ch-10">Complete REST API Reference (20 Endpoints)</a></li>
+        <li><a href="#ch-11">Database Schema &amp; Migration History</a></li>
+        <li><a href="#ch-12">Frontend Architecture &amp; UI Design</a></li>
+        <li><a href="#ch-13">End-to-End Workflows as Diagrams (8 Flows)</a></li>
+        <li><a href="#ch-14">Privacy &amp; Security Architecture (content.js)</a></li>
+        <li><a href="#ch-15">Setup &amp; Execution Guide (For Non-Coders)</a></li>
+        <li><a href="#ch-16">Known Limitations &amp; Technical Debt</a></li>
+        <li><a href="#ch-17">Planned &amp; Unbuilt Features (Scope Limits)</a></li>
+        <li><a href="#ch-18">Glossary of Technical Terms</a></li>
+      </ol>
+    </div>
+  </div>
+</div>
 
 
-<!-- PAGE BREAK -->
+<div class="page-break"></div>
 
-<div style="page-break-before: always; break-before: always;"></div>
+<h1 id="ch-2">Chapter 2: Project Overview</h1>
 
-# DRIFTLESS — Project Overview & Technical Objectives
+## 2.1 Problem Statement
+In modern computing, personal computers and web browsers are the primary tools for productivity, research, and communication. However, the open nature of the web exposes users to relentless attention-extractive algorithms:
+- **Algorithmic Micro-Distractions:** Platforms such as YouTube Shorts, Instagram Reels, Reddit, and Twitter (X) exploit variable reward mechanics to induce infinite scroll sessions, severely disrupting deep focus.
+- **Flawed Awareness:** Users rarely perceive how quickly 2-minute visits escalate into 45-minute rabbit holes.
+- **Service Worker Throttling Inaccuracies:** Existing browser extensions often fail to track time accurately due to background service worker throttling in modern browsers (such as Chrome Manifest V3), resulting in delayed nudges and enforcement failures.
+- **Punitive Rather than Habit-Forming UX:** Standard blockers simply display abrasive error screens without positive reinforcement, streak rewards, or structured sprint frameworks.
 
-## 1. Project Identity & Purpose
-- **Project Name:** DRIFTLESS — Focus & Digital Wellbeing Companion
-- **Repository Root:** `c:\Users\AADI\Desktop\driftless`
-- **Application Class:** Hybrid Web Application & Browser Extension (Manifest V3 + Django REST Framework)
-- **Primary Mission:** Empower knowledge workers, students, professionals, and digital creators to regain control of their digital attention by pairing real-time local web dwell tracking with server-side analytics, persona-based daily limits, proactive distraction escalation, and non-punitive focus streaks.
+## 2.2 Project Objectives
+DRIFTLESS is designed as an intelligent, compassionate, and robust digital wellbeing companion built on four pillars:
+1. **Second-Level Tracking Precision:** A dedicated content script heartbeat (`extension/content.js`) coupled with service worker dwell commits (`extension/background.js`) guarantees second-accurate time tracking without reading DOM contents or violating user privacy.
+2. **3-Tier Graduated Escalation:** Rather than harsh immediate cut-offs, DRIFTLESS gently nudges users at 80% of their site limit, issues a firm alert at 100%, and enforces full network blocking via Chrome's native Declarative Net Request engine.
+3. **Structured Focus Regimes:** Built-in **Scheduled Focus Mode** (with compact inline time pickers) and **Pomodoro Sprints** (25-minute work intervals and 5-minute restorative breaks) create disciplined work windows.
+4. **Positive Gamification & Visual Habit Reinforcement:** Users earn XP, level up, unlock tactile 3D metallic badges (*Zen Master*, *Deep Worker*, *Iron Will*), cultivate a 30-day **Green Grove** forest, and maintain consecutive daily streaks.
 
----
+## 2.3 User Personas & Default Configuration
+DRIFTLESS recognizes that productivity is highly subjective. What is distracting for a software engineer (e.g., social media feeds) may be essential research for a social media creator. DRIFTLESS supports five customizable personas:
 
-## 2. Problem Statement
-Modern computer users lose multiple hours each day to involuntary attention drifting—the subconscious habit of opening social media, video streaming, or infinite-scroll feeds while engaged in cognitive work. Existing screen-time software suffers from four core failures:
-1. **Binary or Blurry Tracking:** Most trackers categorize domains into coarse "productive" or "unproductive" buckets without recognizing that an Instagram feed is distracting for an engineering student, yet essential research for a social media strategist or digital marketer.
-2. **Passive vs. Actionable Enforcement:** Traditional tools display passive post-facto graphs after 4 hours of distraction have already passed, rather than intervening in real-time when a user reaches a threshold.
-3. **Heavy Privacy Intrusion:** Conventional screen trackers log full page URLs, window titles, keystrokes, and tab screenshots, creating major data liabilities and personal privacy concerns.
-4. **All-or-Nothing Blocking:** Hard website blockers trigger frustration and bypass habits. Users disable them within hours because they lack graceful escalation stages or emergency work sprints.
-
----
-
-## 3. Main Objectives
-- **Zero-Friction Passive Dwell Tracking:** Measure exact active seconds spent on browser tabs using Chrome Manifest V3 APIs without background CPU churn, skipping background audio, idle states, or minimized windows.
-- **Privacy-by-Design Architecture:** Restrict collected metrics strictly to bare domain names (`domain.com`) and accumulated time intervals (`seconds`), never saving paths, query strings, document titles, page content, or keystrokes.
-- **Three-Tier Escalation Model:**
-  - *Tier 1 (80% Limit):* Non-intrusive gentle Chrome system notification nudge.
-  - *Tier 2 (100% Limit):* High-priority warning alert signaling that the user's daily streak is at risk, initiating a 5-minute countdown grace period.
-  - *Tier 3 (100% + 5m Grace Period):* Automatic dynamic network redirect via `declarativeNetRequest` to an uplifting, actionable `blocked.html` splash screen.
-- **Persona-Driven Productivity Engine:** Support distinct operational presets (Student, Professional, Influencer, Creator, Other) that reconfigure default limits and reclassify domains (e.g., classifying `instagram.com` as Productive work for Influencers, while classifying `github.com` and `.edu` domains as Productive for Students).
-- **Dual Visual Theme System:** Implement synchronized Light ("Calm Sky") and Dark ("Opal Noir") design tokens across the web dashboard, extension popup, and blocked screen without flash-of-unthemed-content (FOUC).
-- **Self-Sovereign Data Controls:** Provide 1-click JSON full archive export and immediate irreversible browsing record purge endpoints.
-
----
-
-## 4. Intended Users & Personas
-
-| Persona | Primary Focus | Default Productive Sites | Typical Limits Applied |
-| :--- | :--- | :--- | :--- |
-| **Student** | Academic study, coding, homework | `.edu`, `github.com`, `leetcode.com`, `docs.google.com`, `notion.so` | Instagram: 30m, YouTube: 45m, Reddit: 20m, Netflix: 40m |
-| **Professional** | Software engineering, collaboration, research | `github.com`, `stackoverflow.com`, `slack.com`, `jira.atlassian.com`, `linkedin.com` | Twitter/X: 20m, Instagram: 15m, YouTube: 30m, Reddit: 15m |
-| **Influencer** | Content creation, community engagement | `instagram.com`, `youtube.com`, `tiktok.com`, `threads.net`, `canva.com` | Netflix: 30m, Twitch: 25m, Reddit: 20m |
-| **Creator** | Video production, digital asset design, publishing | `figma.com`, `youtube.com`, `unsplash.com`, `notion.so` | Instagram: 45m, YouTube: 60m, Reddit: 20m, Netflix: 30m |
-| **Other / Custom** | General balanced browsing | Default master map classification | Configurable via dashboard settings and extension popup |
-
----
-
-## 5. Overall Application Architecture
-
-```mermaid
-graph TB
-    subgraph ClientLayer["Client Layer (Chrome Browser)"]
-        SW["Manifest V3 Service Worker<br/>(background.js)"]
-        POPUP["Extension Popup Controller<br/>(popup.html / popup.js)"]
-        BLOCK["DNR Block Screen<br/>(blocked.html)"]
-        DASH_UI["Analytics Single-Page Dashboard<br/>(dashboard.html / Chart.js)"]
-        AUTH_UI["Unified Auth & Persona Portal<br/>(auth.html)"]
-    end
-
-    subgraph StorageLayer["Browser Storage & Rules Engine"]
-        LOCAL_STORAGE["chrome.storage.local<br/>(siteTimes, unsyncedDeltas, siteLimits, token)"]
-        DNR_ENGINE["declarativeNetRequest Engine<br/>(Dynamic Redirect Rules)"]
-    end
-
-    subgraph ServerLayer["Backend Application Layer (Django 4.2 LTS)"]
-        URLS["Root URL Router<br/>(driftless/urls.py & core/urls.py)"]
-        VIEWS["REST API Views & Controllers<br/>(core/views.py)"]
-        SERIALIZERS["DRF Serializers & Validation<br/>(core/serializers.py)"]
-        AUTH_BACKEND["Django Auth & Token Engine<br/>(TokenAuthentication)"]
-    end
-
-    subgraph DataLayer["Persistence Layer (SQLite Database)"]
-        M_USER["User & UserProfile Models"]
-        M_USAGE["UsageLog (Date, Domain, Seconds, Category)"]
-        M_LIMITS["SiteLimit (Domain, Daily Limit, Enabled)"]
-        M_SETTINGS["UserSettings (Goals, Streak, Modes)"]
-        M_OVERRIDES["CategoryOverride & FocusSession"]
-    end
-
-    SW -- "Tracks active tabs & windows" --> LOCAL_STORAGE
-    SW -- "Installs dynamic block rules" --> DNR_ENGINE
-    POPUP -- "Reads local timers & controls mode" --> LOCAL_STORAGE
-    SW -- "POST /api/usage/ (Periodic Delta Sync)" --> VIEWS
-    SW -- "GET /api/limits/ & /api/settings/" --> VIEWS
-    DASH_UI -- "GET /api/summary/ (Analytics & Insights)" --> VIEWS
-    DASH_UI -- "PATCH /api/settings/ & /api/limits/" --> VIEWS
-    AUTH_UI -- "POST /api/auth/register/ & login/" --> VIEWS
-
-    VIEWS --> SERIALIZERS
-    SERIALIZERS --> M_USER
-    SERIALIZERS --> M_USAGE
-    SERIALIZERS --> M_LIMITS
-    SERIALIZERS --> M_SETTINGS
-    SERIALIZERS --> M_OVERRIDES
-```
-
----
-
-## 6. Implementation Status Matrix
-
-| Major Component | Specific Feature | Implementation Status | Verification Status | Notes |
+| Persona | Core Objective | Recommended Distracting Sites | Recommended Productive Sites | Suggested Focus Schedule |
 | :--- | :--- | :--- | :--- | :--- |
-| **Authentication** | Username / Email / Phone Multi-Login | Fully Implemented | **PASS** | Validated via unit tests and live session generation. |
-| **Authentication** | Persona Selection on Sign-Up | Fully Implemented | **PASS** | Auto-populates initial `SiteLimit` entries via `apply_persona_defaults`. |
-| **Authentication** | DRF Token Regeneration | Fully Implemented | **PASS** | Invalidate old token and issues a fresh hex key. |
-| **Tracking Engine** | Active Tab & Dwell Accumulation | Fully Implemented | **PASS** | Runs in `background.js`; pauses on window blur and idle state. |
-| **Tracking Engine** | Idle Inactivity Filtering | Fully Implemented | **PASS** | `chrome.idle.setDetectionInterval(60)` suppresses idle time. |
-| **Escalation Engine**| 80% Nudge Notification | Fully Implemented | **PASS** | Triggers Chrome system notification on 80% limit reach. |
-| **Escalation Engine**| 100% Streak Alert | Fully Implemented | **PASS** | Warning notification flag sets `streakAtRisk=true`. |
-| **Escalation Engine**| 5m Grace Period & DNR Blocking | Fully Implemented | **PASS** | Dynamic DNR redirect rule points target domain to `blocked.html`. |
-| **Sync Engine** | Periodic 60s Delta Sync | Fully Implemented | **PASS** | Pushes `unsyncedDeltas` array to `/api/usage/` via `chrome.alarms`. |
-| **Sync Engine** | Midnight Local Reset | Fully Implemented | **PASS** | Flushes remaining time and resets daily local counters at 00:00. |
-| **Analytics Engine**| Daily & 7-Day Usage Aggregation | Fully Implemented | **PASS** | Summarizes productive, social, entertainment, and other seconds. |
-| **Analytics Engine**| Focus Efficiency Metric | Fully Implemented | **PASS** | Formula: `Productive / (Productive + Social + Entertainment) * 100`. |
-| **Analytics Engine**| Strict Streak Calculation | Fully Implemented | **PASS** | Walks backward daily; breaks streak if any domain exceeded limit. |
-| **Focus Blocks** | 25, 45, 60m Focus Sprints | Fully Implemented | **PASS** | DNR rules block distracting sites; logs to `FocusSession`. |
-| **Theme System** | Calm Sky & Opal Noir Dual Theme | Fully Implemented | **PASS** | CSS variables in `theme.css`, `data-theme` attribute, zero FOUC. |
-| **Data Privacy** | JSON Data Export & Erasure | Fully Implemented | **PASS** | `/api/data/export/` and `/api/data/delete/` functional. |
+| **Student** | Academic study, coding, course completion, exam prep | `instagram.com`, `facebook.com`, `reddit.com`, `youtube.com` | `github.com`, `stackoverflow.com`, `docs.google.com`, `geeksforgeeks.org` | 20:00 to 22:30 |
+| **Professional** | Deep work, asynchronous communication, engineering | `instagram.com`, `facebook.com`, `youtube.com`, `x.com` | `github.com`, `docs.google.com`, `notion.so`, `stackoverflow.com` | 09:00 to 12:00 |
+| **Influencer** | Content curation, client outreach, asset management | `facebook.com`, `reddit.com`, `netflix.com`, `x.com` | `canva.com`, `docs.google.com`, `drive.google.com`, `notion.so` | 14:00 to 17:00 |
+| **Creator** | Visual design, video editing, portfolio building | `facebook.com`, `reddit.com`, `netflix.com`, `x.com` | `canva.com`, `figma.com`, `behance.net`, `docs.google.com` | 10:00 to 13:00 |
+| **Other** | General self-improvement and balanced browsing | `instagram.com`, `youtube.com`, `facebook.com`, `reddit.com` | `github.com`, `docs.google.com`, `stackoverflow.com`, `coursera.org` | 19:00 to 21:00 |
 
----
+*Note on Student Persona Privilege:* To combat the epidemic of short-form video consumption during study hours, the **Shorts & Reels Blocker** switch is exclusively illuminated and accessible when the active persona is set to **Student**.
 
-## 7. Known Limitations & Edge Cases
-1. **Service Worker Suspension in Manifest V3:** Under Chrome's MV3 lifecycle rules, background service workers suspend after ~30 seconds of inactivity. Driftless mitigates this by committing timestamps on tab focus change, tab update, window blur, and firing `chrome.alarms` every 60 seconds to ensure timely wakeups.
-2. **Tab Dwell Precision across Restarts:** If the browser process is killed abruptly via task manager without triggering `windows.onFocusChanged` or `tabs.onActivated`, time spent during that specific ongoing interval up to the last 60s flush may not be credited.
-3. **Popup / Dashboard Independent Themes:** Both the extension popup and web dashboard respect the user's preferred theme key (`driftless-theme`), but since they execute in distinct DOM sandbox windows, changing the theme in one interface updates `localStorage` immediately, requiring a refresh or toggle click in the other.
-4. **DeclarativeNetRequest Rule Limits:** Chrome enforces a quota of 5,000 dynamic rules per extension. Driftless consumes 1 rule per active focus block or exceeded site limit (typically < 20 rules), well within browser quotas.
+## 2.4 System Architecture Overview
+The DRIFTLESS platform operates as a cohesive distributed system consisting of three primary tiers:
+1. **Client Browser Tier (Chrome Extension Manifest V3):** Executes passive tracking via `content.js`, manages background alarms and Declarative Net Request rules in `background.js`, and exposes user controls in `popup.html`/`popup.js`.
+2. **Backend Services Tier (Django 4.2+ / DRF):** Ingests batch usage deltas, provides analytics summaries, evaluates streak and grove algorithms, exposes REST endpoints, and manages user accounts.
+3. **Presentation & Dashboard Tier (Web Application):** Features a modern 3D Neumorphic / Glassmorphic dashboard with dual-theme capability (Calm Sky / Opal Noir), animated XP bars, 3D shiny badges, a Priority To-Do planner, and Chart.js analytics.
 
+![DRIFTLESS System Architecture](diagrams/system_architecture.svg)
 
----
+## 2.5 Implementation Status Summary Table
+Below is the executive summary of implementation health as determined during the October 31, 2026 codebase audit:
 
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Project Structure & Folder Organization
-
-## 1. Complete Project Directory Tree
-
-```
-c:\Users\AADI\Desktop\driftless\
-├── .gitignore
-├── CHANGELOG.md
-├── DEPLOY.md
-├── README.md
-├── driftless-extension.zip
-│
-├── dashboard/                              # Django Web Application Root
-│   ├── .env                                # Local environment secrets and flags
-│   ├── .env.example                        # Template environment configuration
-│   ├── Procfile                            # Process configuration for PaaS (Heroku/Render)
-│   ├── db.sqlite3                          # Local SQLite database file
-│   ├── manage.py                           # Django CLI management entrypoint
-│   ├── render.yaml                         # Infrastructure-as-code spec for Render.com
-│   ├── requirements.txt                    # Python dependency manifest
-│   │
-│   ├── driftless/                          # Django Project Core Configuration Package
-│   │   ├── __init__.py
-│   │   ├── settings.py                     # Global Django settings, middlewares, apps, CORS
-│   │   ├── urls.py                         # Top-level URL routing mapping to core.urls
-│   │   └── wsgi.py                         # WSGI web server entrypoint for production
-│   │
-│   ├── core/                               # Primary Django Application Module
-│   │   ├── __init__.py
-│   │   ├── admin.py                        # Django Admin model registrations & filters
-│   │   ├── apps.py                         # Core application configuration
-│   │   ├── models.py                       # Data models, domain classifier, schema definitions
-│   │   ├── serializers.py                  # DRF serializers, payload validators, persona defaults
-│   │   ├── tests.py                        # Automated unit & integration test suite
-│   │   ├── urls.py                         # REST API endpoints & HTML template routes
-│   │   ├── views.py                        # API view functions, throttling, analytics logic
-│   │   │
-│   │   ├── management/                     # Custom Django Management Commands
-│   │   │   └── commands/
-│   │   │       ├── __init__.py
-│   │   │       └── seed_demo.py            # Generates 14 days of realistic demo history
-│   │   │
-│   │   ├── migrations/                     # Database Schema Migration History
-│   │   │   ├── 0001_initial.py
-│   │   │   ├── 0002_usagelog_category_usersettings.py
-│   │   │   ├── 0003_userprofile.py
-│   │   │   ├── 0004_alter_userprofile_persona.py
-│   │   │   └── 0005_usersettings_allowed_sites_and_more.py
-│   │   │
-│   │   ├── static/                         # Static Frontend Assets
-│   │   │   ├── css/
-│   │   │   │   └── theme.css               # Shared CSS tokens (Calm Sky & Opal Noir)
-│   │   │   └── img/
-│   │   │       └── logo.jpeg               # Driftless visual brand identity logo
-│   │   │
-│   │   └── templates/                      # Server-Rendered HTML5 Interfaces
-│   │       ├── auth.html                   # Login & registration portal with persona picker
-│   │       └── dashboard.html              # Analytics dashboard with Chart.js visualization
-│   │
-│   └── staticfiles/                        # WhiteNoise static production collection directory
-│
-├── extension/                              # Chrome Browser Extension (Manifest V3)
-│   ├── manifest.json                       # Extension manifest v3 metadata & permissions
-│   ├── background.js                       # Background Service Worker (dwell tracking, sync, DNR)
-│   ├── popup.html                          # Action popup UI with quick stats & focus controls
-│   ├── popup.js                            # Popup controller script & bidirectional sync trigger
-│   ├── blocked.html                        # Intervention splash screen when limits are breached
-│   ├── theme.css                           # Extension-scoped CSS variable design tokens
-│   └── icons/                              # Extension action & store icon assets
-│       ├── icon-16.png
-│       ├── icon-48.png
-│       └── icon-128.png
-│
-├── scripts/                                # Utility & Build Tooling
-│   ├── build_extension.py                  # Python script bundling extension into zip distribution
-│   └── build_extension.sh                  # Shell script alternative for Unix/macOS build
-│
-└── docs/                                   # Full Codebase Technical Documentation
-    ├── PROJECT_OVERVIEW.md
-    ├── PROJECT_STRUCTURE.md
-    ├── TECH_STACK.md
-    ├── FILE_BY_FILE_ANALYSIS.md
-    ├── FRONTEND_ARCHITECTURE.md
-    ├── CHROME_EXTENSION_ARCHITECTURE.md
-    ├── DJANGO_BACKEND.md
-    ├── API_REFERENCE.md
-    ├── DATABASE_AND_DATA_FLOW.md
-    ├── SYSTEM_ARCHITECTURE.md
-    ├── FEATURE_CODE_MAPPING.md
-    ├── CONFIGURATION_AND_DEPENDENCIES.md
-    ├── SECURITY_AND_LIMITATIONS.md
-    └── VERIFICATION_REPORT.md
-```
-
----
-
-## 2. Directory Responsibilities & Architectural Layering
-
-### 2.1. Root Level (`/`)
-- **Architectural Layer:** Project Configuration & Orchestration
-- **Purpose:** Houses cross-cutting documentation (`README.md`, `DEPLOY.md`, `CHANGELOG.md`), version control ignore directives (`.gitignore`), packaged distributables (`driftless-extension.zip`), and top-level subdirectories.
-- **Why It Exists:** Provides clean isolation between the browser client (`extension/`), the backend web server (`dashboard/`), build automation (`scripts/`), and technical documentation (`docs/`).
-
-### 2.2. Extension Layer (`/extension`)
-- **Architectural Layer:** Client-Side Browser Extension (Chrome MV3)
-- **Purpose:** Executes directly inside the user's browser runtime. Continuously observes navigation events, tracks dwell duration on active browser tabs, enforces limits via dynamic network redirects, displays the quick-action popup, and communicates asynchronously with the Django backend.
-- **Key File Types:** JSON (`manifest.json`), JavaScript (`background.js`, `popup.js`), HTML5 (`popup.html`, `blocked.html`), CSS3 (`theme.css`), and PNG icons (`icons/`).
-- **Interaction with other layers:** 
-  - Makes periodic REST calls (`POST /api/usage/`) to push uncommitted time deltas.
-  - Pulls settings and per-site limits from `/api/settings/` and `/api/limits/`.
-  - Redirects blocked browser navigations locally to `chrome-extension://.../blocked.html`.
-
-### 2.3. Dashboard Backend Layer (`/dashboard`)
-- **Architectural Layer:** Server Application & Business Logic
-- **Purpose:** Contains the complete Django 4.2 LTS project, including virtual environment references, database persistence, REST API views, URL dispatcher, serializers, and background seed commands.
-- **Key Sub-Packages:**
-  - `driftless/`: Global WSGI, URL routing, and security/settings definitions.
-  - `core/`: Django app containing models, serializers, views, templates, static files, and database migrations.
-- **Interaction with other layers:**
-  - Ingests data from `extension/` via authenticated Token API requests.
-  - Serves static assets and pre-rendered HTML5 pages (`auth.html`, `dashboard.html`) to desktop web browsers.
-  - Interacts with `db.sqlite3` via the Django Object-Relational Mapper (ORM).
-
-### 2.4. Static Assets Layer (`/dashboard/core/static`)
-- **Architectural Layer:** Presentation & Theme Styling
-- **Purpose:** Holds compiled CSS stylesheets (`theme.css`) and binary image assets (`logo.jpeg`).
-- **Why It Exists:** Decouples styling rules and graphic assets from HTML templates, enabling browser-side caching and static serving through WhiteNoise.
-- **Interaction with other layers:**
-  - Referenced by `dashboard/core/templates/dashboard.html` and `auth.html` via `{% static %}` or `/static/css/theme.css`.
-
-### 2.5. Templates Layer (`/dashboard/core/templates`)
-- **Architectural Layer:** Web Presentation Layer (Server-Rendered HTML)
-- **Purpose:** Contains the UI documents rendered by Django's template engine:
-  - `auth.html`: User onboarding, persona configuration, and credential authentication.
-  - `dashboard.html`: Analytics visualization, Chart.js graphs, per-site limit configuration modal, category overrides, and data export triggers.
-- **Interaction with other layers:**
-  - Injected with Django context variables (`api_token`, `username`, `persona`) from `views.py`.
-  - Executes client-side JavaScript that calls REST endpoints using `fetch()`.
-
-### 2.6. Build Scripts Layer (`/scripts`)
-- **Architectural Layer:** Tooling & Deployment Automation
-- **Purpose:** Provides automated cross-platform scripts (`build_extension.py`, `build_extension.sh`) to recursively package `extension/` into a compressed release zipfile (`driftless-extension.zip`).
-- **Why It Exists:** Enables distribution of the Chrome extension without requiring manual compression utilities or accidental leakage of hidden OS files (`.DS_Store`, `Thumbs.db`).
-
-### 2.7. Documentation Layer (`/docs`)
-- **Architectural Layer:** Knowledge Base & Architectural Reference
-- **Purpose:** Stores comprehensive, technical reference documents detailing every facet of DRIFTLESS, including APIs, models, algorithms, security posture, and test evidence.
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Technology Stack & Dependencies Analysis
-
-## 1. Complete Technology Inventory
-
-| Technology | Category | Actual Usage | File / Module | Purpose | Related Features |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Python 3.10+** | Programming Language | Core Backend Execution | `dashboard/**/*.py`, `scripts/*.py` | Primary language executing web server, models, serializers, and tooling | All backend APIs, migrations, seeding, extension packaging |
-| **JavaScript (ES2022)**| Programming Language | Client & Extension Execution | `extension/*.js`, `<script>` in HTML | Client-side reactive logic, timer tickers, event dispatching, REST fetches | Active tab tracking, chart rendering, theme switching, sync |
-| **HTML5** | Markup Language | UI Document Structure | `dashboard/core/templates/*.html`, `extension/*.html` | Semantic layout, forms, accessible widgets, dialog overlays | Analytics views, login forms, extension popup, blocked landing |
-| **CSS3 & CSS Custom Props**| Styling System | Visual Tokens & Layout | `dashboard/.../theme.css`, `extension/theme.css` | Design system variables (`--pri`, `--bg`, `--ink`, etc.), micro-transitions | Calm Sky (Light) and Opal Noir (Dark) dual-theme system |
-| **Django 4.2 LTS** | Web Framework | Server Architecture | `dashboard/driftless/*`, `dashboard/core/*` | MVC architecture, routing, ORM, authentication backend, template engine | User management, session auth, admin console, static collection |
-| **Django REST Framework (DRF 3.15)**| REST API Toolkit | Web API Layer | `dashboard/core/serializers.py`, `dashboard/core/views.py` | Serializer validation, token authentication, rate limiting, JSON responses | `/api/usage/`, `/api/summary/`, `/api/limits/`, `/api/settings/` |
-| **Chrome Manifest V3** | Extension Platform Spec| Browser Extension Runtime | `extension/manifest.json`, `extension/background.js` | Defines permissions, service worker lifecycle, alarms, host matches | Browser integration, tab tracking, background execution |
-| **declarativeNetRequest API**| Chrome Browser API | Network Interception | `extension/background.js` | Dynamic URL redirect rules executed at network layer without content scripts | 3-tier escalation blocking, Focus Mode distraction suppression |
-| **chrome.storage.local** | Browser Storage API | Local Extension State | `extension/background.js`, `extension/popup.js` | High-speed local persistence for accumulated seconds and sync queues | Offline dwell tracking, uncommitted delta queue, cached settings |
-| **chrome.alarms API** | Chrome Browser API | Scheduled Background Execution | `extension/background.js` | Periodic timer triggers (`ALARM_PERIODIC_SYNC`, `ALARM_MIDNIGHT_RESET`)| 60-second delta sync, daily midnight usage resets |
-| **chrome.idle API** | Chrome Browser API | State Detection | `extension/background.js` | Detects when user becomes inactive for > 60 seconds | Suppresses false positive time accumulation while user is away |
-| **chrome.notifications API**| Chrome Browser API | System Desktop Notifications | `extension/background.js` | Displays OS-level desktop notification cards | Tier 1 (80% Nudge), Tier 2 (100% Alert), Focus complete alert |
-| **SQLite 3** | Relational Database | Data Persistence | `dashboard/db.sqlite3` | Zero-configuration file-based SQL database storage | Storage of users, profiles, usage logs, limits, and settings |
-| **Chart.js 4.4.3 (UMD)** | Data Visualization | Client Charting Engine | `dashboard/core/templates/dashboard.html` | Canvas-based rendering of 7-day multi-dataset stacked bar & line charts | 7-day category breakdowns, hover tooltips, mode switching |
-| **Tailwind CSS 3.x (CDN)**| Utility CSS Engine | Rapid UI Component Layout | `dashboard/core/templates/*.html` | Utility classes for flex, grid, spacing, responsive visibility | Dashboard sidebar, grid cards, modal dialogs, status badges |
-| **WhiteNoise 6.6** | Static Asset Serving | Middleware File Server | `dashboard/driftless/settings.py` | Serves static assets directly from Gunicorn/WSGI with compression | Production serving of CSS, images, and brand logo |
-| **django-cors-headers 4.3**| Security Middleware | CORS Policy Enforcement | `dashboard/driftless/settings.py` | Grants cross-origin request permissions to `chrome-extension://*` | Extension communication with Django REST endpoints |
-| **python-dotenv 1.0** | Configuration Utility | Environment Variable Loader | `dashboard/driftless/settings.py` | Parses `.env` configuration file into `os.environ` | Environment secrets, debug flags, allowed hosts, CORS flags |
-| **Gunicorn 21.2** | WSGI HTTP Server | Production Web Server | `dashboard/Procfile` | Production-grade multi-worker WSGI HTTP server | Production PaaS deployment (Render / Heroku) |
-| **Google Fonts (Inter)** | Web Typography | Font Delivery | `dashboard/core/templates/*.html` | Modern geometric sans-serif typeface for clean UI legibility | Typography across dashboard and authentication pages |
-
----
-
-## 2. In-Depth Component Analysis
-
-### 2.1. Python & Django 4.2 LTS
-- **What It Is:** High-level Python web framework providing an ORM, request router, authentication middleware, and administrative interface.
-- **Why It Is Used:** Enables rapid development of secure, maintainable backend applications with robust schema migration tools and native SQL injection protection.
-- **Usage Location:** All files in `dashboard/driftless/` and `dashboard/core/`.
-- **Key Features Depending On It:** User registration, session login, relational database transactions, static file orchestration, template rendering.
-- **Interactions:** Serves as the foundation hosting Django REST Framework and executing all database queries against SQLite.
-- **Role:** Directly used core framework.
-
-### 2.2. Django REST Framework (DRF)
-- **What It Is:** Powerful, flexible toolkit for building Web APIs in Django.
-- **Why It Is Used:** Standardizes token-based authentication (`TokenAuthentication`), incoming payload validation, rate-limiting (`UserRateThrottle`), and structured JSON serialization.
-- **Usage Location:** `dashboard/core/serializers.py`, `dashboard/core/views.py`.
-- **Key Features Depending On It:** All endpoints under `/api/`, including `/api/usage/`, `/api/summary/`, `/api/limits/`, `/api/settings/`, and `/api/sessions/`.
-- **Interactions:** Bridges the client-side JavaScript `fetch()` calls from both the dashboard and the Chrome extension to the Django ORM.
-- **Role:** Directly used core library.
-
-### 2.3. Chrome Extension Manifest V3 Runtime
-- **What It Is:** The modern standard for Google Chrome extensions requiring service workers instead of persistent background pages.
-- **Why It Is Used:** Mandatory requirement for modern Chrome extensions; ensures memory efficiency and enhanced browser security.
-- **Usage Location:** `extension/manifest.json`, `extension/background.js`, `extension/popup.js`.
-- **Key Features Depending On It:** Dynamic tab listening (`tabs.onActivated`, `tabs.onUpdated`), window focus detection (`windows.onFocusChanged`), idle monitoring, and dynamic declarative network requests.
-- **Interactions:** Communicates with the Django REST API over HTTP using the native browser `fetch` API.
-- **Role:** Directly used execution platform.
-
-### 2.4. Chart.js 4.4.3
-- **What It Is:** Open-source HTML5 Canvas charting library.
-- **Why It Is Used:** Renders high-performance, fluid, responsive bar and line charts with custom tooltip styling and smooth theme transitions.
-- **Usage Location:** `dashboard/core/templates/dashboard.html` (`renderChart()` function).
-- **Key Features Depending On It:** 7-Day category breakdown chart displaying Productivity, Social, Entertainment, and Other categories.
-- **Interactions:** Dynamically reads CSS theme variables (`--prod`, `--soc`, `--ent`, `--tooltip-bg`) directly from `window.getComputedStyle()` so chart colors update instantaneously when toggling between Calm Sky and Opal Noir.
-- **Role:** Directly used frontend library loaded via CDN.
-
-### 2.5. Tailwind CSS & theme.css Dual-Theme Bridge
-- **What It Is:** A hybrid styling approach pairing utility classes with structured CSS custom properties.
-- **Why It Is Used:** Tailwind handles responsive layouts, flexboxes, and padding, while `theme.css` manages design tokens (colors, radii, shadows, borders) for Calm Sky (Light) and Opal Noir (Dark).
-- **Usage Location:** `dashboard/core/templates/*.html`, `dashboard/core/static/css/theme.css`, `extension/theme.css`.
-- **Key Features Depending On It:** Zero-FOUC theme rendering, high-contrast dark mode, and responsive layout scaling across desktop and mobile.
-- **Role:** Directly used styling system.
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — File-by-File Technical Codebase Analysis
-
-This document provides a line-by-line and architectural breakdown of every meaningful source file in the DRIFTLESS repository.
-
----
-
-## 1. Extension Layer Files
-
-### 1.1. `extension/manifest.json`
-- **File Type & Layer:** JSON Configuration · Extension Runtime Manifest
-- **Responsibility:** Declares extension identity, Manifest V3 specification, permissions, assets, and service worker registration.
-- **Key Fields & Constants:**
-  - `manifest_version: 3`: Enforces Chrome's modern service worker architecture.
-  - `permissions`:
-    - `tabs`: Allows querying active browser tabs and reading tab URLs for domain tracking.
-    - `storage`: Enables asynchronous key-value persistence via `chrome.storage.local`.
-    - `alarms`: Grants access to scheduled background intervals for 60s periodic sync and midnight reset.
-    - `notifications`: Allows spawning desktop system notification cards for nudges and alerts.
-    - `idle`: Enables user inactivity detection via `chrome.idle`.
-    - `declarativeNetRequest`, `declarativeNetRequestWithHostAccess`, `declarativeNetRequestFeedback`: Grants permission to dynamically insert network redirect rules without requiring invasive broad content scripts.
-  - `host_permissions: ["<all_urls>"]`: Permits network interception and domain inspection across all HTTP/HTTPS destinations.
-  - `web_accessible_resources`: Exposes `blocked.html`, `theme.css`, and `icons/*` to web pages for redirects.
-  - `background.service_worker: "background.js"`: Designates the service worker script.
-- **Dependencies:** Loads `background.js`, `popup.html`, `theme.css`, and icon binaries.
-
----
-
-### 1.2. `extension/background.js`
-- **File Type & Layer:** JavaScript (ES2022) · Service Worker / Background Controller
-- **Responsibility:** Primary client-side tracking engine. Measures active tab dwell duration, detects window focus and user idle states, evaluates 3-tier escalation thresholds, executes dynamic redirects via `declarativeNetRequest`, and flushes periodic time deltas to the Django REST API.
-- **Key Constants & Variables:**
-  - `ALARM_PERIODIC_SYNC = 'driftless_periodic_sync'`: Triggers every 60 seconds.
-  - `ALARM_MIDNIGHT_RESET = 'driftless_midnight_reset'`: Daily midnight cleanup alarm.
-  - `ALARM_FOCUS_TIMER_END = 'driftless_focus_timer_end'`: Fires upon focus block completion.
-  - `FOCUS_RULE_BASE_ID = 100`: Base ID for focus mode DNR rules.
-  - `LIMIT_BLOCK_RULE_BASE_ID = 1000`: Base ID for limit violation DNR redirect rules.
-  - `currentTabDomain`, `currentTabStartTime`, `isWindowFocused`, `isUserActive`: In-memory tracking state.
-- **Core Functions & Execution Flows:**
-  1. `cleanDomain(url)`:
-     - *Input:* Full URL string (`https://www.youtube.com/watch?v=xyz`).
-     - *Processing:* Uses `new URL(url)`, verifies `http:` or `https:`, strips `www.`, and extracts lowercase hostname (`youtube.com`).
-     - *Output:* Sanitized domain string or `null`.
-  2. `commitActiveTime()`:
-     - *Execution Flow:*
-       1. Verifies if `currentTabDomain`, `currentTabStartTime`, `isWindowFocused`, and `isUserActive` are valid.
-       2. Computes `elapsedSeconds = Math.floor((Date.now() - currentTabStartTime) / 1000)`.
-       3. Updates `currentTabStartTime = Date.now()`.
-       4. Reads `siteTimes` and `unsyncedDeltas` from `chrome.storage.local`.
-       5. Increments seconds for `currentTabDomain` in both dictionaries.
-       6. Saves back to storage and invokes `evaluateSiteLimits(domain, newTotalSeconds)`.
-  3. `evaluateSiteLimits(domain, totalSeconds)`:
-     - *Execution Flow (3-Tier Escalation):*
-       1. Pulls `siteLimits`, `userTimeLimitMinutes`, and `escalationState` from storage.
-       2. Computes `limitSeconds = limitMins * 60` and `gracePeriod = 300` (5 minutes).
-       3. **Tier 1 (80% Nudge):** If `totalSeconds >= limitSeconds * 0.8` and not nudged: sets `state.nudged = true` and triggers `sendNudgeNotification()`.
-       4. **Tier 2 (100% Alert):** If `totalSeconds >= limitSeconds` and not alerted: sets `state.alerted = true`, marks `streakAtRisk = true`, and calls `sendAlertNotification()`.
-       5. **Tier 3 (100% + 5m Block):** If `totalSeconds >= limitSeconds + 300` and not blocked: sets `state.blocked = true` and invokes `blockDomainViaDNR(domain)`.
-  4. `blockDomainViaDNR(domain)`:
-     - *Processing:* Checks existing dynamic rules. If none exist for this domain, allocates a unique rule ID (`LIMIT_BLOCK_RULE_BASE_ID + random`), creates a dynamic redirect action pointing to `chrome.runtime.getURL('blocked.html?site=' + domain)`, and calls `chrome.declarativeNetRequest.updateDynamicRules()`. If the user is currently looking at that tab, immediately calls `chrome.tabs.update()` to redirect them.
-  5. `syncToBackend()`:
-     - *Processing:* Reads `apiToken` and `unsyncedDeltas`. If tokens and positive deltas exist, builds a JSON array `[{ website_url, time_spent_seconds, date }]` and transmits via `POST ${serverUrl}/api/usage/`. Upon HTTP 200, clears `unsyncedDeltas` and updates `lastSyncedTime`. Follows up with `pullBackendConfig()` to refresh settings and limits.
-- **Event Listeners:** `chrome.tabs.onActivated`, `chrome.tabs.onUpdated`, `chrome.windows.onFocusChanged`, `chrome.idle.onStateChanged`, `chrome.alarms.onAlarm`, `chrome.runtime.onMessage`.
-
----
-
-### 1.3. `extension/popup.html` & `extension/popup.js`
-- **File Type & Layer:** HTML5 / JavaScript · Extension User Interface
-- **Responsibility:** Serves as the interactive extension drop-down menu. Displays real-time streak badges, connected server indicator, live focus timer buttons, per-site daily usage bars, domain limit addition form, API token input, theme toggle button, and reset confirmation modal.
-- **Core Functions in `popup.js`:**
-  - `loadPopupState()`: Reads `chrome.storage.local` keys (`apiToken`, `streakDays`, `focusModeActive`, `siteTimes`, `siteLimits`) and populates the DOM.
-  - `renderSiteList(siteTimes, siteLimits)`: Merges all tracked and limited domains. Renders visual progress bars colored dynamically (green for normal, amber for 60%+, rose for 80%+ limit usage).
-  - `renderFocusTimerCountdown()`: Updates ticking countdown display `⏱ MM:SS` when a focus session is active.
-  - `startLiveTimerTicker()`: Sets a 1-second `setInterval` to keep the popup countdown clock synchronized.
-  - `setupEventListeners()`:
-    - Focus Mode toggle emits `SET_FOCUS_MODE` and PATCHes `/api/settings/`.
-    - Focus Timer preset buttons (25m, 45m, 60m) send `START_FOCUS_TIMER` message to background.
-    - Add Limit button validates domain and limit minutes, updates `chrome.storage.local`, and POSTs to `/api/limits/`.
-    - Save Token button commits user token to `chrome.storage.local` and triggers an immediate sync.
-    - Reset Timers button displays custom confirmation modal before sending `RESET_ALL_TIMERS`.
-
----
-
-### 1.4. `extension/blocked.html`
-- **File Type & Layer:** HTML5 / Embedded CSS · Network Interception Landing Screen
-- **Responsibility:** Replaces blocked tabs when daily allowances expire or when Focus Mode is active.
-- **Design & Behavior:**
-  - Extracts the blocked domain from URL search query parameter `?site=...`.
-  - Displays a clean card with Calm Sky / Opal Noir theme tokens, warning icon, domain pill, and supportive streak preservation message.
-  - Includes a "Back to Productive Work →" button redirecting users to `https://github.com` and a link to the Driftless dashboard (`http://127.0.0.1:8000/dashboard/`).
-
----
-
-### 1.5. `extension/theme.css`
-- **File Type & Layer:** CSS3 Custom Properties · Extension Theme Tokens
-- **Responsibility:** Declares extension-specific styling tokens for Light mode (`:root`, `[data-theme="light"]`) and Dark mode (`[data-theme="dark"]`).
-- **Variables Declared:** `--bg`, `--card`, `--border`, `--ink`, `--ink-muted`, `--pri`, `--accent`, `--grad`, `--prod`, `--soc`, `--ent`.
-
----
-
-## 2. Dashboard Backend Files
-
-### 2.1. `dashboard/driftless/settings.py`
-- **File Type & Layer:** Python Configuration · Django Core Settings
-- **Responsibility:** Configures application settings, middleware pipeline, installed apps, database connection, static assets, and security parameters.
-- **Key Configurations:**
-  - `INSTALLED_APPS`: Registers `django.contrib.*`, `rest_framework`, `rest_framework.authtoken`, `corsheaders`, and `core`.
-  - `MIDDLEWARE`: Positions `corsheaders.middleware.CorsMiddleware` first, followed by `WhiteNoiseMiddleware` for compressed static asset delivery.
-  - `DATABASES`: Configures `django.db.backends.sqlite3` targeting `BASE_DIR / 'db.sqlite3'`.
-  - `REST_FRAMEWORK`: Enforces `TokenAuthentication` and `SessionAuthentication`, default permission `IsAuthenticated`, and throttling tiers (`anon: 100/day`, `user: 1000/day`).
-  - `CORS_ALLOW_ALL_ORIGINS = True` & `CORS_ALLOWED_ORIGIN_REGEXES = [r'^chrome-extension://.*$']`: Allows extension fetch requests.
-  - `CSRF_TRUSTED_ORIGINS`: Lists development and tunneling domains (ngrok, cloudflare, loca.lt).
-
----
-
-### 2.2. `dashboard/core/models.py`
-- **File Type & Layer:** Python ORM · Data Schema & Domain Logic
-- **Responsibility:** Defines domain classification algorithm, master categories, and relational models.
-- **Key Functions & Models:**
-  1. `clean_domain(domain: str) -> str`: Normalizes domain strings by stripping protocols (`http://`, `https://`), `www.`, ports, query parameters, and trailing paths.
-  2. `classify_domain(domain: str, user=None) -> str`:
-     - *Priority 1:* Checks if user has a custom `CategoryOverride` for this domain.
-     - *Priority 2:* Evaluates user persona (e.g. Influencers categorize Instagram/YouTube as `Productivity`; Professionals categorize LinkedIn/Slack as `Productivity`).
-     - *Priority 3:* Regex match on academic domains (`.edu`, `.ac.in`) -> `Productivity`.
-     - *Priority 4:* Global `CATEGORY_MAP` dictionary lookup.
-     - *Priority 5:* Fallback to `Other`.
-  3. `UserProfile`: Extends Django's `User` with `phone` and `persona` (`student`, `professional`, `influencer`, `creator`, `other`).
-  4. `CategoryOverride`: User-customized classification for a domain (`user`, `domain`, `category`). Unique together on `('user', 'domain')`.
-  5. `SiteLimit`: Daily threshold per domain in minutes (`user`, `domain`, `daily_limit_minutes`, `enabled`).
-  6. `FocusSession`: Discrete focus timer blocks (`user`, `duration_minutes`, `started_at`, `completed`).
-  7. `UsageLog`: Accumulated dwell time per domain per calendar day (`user`, `website_url`, `time_spent_seconds`, `category`, `date`). Unique together on `('user', 'website_url', 'date')`. Indexed on `['user', 'date']`.
-  8. `UserSettings`: High-level user flags (`focus_mode_active`, `daily_limit_minutes`, `focus_goal_minutes`, `streak_days`, `require_challenge`, `blocked_sites`, `allowed_sites`).
-
----
-
-### 2.3. `dashboard/core/serializers.py`
-- **File Type & Layer:** Python / DRF · Data Serialization & Validation
-- **Responsibility:** Validates incoming JSON payloads and deserializes them into model instances.
-- **Key Classes & Utilities:**
-  - `apply_persona_defaults(user, persona)`: Populates default site limits (e.g., student gets 30m Instagram, 45m YouTube, 20m Reddit, 40m Netflix).
-  - `RegisterSerializer`: Validates registration input (`username`, `email`, `phone`, `password`, `persona`). Converts spaces in usernames to underscores, validates phone formats, enforces unique constraints, creates `UserProfile` and `UserSettings`, and applies persona limits.
-  - `UsageLogSerializer`: Validates `time_spent_seconds >= 0` and `<= 86400` (24h safety clamp), cleans domain.
-  - `SiteLimitSerializer`: Enforces `daily_limit_minutes` between 1 and 1440 minutes (24 hours).
-  - `CategoryOverrideSerializer`, `FocusSessionSerializer`, `UserSettingsSerializer`: Standard model serializers.
-
----
-
-### 2.4. `dashboard/core/views.py`
-- **File Type & Layer:** Python / DRF · Controller & Business Logic
-- **Responsibility:** Handles template rendering, authentication endpoints, batch usage log ingestion, 7-day analytics aggregation, strict streak calculation, settings updates, and data sovereignty.
-- **Key View Functions:**
-  - `auth_page(request)`: Renders `auth.html` or redirects authenticated sessions to `/dashboard/`.
-  - `dashboard_page(request)`: Authenticated view passing `api_token`, `username`, and `persona` into `dashboard.html`.
-  - `register_view(request)`: `POST /api/auth/register/` creates user, issues DRF token, logs in Django session.
-  - `login_view(request)`: `POST /api/auth/login/` resolves identifier (username, email, or normalized phone), authenticates credentials, issues token, creates session.
-  - `logout_view(request)` & `regenerate_token_view(request)`: Revoke or re-issue tokens.
-  - `usage_log_view(request)`: `POST /api/usage/` throttled at `120/min`. Accepts batch array or single object. Uses `UsageLog.objects.get_or_create()` and increments `time_spent_seconds`.
-  - `summary_view(request)`: `GET /api/summary/` returns 7-day category breakdown, today's per-site breakdown, focus efficiency, active streak, distraction list, and user settings.
-  - `limits_list_create_view` & `limits_detail_view`: CRUD operations for per-site limits.
-  - `categories_list_create_view` & `categories_detail_view`: CRUD for category overrides with retroactive updates to past `UsageLog` records.
-  - `sessions_view`: GET/POST for discrete focus timer records.
-  - `data_export_view`: `GET /api/data/export/` generates full JSON dump.
-  - `data_delete_view`: `POST /api/data/delete/` purges `UsageLog` and `FocusSession` records.
-
----
-
-### 2.5. `dashboard/core/urls.py`
-- **File Type & Layer:** Python Routing · Application URL Dispatcher
-- **Responsibility:** Maps all page routes and REST API paths to view functions in `views.py`.
-
----
-
-### 2.6. `dashboard/core/admin.py`
-- **File Type & Layer:** Python Admin · Django Administration Panel
-- **Responsibility:** Registers `UserProfile`, `UsageLog`, `UserSettings`, `SiteLimit`, `CategoryOverride`, and `FocusSession` with search fields, list filters, and column definitions for administrative inspection.
-
----
-
-### 2.7. `dashboard/core/tests.py`
-- **File Type & Layer:** Python TestCase · Automated Verification Suite
-- **Responsibility:** Contains unit tests for domain normalization (`clean_domain`), classification rules, custom overrides, registration persona defaults, strict per-user data isolation on limits and usage logs, and token regeneration workflows.
-
----
-
-### 2.8. `dashboard/core/management/commands/seed_demo.py`
-- **File Type & Layer:** Python Management Command · Test Seeding Tool
-- **Responsibility:** Invoked via `python manage.py seed_demo`. Creates or resets user `demo` (`demo@driftless.app` / `demo123456`) and seeds 14 days of realistic, mathematically consistent browsing logs, an active 14-day streak, custom site limits, and completed focus sessions.
-
----
-
-### 2.9. `dashboard/core/templates/dashboard.html` & `auth.html`
-- **File Type & Layer:** Django HTML5 Templates · Web Frontend
-- **Responsibility:** Provide the user-facing web interface. `auth.html` manages onboarding and sign-in. `dashboard.html` visualizes metrics, renders Chart.js graphs, manages site limits modals, switches between Live and Demo data modes, and handles theme toggling.
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Frontend Architecture & UI Interaction Workflows
-
-## 1. Overview of Frontend Architecture
-
-The DRIFTLESS frontend consists of two primary web templates served by Django:
-1. `dashboard/core/templates/auth.html`: Unified authentication portal handling registration, login, persona selection, and token display.
-2. `dashboard/core/templates/dashboard.html`: Single-page analytics dashboard providing KPI scorecards, interactive Chart.js visualizations, per-site distraction management, Focus Mode controls, category overrides, and data privacy options.
-
-Both interfaces use a modern hybrid frontend stack:
-- **Styling:** Vanilla CSS Custom Properties (`theme.css`) defining the design system, combined with Tailwind CSS (loaded via CDN) for responsive layouts and micro-components.
-- **Client Logic:** Vanilla ES6+ JavaScript embedded directly within `<script>` blocks in the templates, avoiding complex build steps or node packaging overhead.
-- **Data Layer:** Dynamic asynchronous REST communication with Django using the native browser `fetch` API and token authentication headers.
-
----
-
-## 2. Page Structure & Navigation
-
-### 2.1. Dashboard Layout Structure
-The dashboard uses an application shell layout:
-- **Left Desktop Sidebar (`<aside>`):**
-  - Brand header with Driftless logo and application badge.
-  - Primary navigation links:
-    - *Dashboard* (`#tab-dashboard`): Overview KPIs, Focus Goal Ring, 7-day chart, distractions list, detailed logs.
-    - *Analytics Detail* (`#tab-analytics`): Extended tabular logs and category breakdown.
-    - *Settings & Rules* (`#tab-settings`): Category override manager, API token copy/regenerate tool, and data export/deletion.
-  - Bottom user profile pill with active persona tag and sign-out button.
-- **Top Header Bar (`<header>`):**
-  - Mobile hamburger toggle button.
-  - Active section title (`Dashboard` / `Analytics Detail` / `Settings & Rules`).
-  - Dynamic greeting based on current local time (`Good morning / afternoon / evening, <username> 👋`).
-  - Current calendar date (`headerDate`).
-  - Data Mode Switcher (`Demo` vs. `Live` toggle pill).
-  - Theme Toggle Button (`dashThemeToggle`) with animated ☀/🌙 SVG icons.
-- **Main Scrollable Content (`<main>`):**
-  - Section tabs toggled via CSS `.tab-content.active` classes.
-  - Modal overlay dialogs for Per-Site Limits (`#limitsModal`) and mobile sidebar drawer.
-
----
-
-## 3. Styling & Dual-Theme System
-
-DRIFTLESS implements two distinct, synchronized color themes across the frontend:
-1. **Calm Sky (Light Mode):** Clean, high-legibility palette tailored for daylight focus.
-   - Background (`--bg`): `#F3F7FD` (Soft glacial blue-grey)
-   - Cards (`--card`): `#FFFFFF`
-   - Primary Brand (`--pri`): `#6463E0` (Deep indigo)
-   - Accent (`--accent`): `#60B0E7` (Sky blue)
-   - Text Ink (`--ink`): `#1B2340` (Midnight navy)
-   - Category Indicators: Productivity (`#10B981`), Social (`#F59E0B`), Entertainment (`#F43F5E`), Other (`#94A3B8`)
-2. **Opal Noir (Dark Mode):** Sleek, OLED-friendly low-light palette tailored for late-night productivity.
-   - Background (`--bg`): `#0A0A0A` (Deep pitch black)
-   - Cards (`--card`): `#141416` (Smoky obsidian)
-   - Primary Accent (`--pri`): `#E2C9FF` (Luminous lilac)
-   - Secondary Accent (`--accent`): `#8CFFDD` (Mint luminescence)
-   - Text Ink (`--ink`): `#FFFFFF` (Pure white)
-   - Muted Ink (`--ink-muted`): `#8E8E93`
-
-### Flash-of-Unthemed-Content (FOUC) Prevention
-To prevent bright flashes during page loads, both `auth.html` and `dashboard.html` execute an inline, synchronous JavaScript snippet immediately inside `<head>` prior to CSS or body rendering:
-```html
-<script>
-  (function() {
-    var t = localStorage.getItem('driftless-theme') || 'light';
-    document.documentElement.setAttribute('data-theme', t);
-  })();
-</script>
-```
-When toggled, `dashThemeToggle` calls `document.documentElement.setAttribute('data-theme', newTheme)` and saves the preference to `localStorage.setItem('driftless-theme', newTheme)`. All CSS variables cascade instantaneously without requiring a page reload.
-
----
-
-## 4. Charts & Analytics Visualization
-
-The 7-Day Trend Chart uses Chart.js 4.4.3 mounted on `<canvas id="weeklyChart">`.
-- **Dynamic CSS Variable Integration:**
-  Rather than hardcoding hex colors in JavaScript, `renderChart()` reads theme colors dynamically at runtime:
-  ```javascript
-  const style = getComputedStyle(document.documentElement);
-  const cProd  = style.getPropertyValue('--prod').trim()  || '#10B981';
-  const cSoc   = style.getPropertyValue('--soc').trim()   || '#F59E0B';
-  const cEnt   = style.getPropertyValue('--ent').trim()   || '#F43F5E';
-  const cOther = style.getPropertyValue('--other').trim() || '#94A3B8';
-  ```
-  When the theme toggle is clicked, `renderChart()` re-executes, instantly redrawing grid lines, tooltips, and bar colors to match Calm Sky or Opal Noir.
-- **Chart Type Toggle:** Users can switch seamlessly between stacked bar format (`currentChartType = 'bar'`) and multi-line area format (`currentChartType = 'line'`).
-- **Focus Goal Ring:** An SVG circular progress bar calculates today's productive hours against the user's daily target (`focus_goal_minutes`, default 180m = 3h) via `stroke-dasharray`.
-
----
-
-## 5. End-to-End User Interaction Workflows
-
-### Workflow 1: Data Mode Switching (Demo vs. Live)
-```
-User Action: Clicks "Live" on top-nav toggle (#dataModeSwitcher)
-  ↓
-Event Handler: onclick="setDataMode('live')"
-  ↓
-Function Execution:
-  1. Updates active button styling.
-  2. Calls loadData().
-  ↓
-Data Source:
-  GET /api/summary/ with Authorization: Token <api_token>
-  ↓
-UI Update:
-  - If successful: renderDashboard(data, false) displays live SQLite database records.
-  - If network fails: console.warn logged and loadDemoFallback() displays 14-day reference data.
-```
-
-### Workflow 2: Adding a Per-Site Daily Limit
-```
-User Action: Enters "reddit.com", "25", clicks "Save Limit" in modal
-  ↓
-Event Handler: onclick="submitNewLimit()"
-  ↓
-Function Execution:
-  1. Reads values from modalAddDomain and modalAddMins.
-  2. Executes fetch('/api/limits/', { method: 'POST', body: JSON.stringify({...}) }).
-  ↓
-Data Source:
-  Django SiteLimit model creates/updates record for request.user.
-  ↓
-UI Update:
-  loadModalLimits() refreshes modal list; closeLimitsModal() re-fetches /api/summary/ and updates distraction progress bars.
-```
-
-### Workflow 3: Toggling Focus Mode from Dashboard
-```
-User Action: Flips toggle switch (#focusToggle)
-  ↓
-Event Handler: onchange="toggleFocusMode(this.checked)"
-  ↓
-Function Execution:
-  1. applyFocusUI(enabled) immediately turns card green and activates pulsing dot.
-  2. Executes fetch('/api/settings/', { method: 'PATCH', body: JSON.stringify({ focus_mode_active: enabled }) }).
-  ↓
-Data Source:
-  Django UserSettings.focus_mode_active is updated in database.
-  ↓
-Downstream Effect:
-  Next periodic pull by Chrome extension activates DNR dynamic rules to block distracting sites.
-```
-
-### Workflow 4: Custom Category Override
-```
-User Action: Enters "reddit.com", selects "Productivity", clicks "Add Override"
-  ↓
-Event Handler: onclick="addCategoryOverride()"
-  ↓
-Function Execution:
-  Executes fetch('/api/categories/', { method: 'POST', body: JSON.stringify({ domain: 'reddit.com', category: 'Productivity' }) }).
-  ↓
-Data Source:
-  Django CategoryOverride record created; retroactively updates past UsageLog entries for that domain.
-  ↓
-UI Update:
-  loadCategoryOverrides() displays new override; loadData() recalculates Focus Efficiency and redrew weekly chart.
-```
-
-### Workflow 5: 1-Click Data Sovereignty
-- **Data Export:** User clicks "Export All Data (JSON)" → Calls `window.open('/api/data/export/', '_blank')` → Browser downloads formatted JSON file containing all usage logs, site limits, and focus sessions.
-- **Data Erase:** User clicks "Erase Browsing Data" → Displays confirmation dialog → Calls `POST /api/data/delete/` → Server purges all `UsageLog` and `FocusSession` entries → Dashboard reloads with zeroed metrics.
-
----
-
-## 6. Data Provenance (Origin of Displayed Values)
-
-| UI Element | In Demo Mode | In Live Mode | Source |
+| System Subsystem | Component / Feature | Audit Status | Verification Method |
 | :--- | :--- | :--- | :--- |
-| **KPI: Focus Efficiency** | Static calculated (74%) | Dynamic (`round(prod / (prod+soc+ent) * 100)`) | Backend `/api/summary/` |
-| **KPI: Productive Time** | Static (200m / 3.3h) | Sum of today's `Productivity` logs | Backend `/api/summary/` |
-| **KPI: Screen Time** | Static (270m / 4.5h) | Sum of all today's domain logs | Backend `/api/summary/` |
-| **KPI: Streak** | Static (14 Days) | Calculated strict consecutive days | Backend `/api/summary/` |
-| **Weekly Chart Data** | Static 7-day array | Aggregated past 7 calendar days | Backend `/api/summary/` |
-| **Distraction Progress Bars** | 3 preset rows | Merged `SiteLimit` + today's usage logs | Backend `/api/summary/` |
-| **Detailed Log Table** | 5 preset sites | All domain logs recorded today | Backend `/api/summary/` |
-| **Active Theme** | Client `localStorage` | Client `localStorage` | Browser `localStorage` |
-| **API Token** | Django Template Context | Django Template Context | Injected into HTML via `{{ api_token }}` |
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Chrome Extension Architecture & Execution Model
-
-## 1. Overview & Architectural Role
-
-The DRIFTLESS Chrome Extension is built strictly on **Chrome Manifest V3 (MV3)**. It operates as the client-side telemetry and enforcement agent of the system. Its responsibilities are:
-1. **Passive Time Tracking:** Accurately measuring dwell time on active browser tabs without running invasive content scripts on user web pages.
-2. **Escalation Enforcement:** Evaluating per-site daily limits against accumulated dwell time and executing a 3-tier escalation strategy (80% nudge, 100% alert, +5m DNR block).
-3. **Focus Mode Blocking:** Dynamically redirecting distracting domains to `blocked.html` during dedicated sprint blocks.
-4. **Cloud Synchronization:** Buffering local time deltas in `chrome.storage.local` and pushing them periodically to the Django REST API over authenticated HTTP endpoints.
-
----
-
-## 2. Manifest V3 Configuration & Permissions
-
-The extension is declared in `extension/manifest.json`:
-
-```json
-{
-  "manifest_version": 3,
-  "name": "Driftless - Focus & Wellbeing Companion",
-  "version": "1.1",
-  "permissions": [
-    "tabs",
-    "storage",
-    "alarms",
-    "notifications",
-    "idle",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
-    "declarativeNetRequestFeedback"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["blocked.html", "theme.css", "icons/*"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  "background": {
-    "service_worker": "background.js"
-  }
-}
-```
-
-### Permission Justifications
-- `tabs`: Required to listen to active tab switches (`tabs.onActivated`) and navigation commits (`tabs.onUpdated`), allowing extraction of the hostname for dwell tracking.
-- `storage`: Enables non-volatile asynchronous key-value persistence via `chrome.storage.local` for tracking timers, cached server limits, and unsynced delta buffers.
-- `alarms`: Essential in Manifest V3 to schedule background wake-ups without running continuous infinite loops. Drives the 60-second periodic sync and midnight reset.
-- `notifications`: Allows displaying native system desktop notifications for 80% nudges, 100% streak risk alerts, and focus session completions.
-- `idle`: Detects user inactivity (`chrome.idle.onStateChanged`), pausing time accumulation when the user steps away for > 60 seconds.
-- `declarativeNetRequest`: Performs fast, privacy-preserving network-level redirects to `blocked.html` without executing JavaScript inside the target web page.
-- `host_permissions: ["<all_urls>"]`: Permits declarative interception of any distracting domain matching the user's blocked list.
-
----
-
-## 3. Service Worker Lifecycle & Tracking Algorithm
-
-In Manifest V3, background scripts run as ephemeral service workers that can be suspended by Chrome after ~30 seconds of inactivity. To ensure high tracking accuracy without losing dwell time, `background.js` uses an event-driven accumulation pattern:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Chrome as Chrome Browser
-    participant SW as Service Worker (background.js)
-    participant Storage as chrome.storage.local
-    participant Backend as Django REST API (/api/usage/)
-
-    User->>Chrome: Switches to tab (e.g. reddit.com)
-    Chrome->>SW: chrome.tabs.onActivated
-    SW->>SW: commitActiveTime() (Commits previous tab dwell)
-    SW->>Chrome: chrome.tabs.query({ active: true })
-    Chrome-->>SW: Tab URL (https://reddit.com/r/programming)
-    SW->>SW: cleanDomain(url) -> "reddit.com"
-    SW->>SW: currentTabStartTime = Date.now()
-    
-    Note over User,SW: User browses reddit.com for 120 seconds...
-
-    User->>Chrome: Switches to github.com
-    Chrome->>SW: chrome.tabs.onActivated
-    SW->>SW: commitActiveTime()
-    SW->>Storage: siteTimes['reddit.com'] += 120s
-    SW->>Storage: unsyncedDeltas['reddit.com'] += 120s
-    SW->>SW: evaluateSiteLimits('reddit.com', totalSeconds)
-
-    Note over SW,Backend: Every 60s Alarm (ALARM_PERIODIC_SYNC)
-    SW->>Backend: POST /api/usage/ [{ website_url, time_spent_seconds: 120 }]
-    Backend-->>SW: HTTP 200 OK
-    SW->>Storage: Clear unsyncedDeltas['reddit.com']
-```
-
-### 3.1. Tab Dwell Measurement Rules
-Dwell time is accumulated **only** when all of the following conditions hold true:
-1. `currentTabDomain` is a valid HTTP/HTTPS domain.
-2. `currentTabStartTime` is a valid timestamp.
-3. `isWindowFocused === true` (detected via `chrome.windows.onFocusChanged`).
-4. `isUserActive === true` (state is `active` via `chrome.idle.onStateChanged`, interval 60s).
-
-If the user minimizes Chrome, switches to another desktop application, locks their screen, or leaves the computer idle for over 60 seconds, `commitActiveTime()` runs immediately, commits the active duration up to that second, and pauses tracking until focus and user activity resume.
-
----
-
-## 4. 3-Tier Escalation Logic & DNR Blocking
-
-DRIFTLESS does not immediately lock users out of websites without warning. Instead, it enforces a gentle, 3-tier escalation ladder:
-
-```mermaid
-graph TD
-    A["Active Time Monitored on Domain"] --> B{"Current Usage vs. Daily Limit"}
-    B -- "Usage < 80%" --> C["Normal Browsing<br/>(Green / Amber Progress)"]
-    B -- "Usage >= 80% & < 100%" --> D["Tier 1: Gentle Nudge<br/>(Chrome Desktop Notification)"]
-    B -- "Usage >= 100% & < 100% + 5m" --> E["Tier 2: Streak Alert<br/>(Warning Notification + 5m Grace Period)"]
-    B -- "Usage >= 100% + 5m" --> F["Tier 3: Dynamic DNR Block<br/>(Redirect to blocked.html)"]
-
-    D --> G["state.nudged = true"]
-    E --> H["state.alerted = true<br/>streakAtRisk = true"]
-    F --> I["declarativeNetRequest.updateDynamicRules()<br/>Redirects active tab immediately"]
-```
-
-### Escalation Implementation Details
-1. **Tier 1 — 80% Limit Nudge:**
-   - Evaluated in `evaluateSiteLimits()`.
-   - Triggers `sendNudgeNotification()` with message: `"You've used Xm of your Ym daily limit on <domain>."`
-   - Sets `escalationState[domain].nudged = true` to prevent duplicate notifications.
-2. **Tier 2 — 100% Limit Alert:**
-   - Triggers `sendAlertNotification()` with message: `"Daily limit of Ym reached on <domain>! 5m grace period active before site is blocked."`
-   - Sets `escalationState[domain].alerted = true` and `streakAtRisk = true`.
-3. **Tier 3 — Dynamic Request Blocking:**
-   - If user continues browsing past `limitSeconds + 300` (5 minutes grace period), `blockDomainViaDNR(domain)` executes.
-   - Injects a dynamic redirect rule using `chrome.declarativeNetRequest.updateDynamicRules()`:
-     ```javascript
-     {
-       id: newId,
-       priority: 2,
-       action: {
-         type: 'redirect',
-         redirect: { url: chrome.runtime.getURL(`blocked.html?site=${encodeURIComponent(domain)}`) }
-       },
-       condition: {
-         urlFilter: `||${domain}`,
-         resourceTypes: ['main_frame']
-       }
-     }
-     ```
-   - If the user is currently focused on the violating tab, `chrome.tabs.update(activeTab.id, { url: redirectUrl })` instantly redirects them to `blocked.html`.
-
----
-
-## 5. Focus Mode & Discrete Focus Sprints
-
-Focus Mode suppresses distractions on demand:
-- **Default Distraction Filter:** `['instagram.com', 'youtube.com', 'reddit.com', 'x.com', 'twitter.com', 'tiktok.com', 'netflix.com']`, or the user's custom `blocked_sites` list.
-- **Focus Sprints:** The user can initiate a 25, 45, or 60-minute focus sprint from the extension popup.
-- **Sprint Lifecycle:**
-  1. Popup sends `START_FOCUS_TIMER` message with `durationMinutes`.
-  2. Service worker calls `enableFocusMode()`, installing DNR redirect rules with IDs `FOCUS_RULE_BASE_ID + i`.
-  3. Service worker schedules `chrome.alarms.create(ALARM_FOCUS_TIMER_END, { delayInMinutes })`.
-  4. When the alarm triggers, service worker calls `disableFocusMode()`, clears dynamic rules, notifies the user via desktop notification, and logs the completed session to the server via `POST /api/sessions/`.
-
----
-
-## 6. Daily Reset & Offline Synchronization
-
-### 6.1. Periodic Cloud Synchronization
-- Runs every 60 seconds driven by `ALARM_PERIODIC_SYNC`.
-- Sends uncommitted time deltas (`unsyncedDeltas`) to `POST /api/usage/`.
-- If the computer is offline or the server is temporarily unreachable, deltas remain safely buffered in `chrome.storage.local` and are transmitted automatically upon reconnection.
-- Following a successful usage push, calls `pullBackendConfig()` to retrieve updated `siteLimits` and `userSettings`.
-
-### 6.2. Midnight Daily Reset
-- Scheduled via `scheduleMidnightReset()` to fire at `00:00:00` local time.
-- Commits remaining active seconds and performs a final sync to the server.
-- Strips all dynamic limit block rules (`r.id >= LIMIT_BLOCK_RULE_BASE_ID`) from `declarativeNetRequest`.
-- Resets `siteTimes = {}`, `unsyncedDeltas = {}`, `escalationState = {}`, and `streakAtRisk = false`.
-
----
-
-## 7. Known Manifest V3 Constraints & Mitigations
-
-| Manifest V3 Constraint | Technical Impact | Driftless Mitigation Architecture |
-| :--- | :--- | :--- |
-| **Service Worker Termination** | Inactive service workers terminate after ~30 seconds, losing in-memory global variables. | All persistent state is committed immediately to `chrome.storage.local`. In-memory variables (`currentTabStartTime`) are re-initialized on every browser event. |
-| **No DOM Access in Service Workers** | Cannot read web page DOM, cookies, or window titles directly in `background.js`. | Driftless intentionally tracks only the bare hostname via `tab.url`, guaranteeing privacy by design and eliminating the need for DOM access. |
-| **Alarm Minimum Interval** | In production, `chrome.alarms` cannot fire more frequently than once per minute. | 60-second granularity is ideal for digital wellbeing sync and prevents unnecessary server load. |
-| **Browser Force Kill** | If Chrome is killed via Task Manager, uncommitted dwell seconds since the last tab event or 60s alarm could be lost. | Tab switches, window blur events, and idle state transitions trigger immediate commits, keeping uncommitted time under 60 seconds. |
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Django Backend Architecture & Business Logic
-
-## 1. Overview of Backend Architecture
-
-The backend of DRIFTLESS is built on **Python 3.10+** and **Django 4.2 LTS**, supplemented by **Django REST Framework (DRF 3.15)**. It serves two distinct client consumers:
-1. **The Web Dashboard Client:** Consumes rendered HTML views, session authentication, and high-level analytical endpoints (`/api/summary/`, `/api/settings/`, `/api/limits/`).
-2. **The Chrome Extension Client:** Consumes stateless Token Authentication (`TokenAuthentication`) endpoints to ingest usage deltas (`/api/usage/`), synchronize limits, and register focus sessions.
-
----
-
-## 2. Django Configuration & Middleware Pipeline
-
-Configured in `dashboard/driftless/settings.py`:
-
-```mermaid
-graph TD
-    REQ["Incoming HTTP Request"] --> M1["CorsMiddleware (Allow Chrome Extension)"]
-    M1 --> M2["SecurityMiddleware"]
-    M2 --> M3["WhiteNoiseMiddleware (Serve Static Assets)"]
-    M3 --> M4["SessionMiddleware (Manage Django User Sessions)"]
-    M4 --> M5["CommonMiddleware"]
-    M5 --> M6["CsrfViewMiddleware"]
-    M6 --> M7["AuthenticationMiddleware (Session Auth)"]
-    M7 --> M8["MessageMiddleware"]
-    M8 --> M9["XFrameOptionsMiddleware (Clickjacking Protection)"]
-    M9 --> ROUTER["Django URL Dispatcher (core/urls.py)"]
-```
-
-### Core Configuration Attributes:
-- **Database Engine:** `django.db.backends.sqlite3` with database file stored at `BASE_DIR / 'db.sqlite3'`.
-- **DRF Configuration:**
-  - `DEFAULT_AUTHENTICATION_CLASSES`: `[TokenAuthentication, SessionAuthentication]`.
-  - `DEFAULT_PERMISSION_CLASSES`: `[IsAuthenticated]`.
-  - `DEFAULT_THROTTLE_CLASSES`: `AnonRateThrottle (100/day)`, `UserRateThrottle (1000/day)`.
-  - Custom `SyncRateThrottle`: `120/min` configured on the `/api/usage/` endpoint.
-- **CORS Configuration:** `CORS_ALLOWED_ORIGIN_REGEXES = [r'^chrome-extension://.*$']` and `CORS_ALLOW_CREDENTIALS = True`.
-
----
-
-## 3. Data Models & Database Schema
-
-The core models reside in `dashboard/core/models.py`:
-
-```mermaid
-erDiagram
-    User ||--o| UserProfile : "has profile"
-    User ||--o| UserSettings : "has settings"
-    User ||--o{ UsageLog : "logs usage"
-    User ||--o{ SiteLimit : "defines limits"
-    User ||--o{ CategoryOverride : "customizes categories"
-    User ||--o{ FocusSession : "completes sessions"
-
-    User {
-        int id PK
-        string username
-        string email
-        string password
-    }
-
-    UserProfile {
-        int id PK
-        int user_id FK
-        string phone
-        string persona
-    }
-
-    UserSettings {
-        int id PK
-        int user_id FK
-        boolean focus_mode_active
-        int daily_limit_minutes
-        int focus_goal_minutes
-        int streak_days
-        boolean require_challenge
-        string blocked_sites
-        string allowed_sites
-    }
-
-    UsageLog {
-        int id PK
-        int user_id FK
-        string website_url
-        int time_spent_seconds
-        string category
-        date date
-        datetime created_at
-        datetime updated_at
-    }
-
-    SiteLimit {
-        int id PK
-        int user_id FK
-        string domain
-        int daily_limit_minutes
-        boolean enabled
-        datetime updated_at
-    }
-
-    CategoryOverride {
-        int id PK
-        int user_id FK
-        string domain
-        string category
-        datetime updated_at
-    }
-
-    FocusSession {
-        int id PK
-        int user_id FK
-        int duration_minutes
-        datetime started_at
-        boolean completed
-    }
-```
-
-### Model Specifications
-1. **`UserProfile`:**
-   - One-to-one relationship with `User`.
-   - Stores optional normalized contact phone and active persona: `student`, `professional`, `influencer`, `creator`, `other`.
-2. **`UsageLog`:**
-   - Tracks accumulated dwell seconds per domain per date.
-   - Enforces unique constraint on `('user', 'website_url', 'date')`.
-   - Indexed on `['user', 'date']` for high-performance 7-day range queries.
-3. **`SiteLimit`:**
-   - Configures daily limit in minutes per domain.
-   - Enforces unique constraint on `('user', 'domain')`.
-4. **`CategoryOverride`:**
-   - Allows user-specific re-categorization of any domain.
-   - Saves clean domain and updates existing `UsageLog` records retroactively.
-5. **`FocusSession`:**
-   - Records discrete completed focus sprint intervals (25, 45, 60 minutes).
-6. **`UserSettings`:**
-   - Synchronizes persistent user preferences between web and browser extension.
-
----
-
-## 4. Domain Classification Engine
-
-Implemented in `classify_domain(domain: str, user=None) -> str`:
-
-```mermaid
-graph TD
-    A["Raw Input: e.g. https://www.instagram.com/p/123/"] --> B["clean_domain() -> instagram.com"]
-    B --> C{"User authenticated & CategoryOverride exists?"}
-    C -- Yes --> D["Return User Override Category"]
-    C -- No --> E{"User Persona Rule Matches?"}
-    E -- "Influencer & (instagram/youtube/tiktok/threads)" --> F["Return Productivity"]
-    E -- "Professional & (linkedin/slack/jira)" --> F
-    E -- No --> G{"Matches Academic Pattern (*.edu, *.ac.in)?"}
-    G -- Yes --> F
-    G -- No --> H{"Exists in Static CATEGORY_MAP?"}
-    H -- Yes --> I["Return Map Category (Productivity / Social / Entertainment)"]
-    H -- No --> J{"Subdomain Match (*.known_domain)?"}
-    J -- Yes --> I
-    J -- No --> K["Return Fallback: 'Other'"]
-```
-
----
-
-## 5. Major Backend Views & Business Logic Execution
-
-### 5.1. Usage Ingestion: `usage_log_view`
-- **Trigger:** Chrome extension 60-second periodic alarm (`ALARM_PERIODIC_SYNC`) or popup open.
-- **Input:** JSON array `[{ "website_url": "github.com", "time_spent_seconds": 60, "date": "2026-10-26" }]`.
-- **Processing:**
-  1. Serializer validates non-negative seconds and clamps values `<= 86400`.
-  2. For each entry, calculates category via `classify_domain(domain, user=request.user)`.
-  3. Executes atomic `UsageLog.objects.get_or_create(user=request.user, website_url=domain, date=entry_date)`.
-  4. Increments `obj.time_spent_seconds += entry['time_spent_seconds']`.
-  5. Updates category and timestamp via `obj.save(update_fields=['time_spent_seconds', 'category', 'updated_at'])`.
-- **Output:** `HTTP 200 OK` with `{ "created": <int>, "updated": <int> }`.
-- **Dependent Component:** `extension/background.js` clears `unsyncedDeltas`.
-
----
-
-### 5.2. Analytics Aggregation: `summary_view`
-- **Trigger:** Web dashboard page load, tab focus, or extension popup open.
-- **Input:** `GET /api/summary/` with user session or Token.
-- **Processing:**
-  1. Computes date range for the past 7 days (`week_ago` to `today`).
-  2. Aggregates per-day, per-category sums using `.values('date', 'category').annotate(total_seconds=Sum('time_spent_seconds'))`.
-  3. Zero-fills any missing days in the 7-day range to provide Chart.js with continuous daily metrics.
-  4. Aggregates today's per-site usage descending by seconds.
-  5. Computes **Focus Efficiency Metric:**
-     $$\text{Focus Efficiency} = \text{round}\left(\frac{\text{Productive Seconds}}{\text{Productive} + \text{Social} + \text{Entertainment}} \times 100\right)$$
-  6. Executes **Strict Streak Calculation Algorithm** (detailed below).
-  7. Formats distractions list merging configured `SiteLimit` entries with today's actual usage.
-  8. Appends today's completed focus sessions count and longest session.
-- **Output:** Unified JSON payload containing `weekly`, `daily`, `stats`, `distractions`, `settings`, and `user`.
-- **Dependent Component:** `dashboard.html` (`renderDashboard`) and `popup.js`.
-
----
-
-### 5.3. Strict Streak Calculation Algorithm
-DRIFTLESS enforces strict integrity on streak days. A day counts toward a user's streak **if and only if** no tracked domain exceeded its daily limit:
-```python
-# From dashboard/core/views.py (lines 294-347)
-limits_dict = {
-    l.domain: l.daily_limit_minutes * 60
-    for l in SiteLimit.objects.filter(user=request.user, enabled=True)
-}
-global_limit_sec = settings_obj.daily_limit_minutes * 60
-
-streak = 0
-check_date = today - datetime.timedelta(days=1)
-
-while True:
-    day_logs = user_logs.filter(date=check_date)
-    if not day_logs.exists():
-        break  # Streak breaks if no logs exist for that past day
-
-    day_failed = False
-    for log in day_logs:
-        site_limit = limits_dict.get(log.website_url, None)
-        if site_limit is not None and log.time_spent_seconds > site_limit:
-            day_failed = True
-            break
-        elif site_limit is None and log.category in (CATEGORY_SOCIAL, CATEGORY_ENTERTAINMENT):
-            if log.time_spent_seconds > global_limit_sec:
-                day_failed = True
-                break
-
-    if day_failed:
-        break
-    else:
-        streak += 1
-        check_date -= datetime.timedelta(days=1)
-
-# Check today's status
-if today_logs.exists() and not today_exceeded and today_total > 0:
-    streak += 1
-```
-
----
-
-### 5.4. Category Override Management: `categories_list_create_view`
-- **Trigger:** User creates or modifies a custom category in dashboard settings.
-- **Input:** `POST /api/categories/` with `{ "domain": "reddit.com", "category": "Productivity" }`.
-- **Processing:**
-  1. Creates or updates `CategoryOverride` for `request.user`.
-  2. Executes retroactive batch database update:
-     ```python
-     UsageLog.objects.filter(user=request.user, website_url=domain).update(category=category)
-     ```
-  3. Returns serialized override instance.
-- **Output:** `HTTP 201 Created` or `HTTP 200 OK`.
-- **Dependent Component:** Recalculates historical focus efficiency and 7-day charts instantly.
-
----
-
-### 5.5. Privacy & Data Sovereignty: `data_export_view` & `data_delete_view`
-- **Data Export (`GET /api/data/export/`):** Queries all `UsageLog`, `SiteLimit`, `CategoryOverride`, and `FocusSession` records for `request.user` and returns an indented JSON file.
-- **Data Deletion (`POST /api/data/delete/`):** Invokes `.delete()` on `UsageLog.objects.filter(user=request.user)` and `FocusSession.objects.filter(user=request.user)`, purging history while preserving the user account and settings.
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Complete REST API Reference
-
-All endpoints are registered in `dashboard/core/urls.py` and implemented in `dashboard/core/views.py`. Default base URL during local development is `http://127.0.0.1:8000`.
-
----
-
-## 1. Master API Endpoints Directory
-
-| HTTP Method | Actual Endpoint | Authentication | Input Format | Processing Summary | Output Format | Implementation File |
+| **Authentication** | Direct Registration with `EmailValidator` | `IMPLEMENTED AND TESTED` | Django test suite: `RegisterViewTests` passed |
+| **Authentication** | Multi-Identifier Login (User/Email/Phone) | `IMPLEMENTED AND TESTED` | Django test suite: `LoginViewTests` (3 tests passed) |
+| **Authentication** | Google Sign-In & One-Tap Integration | `IMPLEMENTED AND TESTED` | Django test suite: `GoogleAuthViewTests` passed |
+| **Authentication** | DRF Token Generation & Regeneration | `IMPLEMENTED AND TESTED` | Django test suite: `RegenerateTokenViewTests` passed |
+| **Authentication** | Email OTP System | `NOT BUILT` | Removed in migration 0009; replaced by direct registration |
+| **Tracking Engine** | Active Tab Content Script Heartbeat (1s) | `IMPLEMENTED, NOT TESTED` | Verified in code (`content.js`); stopwatch test not run |
+| **Tracking Engine** | Service Worker Dwell Delta Accumulation | `IMPLEMENTED, NOT TESTED` | Verified in code (`background.js:1008-1154`) |
+| **Enforcement** | 3-Tier Escalation (80% Nudge, 100% DNR Block) | `IMPLEMENTED, NOT TESTED` | Verified in code (`background.js:1120-1139`) |
+| **Enforcement** | Shorts & Reels Blocker (Student Persona) | `IMPLEMENTED, NOT TESTED` | Verified in code (`background.js:388-428`, DNR rules 2001-2002) |
+| **Focus Regimes** | Scheduled Focus Mode (Time Pickers & Alarms) | `IMPLEMENTED, NOT TESTED` | Verified in code (`popup.js:170`, `background.js:534`) |
+| **Focus Regimes** | Pomodoro Focus Sprint (25m Focus / 5m Break) | `IMPLEMENTED, NOT TESTED` | Verified in code (`popup.js:770`, `background.js:1400`) |
+| **Cloud Sync** | Periodic Delta Ingestion (`/api/usage/`) | `IMPLEMENTED AND TESTED` | Django test suite: `UsageLogViewTests` passed |
+| **Cloud Sync** | Settings Synchronization (`/api/settings/`) | `IMPLEMENTED AND TESTED` | Django test suite: `SettingsViewTests` passed |
+| **Analytics** | Unified Analytics Summary (`/api/summary/`) | `IMPLEMENTED AND TESTED` | Django test suite: `SummaryViewTests` passed |
+| **Analytics** | Strict Consecutive Streak Algorithm | `IMPLEMENTED AND TESTED` | Code verified in `views.py:380-450`, tests passed |
+| **Habit Grove** | 30-Day Green Grove Forest Status Engine | `IMPLEMENTED AND TESTED` | Code verified in `views.py:552-649`, test suite passed |
+| **Gamification** | Leveling, XP Progression & 3D Badges | `IMPLEMENTED AND TESTED` | Code verified in `models.py:50`, test suite passed |
+| **Dashboard UI** | 3D Neumorphism & Glassmorphism Design | `IMPLEMENTED, NOT TESTED` | Visually styled in `dashboard.html` and `theme.css` |
+| **Dashboard UI** | Priority To-Do Planner Widget | `IMPLEMENTED, NOT TESTED` | Client-side `localStorage` logic in `dashboard.html` |
+| **Data Privacy** | 1-Click JSON Data Export & History Deletion | `IMPLEMENTED AND TESTED` | Django test suite: `DataManagementTests` passed |
+| **Rewards** | Real-World Monetary / Physical Rewards | `NOT BUILT` | Verified in code: purely digital badges and trees |
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-3">Chapter 3: Master Table &ldquo;Feature to Code&rdquo;</h1>
+
+This master traceability table provides immediate mapping between every user-facing feature, the exact files and functions that implement it, its REST endpoints, its database tables, and its audit status as of **October 31, 2026**.
+
+| Feature | What It Does (Plain English) | Files Implementing It | Functions / Handlers | API Endpoints | Database Tables | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register/` | AllowAny | JSON Body | Creates User, UserProfile, UserSettings, applies persona limits, logs in session | JSON `{ token, username }` | `core/views.py:73` |
-| `POST` | `/api/auth/login/` | AllowAny | JSON Body | Authenticates by username, email, or normalized phone; issues token | JSON `{ token, username }` | `core/views.py:92` |
-| `POST` | `/api/auth/logout/` | IsAuthenticated | None | Deletes auth token and terminates Django user session | JSON `{ detail }` | `core/views.py:140` |
-| `POST` | `/api/auth/regenerate-token/` | IsAuthenticated | None | Deletes existing auth token and creates a new Token instance | JSON `{ token }` | `core/views.py:150` |
-| `POST` | `/api/usage/` | IsAuthenticated (Token/Session) | JSON Object or Array | Validates domain and seconds; creates or increments `UsageLog` records | JSON `{ created, updated }` | `core/views.py:165` |
-| `GET` | `/api/summary/` | IsAuthenticated (Token/Session) | None | Aggregates 7-day stats, daily logs, strict streaks, and distractions | JSON `{ weekly, daily, stats, ... }`| `core/views.py:213` |
-| `GET` | `/api/settings/` | IsAuthenticated (Token/Session) | None | Retrieves user settings object | JSON `{ focus_mode_active, ... }` | `core/views.py:443` |
-| `PATCH` | `/api/settings/` | IsAuthenticated (Token/Session) | JSON Partial Body | Partially updates user settings fields | JSON `{ focus_mode_active, ... }` | `core/views.py:443` |
-| `GET` | `/api/limits/` | IsAuthenticated (Token/Session) | None | Lists all configured per-site limits for the authenticated user | JSON Array `[{ id, domain, ... }]` | `core/views.py:467` |
-| `POST` | `/api/limits/` | IsAuthenticated (Token/Session) | JSON Body | Creates or updates a `SiteLimit` record for domain | JSON `{ id, domain, daily_limit... }`| `core/views.py:467` |
-| `PATCH` | `/api/limits/<id>/` | IsAuthenticated (Token/Session) | JSON Partial Body | Partially updates an existing `SiteLimit` by primary key | JSON `{ id, domain, ... }` | `core/views.py:499` |
-| `DELETE`| `/api/limits/<id>/` | IsAuthenticated (Token/Session) | None | Deletes an existing `SiteLimit` record | HTTP 204 No Content | `core/views.py:499` |
-| `GET` | `/api/categories/` | IsAuthenticated (Token/Session) | None | Lists all user category overrides | JSON Array `[{ id, domain, ... }]` | `core/views.py:526` |
-| `POST` | `/api/categories/` | IsAuthenticated (Token/Session) | JSON Body | Creates category override and retroactively updates past `UsageLog`s | JSON `{ id, domain, category }` | `core/views.py:526` |
-| `DELETE`| `/api/categories/<id>/` | IsAuthenticated (Token/Session) | None | Deletes category override and recalculates past `UsageLog` categories | HTTP 204 No Content | `core/views.py:556` |
-| `GET` | `/api/sessions/` | IsAuthenticated (Token/Session) | None | Returns the 10 most recent focus sessions for the user | JSON Array `[{ id, duration... }]` | `core/views.py:577` |
-| `POST` | `/api/sessions/` | IsAuthenticated (Token/Session) | JSON Body | Logs a completed focus session block | JSON `{ id, duration_minutes, ... }` | `core/views.py:577` |
-| `GET` | `/api/data/export/` | IsAuthenticated (Token/Session) | None | Streams full JSON data archive of user's logs, limits, and sessions | Downloadable JSON payload | `core/views.py:603` |
-| `POST` | `/api/data/delete/` | IsAuthenticated (Token/Session) | None | Purges all `UsageLog` and `FocusSession` records for user | JSON `{ detail }` | `core/views.py:632` |
+| **User Registration** | Validates email format, creates account, seeds demo gamification, logs user in immediately. | `dashboard/core/views.py`<br>`dashboard/core/serializers.py`<br>`dashboard/core/templates/auth.html` | `register_view()`<br>`RegisterSerializer.create()`<br>`handleRegister()` | `POST /api/auth/register/` | `auth_user`<br>`core_userprofile`<br>`core_usersettings` | `IMPLEMENTED AND TESTED` |
+| **Multi-Identifier Login** | Authenticates user via username, email address, or phone number. | `dashboard/core/views.py`<br>`dashboard/core/templates/auth.html` | `login_view()`<br>`handleLogin()` | `POST /api/auth/login/` | `auth_user`<br>`core_userprofile`<br>`authtoken_token` | `IMPLEMENTED AND TESTED` |
+| **Google Sign-In** | Authorizes user via Google Identity Services token or Quick Demo modal. | `dashboard/core/views.py`<br>`dashboard/core/templates/auth.html` | `google_auth_view()`<br>`handleGoogleCredentialResponse()` | `POST /api/auth/google/` | `auth_user`<br>`core_userprofile`<br>`authtoken_token` | `IMPLEMENTED AND TESTED` |
+| **Token Regeneration** | Issues a fresh DRF authentication token, invalidating old sessions. | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `regenerate_token_view()`<br>`regenerateToken()` | `POST /api/auth/regenerate-token/` | `authtoken_token` | `IMPLEMENTED AND TESTED` |
+| **1-Second Precision Heartbeat** | Emits active dwell tick every 1000ms while tab is focused; bypasses service worker throttling. | `extension/content.js` | `sendTick()`<br>`startHeartbeat()`<br>`handleStateChange()` | None (Extension internal) | None (Local tab state) | `IMPLEMENTED, NOT TESTED` |
+| **Passive Dwell Accumulation** | Aggregates active seconds per domain; ignores inactive background tabs and idle periods. | `extension/background.js` | `onMessage` handler (`PAGE_HEARTBEAT_TICK`)<br>`commitActiveTime()` | None (Extension internal) | `chrome.storage.local` (`siteTimes`) | `IMPLEMENTED, NOT TESTED` |
+| **80% Nudge Notification** | Sends a gentle desktop notification when user reaches 80% of their daily site limit. | `extension/background.js` | `sendNudgeNotification()`<br>`evaluateSiteLimits()` | None | `chrome.storage.local` (`escalationState`) | `IMPLEMENTED, NOT TESTED` |
+| **100% Limit Hard Block** | Dispatches desktop alert and injects Declarative Net Request block rule when 100% reached. | `extension/background.js`<br>`extension/blocked.html` | `sendLimitReachedNotification()`<br>`blockDomainViaDNR()` | None | `chrome.storage.local`<br>DNR Rules 1000..1999 | `IMPLEMENTED, NOT TESTED` |
+| **Midnight Dwell Reset** | Automatically resets daily dwell counters and clears DNR limit blocks at 00:00:00. | `extension/background.js` | `performMidnightReset()`<br>`scheduleMidnightReset()` | None | `chrome.storage.local` (`siteTimes`) | `IMPLEMENTED, NOT TESTED` |
+| **Manual Focus Mode** | Instant 1-click toggle blocking all distracting sites via dynamic DNR rules. | `extension/popup.js`<br>`extension/background.js`<br>`dashboard/core/templates/dashboard.html` | `toggleFocusMode()`<br>`enableFocusMode()`<br>`disableFocusMode()` | `PATCH /api/settings/` | `core_usersettings`<br>DNR Rules 100..899 | `IMPLEMENTED AND TESTED` |
+| **Scheduled Focus Mode** | Lets user set start & end times; auto-engages focus mode during scheduled hours. | `extension/popup.html`<br>`extension/popup.js`<br>`extension/background.js`<br>`dashboard/core/models.py` | `saveScheduleTimes()`<br>`updateScheduleAlarms()`<br>`evaluateScheduleState()` | `PATCH /api/settings/` | `core_usersettings`<br>(`schedule_start`, `schedule_end`) | `IMPLEMENTED, NOT TESTED` |
+| **Pomodoro Focus Sprints** | 25-minute deep focus sprint followed by 5-minute restorative break with notification. | `extension/popup.html`<br>`extension/popup.js`<br>`extension/background.js` | `startPomodoro()`<br>`stopPomodoro()`<br>`alarmListener` (`ALARM_POMODORO`) | `POST /api/sessions/` | `core_focussession`<br>`chrome.storage.local` | `IMPLEMENTED, NOT TESTED` |
+| **Shorts & Reels Blocker** | Blocks short-form video paths on YouTube (`/shorts*`) and Instagram (`/reels*`) for Student persona. | `extension/popup.html`<br>`extension/popup.js`<br>`extension/background.js` | `toggleShortsReels()`<br>`updateShortsReelsRules()`<br>`isShortsOrReelsUrl()` | None | DNR Rules 2001..2002<br>`chrome.storage.local` | `IMPLEMENTED, NOT TESTED` |
+| **Extension Welcome & Persona** | Displays onboarding screen on initial install; lets user choose persona and seeds site lists. | `extension/popup.html`<br>`extension/popup.js` | `checkOnboarding()`<br>`savePersonaAndProceed()` | `PATCH /api/settings/` | `chrome.storage.local` (`userPersona`) | `IMPLEMENTED, NOT TESTED` |
+| **Dashboard Persona Selector** | Dropdown on dashboard to switch persona; dynamically adjusts site presets. | `dashboard/core/templates/dashboard.html`<br>`dashboard/core/views.py`<br>`dashboard/core/serializers.py` | `onPersonaChange()`<br>`settings_view()`<br>`apply_persona_defaults()` | `PATCH /api/settings/` | `core_userprofile`<br>`core_usersettings` | `IMPLEMENTED AND TESTED` |
+| **Site Lists Configuration** | Lets user add/delete distracting and productive sites with instant storage and cloud sync. | `extension/popup.js`<br>`extension/background.js`<br>`dashboard/core/templates/dashboard.html` | `addSite()`<br>`deleteSite()`<br>`saveSettings()` | `PATCH /api/settings/` | `core_usersettings`<br>(`blocked_sites`, `allowed_sites`) | `IMPLEMENTED AND TESTED` |
+| **Custom Site Limits (CRUD)** | Allows custom per-domain time limits (e.g. reddit.com: 20 mins) via modal. | `extension/popup.js`<br>`dashboard/core/views.py`<br>`dashboard/core/models.py` | `saveCustomLimit()`<br>`limits_list_create_view()`<br>`limits_detail_view()` | `GET/POST /api/limits/`<br>`PATCH/DELETE /api/limits/<id>/` | `core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Domain Categorization** | Automatically categorizes domains as Productive, Distracting, or Others based on master map. | `dashboard/core/models.py`<br>`dashboard/core/views.py` | `classify_domain()`<br>`clean_domain()` | None | `CATEGORY_MAP`<br>`core_categoryoverride` | `IMPLEMENTED AND TESTED` |
+| **Usage Delta Batch Ingestion** | Periodically transmits local browsing time deltas to cloud backend (15m alarm or manual). | `extension/background.js`<br>`dashboard/core/views.py`<br>`dashboard/core/serializers.py` | `syncToBackend()`<br>`usage_log_view()`<br>`UsageLogSerializer` | `POST /api/usage/` | `core_usagelog` | `IMPLEMENTED AND TESTED` |
+| **Unified Analytics Summary** | Computes 7-day category totals, focus efficiency, streak count, and daily breakdowns. | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `summary_view()`<br>`renderDashboard()`<br>`updateCharts()` | `GET /api/summary/` | `core_usagelog`<br>`core_sitelimit`<br>`core_usersettings` | `IMPLEMENTED AND TESTED` |
+| **Strict Streak Calculation** | Computes consecutive days where user stayed within all limits and achieved focus goals. | `dashboard/core/views.py` | `summary_view()` (streak loop) | `GET /api/summary/` | `core_usagelog`<br>`core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Green Grove 30-Day Forest** | Forest visual: grown tree (success), withered tree (limit breached), empty spot (no data). | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `summary_view()` (`grove` array builder)<br>`renderGrove()` | `GET /api/summary/` | `core_usagelog`<br>`core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Gamified Level & Badges** | Tracks XP, levels, and unlocks 3D metallic badges (Zen Master, Deep Worker, Iron Will). | `dashboard/core/models.py`<br>`dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `seed_demo_gamification()`<br>`summary_view()` | `GET /api/summary/` | `core_userprofile`<br>(`level`, `xp`, badges) | `IMPLEMENTED AND TESTED` |
+| **Priority To-Do Planner** | Fast daily task manager in sidebar with completion counter and strike-through styling. | `dashboard/core/templates/dashboard.html` | `renderTodos()`<br>`addPriorityTodo()`<br>`toggleTodo()`<br>`deleteTodo()` | None (Client-side) | `localStorage`<br>(`driftless_priority_todos`) | `IMPLEMENTED, NOT TESTED` |
+| **Data Privacy & Erasure** | 1-Click JSON data export and total browsing history deletion. | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `data_export_view()`<br>`data_delete_view()`<br>`exportData()`<br>`deleteData()` | `GET /api/data/export/`<br>`POST /api/data/delete/` | `core_usagelog`<br>`core_focussession`<br>`core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Email OTP Verification** | Email 6-digit code dispatch for verification and password reset. | None (Removed) | None | None | Dropped in migration 0009 | `NOT BUILT` |
+| **Physical / Monetary Prizes** | Real trees planted, cash prizes, gift cards, or physical shipments. | None | None | None | None | `NOT BUILT` |
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-4">Chapter 4: What Changed Since Oct 26</h1>
+
+The DRIFTLESS repository underwent intensive engineering between **October 26, 2026** (commit `e14951e`) and **October 31, 2026** (commit `36ecc24`). During this period, **88 files were modified or added**, with **8,635 lines inserted** and **2,067 lines removed**.
+
+The following changelog catalogs all architectural, backend, database, and extension changes introduced after the October 26 documentation was published.
 
 ---
 
-## 2. Endpoint Specifications
+### 1. Precision Timer Architecture & Content Script (`content.js`)
+* **Problem Addressed:** In Manifest V3, background service workers are suspended after 30 seconds of inactivity. Chrome also throttles timer alarms on inactive tabs. This caused 2-minute custom limits to trigger 4 to 5 minutes late.
+* **New File Added:** `extension/content.js` (92 lines). Injected on `<all_urls>` at `document_start`.
+* **Mechanism:** Listens to `visibilitychange`, `window.focus`, and `window.blur`. Ticks every 1,000ms only when `!document.hidden && document.hasFocus()`. Sends `PAGE_HEARTBEAT_TICK` to `background.js` and immediately redirects to `blocked.html` if the response indicates the site is blocked.
+* **Privacy Assurance:** Does NOT inspect the DOM, form inputs, cookies, or keystrokes; reads only `window.location.hostname` and `href`.
 
-### 2.1. Ingestion: `POST /api/usage/`
-- **Purpose:** Ingests uncommitted browsing dwell time from the Chrome extension.
-- **Headers:**
-  - `Content-Type: application/json`
-  - `Authorization: Token <api_token>`
-- **Throttling:** Custom `SyncRateThrottle` at `120 requests/minute`.
-- **Request Body (Batch or Single):**
+---
+
+### 2. Scheduled Focus Mode with Interactive Time Pickers
+* **Problem Addressed:** Previously, Scheduled Focus had a toggle switch but no interface to define start and end times, and alarms were not synchronized with backend settings.
+* **Popup UI Additions (`extension/popup.html`, `popup.js`):** Added collapsible time editor with `<input type="time">` pickers for Start and End, validation rejecting identical start and end times while supporting overnight spans crossing midnight (e.g., 22:00 to 02:00), and an explicit **Save** button.
+* **Alarms & Background Handlers (`extension/background.js`):** Added `ALARM_SCHEDULE_START` (`driftless_schedule_start`) and `ALARM_SCHEDULE_END` (`driftless_schedule_end`). `updateScheduleAlarms()` calculates exact millisecond offsets and schedules daily alarms. `isWithinScheduleWindow()` checks if the current time falls inside the window on startup or schedule change.
+* **Backend Model & Migration:** Added `schedule_enabled` (BooleanField), `schedule_start` (CharField, default `'20:00'`), and `schedule_end` (CharField, default `'22:00'`) to `UserSettings` in **Migration 0007**.
+* **API Synchronization:** Handled via `PATCH /api/settings/` and `GET /api/settings/`.
+
+---
+
+### 3. Pomodoro Focus Sprints (25m Focus / 5m Break)
+* **New Capability:** Added Pomodoro sprint engine in `extension/popup.html`, `popup.js`, and `background.js`.
+* **State Machine:** Manages three states (`idle`, `running`, `paused`) across two modes: `work` (25 minutes, Focus Mode DNR rules active) and `break` (5 minutes, sites unblocked).
+* **Alarms & Persistence:** Driven by `ALARM_POMODORO` (`driftless_pomodoro`). Completed sprints dispatch `POST /api/sessions/` to persist `FocusSession` records in SQLite and award +50 XP.
+
+---
+
+### 4. Shorts & Reels Blocker (Student Persona Only)
+* **Targeted Intervention:** Distraction study showed short-form algorithmic video feeds are uniquely harmful to students.
+* **Popup Switch:** Added "Block Shorts & Reels" switch to `extension/popup.html` (rendered only if persona is `Student`).
+* **Declarative Net Request Blocking:** `background.js` reserves Dynamic Rule IDs 2001 and 2002 blocking regex filters `||youtube.com/shorts*` and `||instagram.com/reels*`.
+
+---
+
+### 5. Extension Welcome Screen & Persona Onboarding
+* **Problem Addressed:** The extension previously defaulted to Student presets without consulting the user or reading the persona selected at web registration.
+* **Onboarding Flow (`extension/popup.html`, `popup.js`):** If no persona is saved in `chrome.storage.local`, the popup displays a 2-step onboarding screen:
+  1. *Welcome to Driftless* with official leaf logo.
+  2. *Who are you?* with choices: Student, Professional, Influencer, Creator, Other.
+* **Auto-Seeding:** Choice persists to `chrome.storage.local`, syncs to `/api/settings/`, and seeds recommended distracting/productive site lists from `PERSONA_DEFAULTS`.
+
+---
+
+### 6. Dashboard Persona Selector & Site Preservation
+* **Dashboard Dropdown:** Added `dashPersonaSelect` in `dashboard.html` header.
+* **Smart Preset Application:** `apply_persona_defaults(user, persona, keep_user_sites=True)` in `serializers.py` replaces default recommendations with the new persona's defaults while **preserving custom user-added sites**.
+
+---
+
+### 7. Complete Removal of Email OTP System
+* **Evolutionary Context:** In commit `7ac4d90`, an Email OTP verification model was created (**Migration 0008: `0008_userprofile_is_verified_emailotp.py`**) requiring 6-digit codes sent via Gmail SMTP.
+* **Removal in Migration 0009:** Due to presentation friction and potential SMTP rate limits, `EmailOTP` was deleted in **Migration 0009: `0009_delete_emailotp.py`**.
+* **Streamlined Direct Registration:** Registration now performs strict frontend regex validation and backend `EmailValidator` checks, sets `is_verified=True` immediately, seeds presentation gamification, logs the user in, and returns an instant redirect to `/dashboard/`.
+
+---
+
+### 8. Gamified Level, XP System, and 3D Shiny Badges
+* **Database Upgrades (Migration 0010: `0010_userprofile_has_deep_worker_and_more.py`):** Added fields to `UserProfile`:
+  - `xp` (Integer, default 0)
+  - `level` (Integer, default 1)
+  - `has_zen_master` (Boolean, default False)
+  - `has_deep_worker` (Boolean, default False)
+  - `has_iron_will` (Boolean, default False)
+* **Presentation Demo Seeder (`seed_demo_gamification`):** Pre-seeds Level 5, 80 XP progress, and unlocks all 3 badges on signup or demo login.
+* **3D Visual Styling:** Rendered in left sidebar of `dashboard.html` with metallic gradients, dynamic drop shadows, animated XP progress bars, and a 45-degree hovering sheen sweep (`badge-sheen`).
+
+---
+
+### 9. Priority To-Do Planner Widget
+* **Sidebar Integration:** Built a daily priority checklist in `dashboard.html` sidebar below user badges.
+* **Client-Side Persistence:** Tasks persist to browser `localStorage` (`driftless_priority_todos`) with active/done status, strikethrough styling, and a dynamic progress pill (e.g. `2/3`).
+
+---
+
+### 10. 3D Neumorphic & Glassmorphic Dashboard Design
+* **Design System Overhaul:** Dashboard upgraded to tactile 3D styling featuring layered dual drop-shadows, soft beveled borders, and glassmorphic translucent panels with `backdrop-filter: blur(12px)`.
+
+---
+
+### 11. Standardization to 3 Category Model
+* **Database Clean-up (Migration 0006):** Replaced legacy 4-category split (`Productivity`, `Social`, `Entertainment`, `Other`) with 3 standardized categories:
+  - `Productive sites`
+  - `Distracting sites`
+  - `Others`
+* Static `CATEGORY_MAP` in `models.py` updated with 45+ popular domains.
+
+---
+
+### 12. Official Brand Logo Refresh
+* **Asset Creation:** Replaced generic placeholders with official green leaf "D" brand symbol across all required resolutions: `icon-16.png`, `icon-32.png`, `icon-48.png`, `icon-128.png`, and `icon-512.png`.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-5">Chapter 5: Project Structure</h1>
+
+Below is the complete repository directory layout as of **October 31, 2026**, with a single-line plain English purpose for every file and folder:
+
+```text
+driftless/
+│
+├── README.md                              # High-level project summary, quick-start guide, and core features
+├── requirements.txt                       # Python dependencies (Django, DRF, Pillow, Pygments, Markdown)
+├── db.sqlite3                             # SQLite database storing users, logs, settings, and gamification
+│
+├── assets/                                # Master brand assets and image files
+│   └── logo/                              # Official DRIFTLESS leaf logo in all export resolutions
+│       ├── driftless_logo_16.png          # 16x16 icon for browser tabs and extension favicon
+│       ├── driftless_logo_32.png          # 32x32 icon for Windows taskbar and Retina extension menus
+│       ├── driftless_logo_48.png          # 48x48 icon for Chrome Extension Management screen
+│       ├── driftless_logo_128.png         # 128x128 icon for Chrome Web Store and installer dialogs
+│       ├── driftless_logo_512.png         # 512x512 high-resolution master brand logo
+│       ├── driftless_logo_symbol.png      # Transparent symbol mark without wordmark text
+│       └── old/                           # Archived legacy logo assets from early development
+│
+├── docs/                                  # Project documentation library
+│   ├── diagrams/                          # Vector SVG system architecture, ER, and workflow diagrams
+│   │   ├── system_architecture.svg        # 3-Tier cross-system architecture diagram
+│   │   ├── gamification_reward_flow.svg   # Gamification milestone-to-badge lifecycle diagram
+│   │   ├── database_er_diagram.svg        # Relational database entity-relationship schema diagram
+│   │   ├── workflow_1_tracking.svg        # 1-second precision heartbeat tracking workflow
+│   │   ├── workflow_2_escalation_block.svg# 3-tier escalation and DNR enforcement workflow
+│   │   ├── workflow_3_scheduled_focus.svg # Scheduled focus start/end alarm lifecycle workflow
+│   │   ├── workflow_4_pomodoro.svg        # Pomodoro 25m work / 5m break state machine workflow
+│   │   ├── workflow_5_auth_onboarding.svg # Direct registration and persona onboarding workflow
+│   │   ├── workflow_6_sync.svg            # Periodic cloud synchronization workflow
+│   │   └── workflow_7_green_grove.svg     # 30-day Green Grove tree calculation workflow
+│   ├── API_REFERENCE.md                   # Complete REST API reference documentation
+│   ├── CHROME_EXTENSION_ARCHITECTURE.md   # Extension service worker, alarms, and DNR documentation
+│   ├── CONFIGURATION_AND_DEPENDENCIES.md  # Configuration parameters and environment variables
+│   ├── DATABASE_AND_DATA_FLOW.md          # Database models, relationships, and data flow pipelines
+│   ├── DJANGO_BACKEND.md                  # Django views, serializers, and business logic
+│   ├── DRIFTLESS_COMPLETE_DOCUMENTATION.md# Master 18-chapter monolithic documentation file
+│   ├── FEATURE_CODE_MAPPING.md            # Traceability matrix mapping features to exact code files
+│   ├── FILE_BY_FILE_ANALYSIS.md           # Granular file-by-file function and interaction breakdown
+│   ├── FRONTEND_ARCHITECTURE.md           # Dashboard, auth UI, and extension popup architecture
+│   ├── PROJECT_OVERVIEW.md                # Problem statement, objectives, and personas overview
+│   ├── PROJECT_STRUCTURE.md               # Current directory layout and file purpose catalog
+│   ├── SECURITY_AND_LIMITATIONS.md        # Privacy audit, security boundaries, and known limitations
+│   ├── SYSTEM_ARCHITECTURE.md             # System architecture design and component interactions
+│   ├── TECH_STACK.md                      # Technology choices and rationales
+│   └── VERIFICATION_REPORT.md             # Audit findings, test suite results, and verification notes
+│
+├── extension/                             # Chrome Extension Client (Manifest V3)
+│   ├── manifest.json                      # Extension manifest declaring permissions, DNR, and scripts
+│   ├── background.js                      # Background service worker (alarms, DNR rules, storage, sync)
+│   ├── content.js                         # Precision heartbeat content script (1-second active tab ticks)
+│   ├── popup.html                         # Popup UI markup (welcome, main controls, modals, pickers)
+│   ├── popup.js                           # Popup controller (DOM events, storage bindings, messaging)
+│   ├── blocked.html                       # Interception screen displayed when a site limit is reached
+│   ├── theme.css                          # Shared stylesheet providing Calm Sky and Opal Noir themes
+│   └── icons/                             # Extension runtime icons (16px, 32px, 48px, 128px)
+│
+├── dashboard/                             # Django Web Application Project
+│   ├── manage.py                          # Django command-line execution utility
+│   ├── build.sh                           # Deployment build script for automated migrations and static collection
+│   ├── .env.example                       # Template documenting required environment variable names
+│   │
+│   ├── driftless/                         # Django Project Configuration Package
+│   │   ├── __init__.py                    # Python package initializer
+│   │   ├── settings.py                    # Django configuration (INSTALLED_APPS, DRF, Database, Auth)
+│   │   ├── urls.py                        # Root URL router mapping / and /dashboard/ to core app
+│   │   ├── wsgi.py                        # WSGI entry-point for synchronous web servers
+│   │   └── asgi.py                        # ASGI entry-point for asynchronous web servers
+│   │
+│   └── core/                              # Primary Django Application
+│       ├── __init__.py                    # Application package initializer
+│       ├── admin.py                       # Django Admin configuration for model inspection
+│       ├── apps.py                        # Application registry configuration
+│       ├── models.py                      # Data models (UserProfile, UserSettings, UsageLog, SiteLimit)
+│       ├── serializers.py                 # DRF serializers and persona preset definitions
+│       ├── views.py                       # REST API views, analytics engines, and template handlers
+│       ├── urls.py                        # Application URL router (auth, analytics, settings, data)
+│       ├── tests.py                       # Automated test suite (16 tests verifying auth, logs, CRUD)
+│       │
+│       ├── migrations/                    # Database migration history
+│       │   ├── 0001_initial.py            # Initial models (UsageLog, SiteLimit, CategoryOverride)
+│       │   ├── 0002_usagelog_category...  # Added category field to UsageLog and UserSettings
+│       │   ├── 0003_userprofile.py        # Added UserProfile model with phone and persona
+│       │   ├── 0004_alter_userprofile...  # Updated persona choices on UserProfile
+│       │   ├── 0005_usersettings_allo...  # Added allowed_sites and focus_goal_minutes to UserSettings
+│       │   ├── 0006_alter_categoryove...  # Standardized 3 categories (Productive, Distracting, Others)
+│       │   ├── 0007_usersettings_sche...  # Added schedule_enabled, schedule_start, schedule_end
+│       │   ├── 0008_userprofile_is_ve...  # Introduced EmailOTP model and is_verified field
+│       │   ├── 0009_delete_emailotp.py    # Removed EmailOTP model for direct registration flow
+│       │   └── 0010_userprofile_has_d...  # Added level, xp, and 3 badge booleans to UserProfile
+│       │
+│       ├── static/                        # Static assets (stylesheets, JavaScript, brand images)
+│       │   ├── css/
+│       │   │   └── theme.css              # Dashboard theme tokens and neumorphism utility classes
+│       │   └── img/                       # Dashboard logo images
+│       │
+│       └── templates/                     # Server-rendered HTML templates
+│           ├── auth.html                  # Split-screen authentication page (Signup, Login, Google Auth)
+│           └── dashboard.html             # Main 3D Neumorphic dashboard (Analytics, Grove, To-Dos, Badges)
+│
+└── scripts/                               # Automation, utility, and documentation build scripts
+    ├── generate_diagrams.py               # Generates all 10 vector SVG architecture and workflow diagrams
+    ├── build_extension.py                 # Extension packaging and zip compilation utility
+    └── build_extension.sh                 # Shell script equivalent for extension packaging
+```
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-6">Chapter 6: Technology Stack &amp; Architectural Rationale</h1>
+
+Every technology chosen in DRIFTLESS was selected to satisfy stringent performance, privacy, and architectural requirements. Below is the technical justification for each component:
+
+## 6.1 Frontend & Extension Architecture
+
+### 1. Google Chrome Manifest V3
+* **What it is:** The modern browser extension platform standard enforced by Google Chrome and Chromium browsers.
+* **Why it is used:** Manifest V3 is mandatory for Chrome Web Store deployment. It replaces persistent background pages with ephemeral service workers, significantly reducing browser RAM consumption and battery drain.
+* **Architectural Challenge & DRIFTLESS Solution:** Because service workers terminate after 30 seconds of inactivity, standard JavaScript `setInterval` timers stop firing. DRIFTLESS resolves this by deploying a lightweight content script (`content.js`) on the active tab that emits 1-second heartbeat pulses, keeping tracking perfectly accurate.
+
+### 2. Chrome Declarative Net Request (DNR) API
+* **What it is:** A high-performance browser engine API that blocks or redirects network requests based on declarative rules without letting the extension execute arbitrary code on web traffic.
+* **Why it is used:** Replaces the deprecated `webRequestBlocking` API. By delegating request interception directly to the browser's C++ networking core, DNR eliminates latency and guarantees that blocked distracting sites (and Shorts/Reels paths) cannot load even before the DOM begins parsing.
+* **Rule ID Allocation:** DRIFTLESS isolates dynamic rule sets into distinct numerical bands:
+  - Rules `100` to `899`: Reserved for active Focus Mode blocks.
+  - Rules `1000` to `1999`: Reserved for 100% daily limit enforcement blocks.
+  - Rules `2000` to `2009`: Reserved for targeted Shorts and Reels blocks.
+
+### 3. Chrome Storage Local (`chrome.storage.local`)
+* **What it is:** An asynchronous, persistent key-value storage engine isolated to the extension.
+* **Why it is used:** Survives service worker restarts, browser restarts, and computer reboots. Fast, asynchronous reads prevent UI thread blocking in the popup.
+
+### 4. Chrome Alarms API (`chrome.alarms`)
+* **What it is:** An operating-system-level scheduled wake-up mechanism for service workers.
+* **Why it is used:** Replaces `setTimeout` for long durations. Alarms wake up the suspended background service worker reliably to execute periodic cloud syncs (every 15 minutes), trigger scheduled focus start/end windows, handle Pomodoro sprints, and execute the midnight reset.
+
+## 6.2 Backend & Data Architecture
+
+### 1. Python 3.13 & Django 4.2+ (LTS)
+* **What it is:** A mature, high-level Python web framework enforcing clean architectural patterns and rapid development.
+* **Why it is used:** Django provides battle-tested Object-Relational Mapping (ORM), robust session management, database migration tooling, and built-in protection against SQL injection, Cross-Site Scripting (XSS), and Cross-Site Request Forgery (CSRF).
+
+### 2. Django REST Framework (DRF 3.17+)
+* **What it is:** A flexible toolkit for building robust, scalable Web APIs.
+* **Why it is used:** Provides serialization between Python model instances and JSON, class-based view abstractions, rate throttling (120 requests/minute for sync), and standard token authentication.
+
+### 3. Token-Based Authentication (`rest_framework.authtoken`)
+* **What it is:** Stateless cryptographic token authentication where requests carry an `Authorization: Token <key>` header.
+* **Why it is used:** Extensions cannot easily maintain cookie-based session state across domains without third-party cookie permissions. Tokens allow the extension to communicate securely with the backend across different origins.
+
+### 4. SQLite 3 Database
+* **What it is:** A self-contained, serverless, zero-configuration transactional SQL database engine.
+* **Why it is used:** Ideal for local development, zero-friction demonstration, and embedded environments. Handled through Django's ORM, making migration to PostgreSQL or MySQL seamless for high-scale cloud deployments.
+
+## 6.3 UI & Presentation Architecture
+
+### 1. 3D Neumorphism & Soft Shadows
+* **What it is:** A visual design trend utilizing paired light and dark drop-shadows to simulate tactile, physically elevated physical objects.
+* **Why it is used:** Creates a soothing, organic, and premium aesthetic that distinguishes DRIFTLESS from sterile corporate analytics tools.
+
+### 2. Glassmorphism & Backdrop Blur
+* **What it is:** Frosted-glass UI styling achieved via translucent CSS backgrounds and `backdrop-filter: blur(12px)`.
+* **Why it is used:** Keeps navigation headers and sidebars readable while providing spatial depth.
+
+### 3. Chart.js 4.4
+* **What it is:** A responsive HTML5 canvas charting library.
+* **Why it is used:** Delivers smooth animations, interactive hover tooltips, and dynamic dataset toggling between Bar and Line chart visualizations.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-7">Chapter 7: File-by-File Analysis</h1>
+
+This chapter analyzes every source file in the repository as of **October 31, 2026**, describing its architectural purpose, its primary functions in plain language, and the exact files it interacts with.
+
+---
+
+### 1. `extension/manifest.json`
+* **Purpose:** The configuration manifest defining the extension's metadata, permissions, content script injections, background worker, and web-accessible resources under Chrome Manifest V3 rules.
+* **Key Properties:**
+  - `manifest_version: 3`, `version: "1.1"`
+  - `permissions`: `tabs`, `storage`, `alarms`, `notifications`, `idle`, `declarativeNetRequest`, `declarativeNetRequestWithHostAccess`, `declarativeNetRequestFeedback`
+  - `host_permissions`: `<all_urls>`
+  - `content_scripts`: Injects `content.js` on `<all_urls>` with `run_at: "document_start"`.
+  - `background.service_worker`: `background.js`
+* **Interacts With:** Chrome runtime, `background.js`, `content.js`, `popup.html`, `blocked.html`.
+
+---
+
+### 2. `extension/content.js`
+* **Purpose:** Active tab tracking agent. Solves service worker suspension by executing directly inside active browser tabs and emitting a 1-second heartbeat.
+* **Primary Functions:**
+  - `isPageActiveAndFocused()`: Returns `true` only when `!document.hidden && document.hasFocus()`.
+  - `sendTick()`: Transmits `PAGE_HEARTBEAT_TICK` message to `background.js` with `rawDomain`, `url`, and `timestamp`. If the response contains `blocked: true`, stops heartbeat and executes `window.location.replace(blockedUrl)`.
+  - `startHeartbeat()`: Initiates a 1000ms `setInterval` loop calling `sendTick()`.
+  - `stopHeartbeat()`: Clears the interval timer when the tab is blurred or hidden.
+  - `handleStateChange()`: Listens for `visibilitychange`, `window.focus`, and `window.blur` events. Triggers `startHeartbeat()` or sends `PAGE_HEARTBEAT_PAUSE`.
+* **Interacts With:** `background.js` (via `chrome.runtime.sendMessage`), `blocked.html` (via redirection).
+
+---
+
+### 3. `extension/background.js`
+* **Purpose:** The central service worker and event orchestrator. Manages storage, DNR rules, system alarms, dwell tracking, limit evaluation, notifications, Pomodoro sprints, and backend synchronization.
+* **Primary Functions:**
+  - `cleanDomain(url)`: Normalizes URLs into clean lowercase hostnames (e.g. `https://www.reddit.com/r/all` -> `reddit.com`), stripping `www.` and filtering internal browser protocols.
+  - `getActiveTabSafe()`: Queries active tabs across focused and current windows with defensive try/catch error handling.
+  - `getServerUrl()`: Retrieves the configured backend base URL from storage, defaulting to `http://127.0.0.1:8000`.
+  - `buildBlockRule(id, domain)`: Constructs a Declarative Net Request block rule object for the specified domain.
+  - `commitActiveTime()`: Flushes uncommitted dwell time deltas into `siteTimes` and `unsyncedDeltas` in `chrome.storage.local`.
+  - `evaluateSiteLimits(domain, seconds)`: Compares accumulated seconds against custom site limits and global distracting limits.
+  - `sendNudgeNotification(domain)`: Displays an 80% progress desktop notification encouraging the user to wrap up their session.
+  - `sendLimitReachedNotification(domain)`: Displays a 100% limit reached alert informing the user that the site is now locked.
+  - `blockDomainViaDNR(domain)`: Dynamically installs a DNR block rule in the `1000..1999` range for the domain.
+  - `enableFocusMode()`: Injects dynamic DNR rules `100..899` blocking all domains listed in `blockedSites` / `distractingSites`.
+  - `disableFocusMode()`: Removes dynamic DNR rules `100..899`, restoring full browsing access.
+  - `isShortsOrReelsUrl(url)`: Returns `true` if a URL matches YouTube Shorts or Instagram Reels patterns.
+  - `updateShortsReelsRules(enable)`: Dynamically updates DNR rules `2001` and `2002` to intercept Shorts and Reels paths.
+  - `parseTimeMinutes(timeStr)`: Converts `"HH:MM"` 24-hour time strings into total minutes from midnight.
+  - `isWithinScheduleWindow(startStr, endStr, dateObj)`: Computes whether the current time falls inside the scheduled focus window, correctly handling overnight midnight crossings.
+  - `updateScheduleAlarms()`: Clears and creates the `driftless_schedule_start` and `driftless_schedule_end` Chrome alarms.
+  - `evaluateScheduleState(trigger)`: Evaluates current time against schedule settings and engages or disengages Focus Mode accordingly.
+  - `performMidnightReset()`: Resets `siteTimes` to zero, clears `escalationState`, removes limit DNR rules `1000..1999`, and reschedules the midnight alarm.
+  - `syncToBackend()`: Transmits `unsyncedDeltas` to `POST /api/usage/` and fetches updated configuration from `GET /api/settings/`.
+* **Interacts With:** `content.js`, `popup.js`, `blocked.html`, `dashboard/core/views.py` (via HTTP fetch), Chrome Extension APIs (`tabs`, `alarms`, `storage`, `declarativeNetRequest`, `notifications`).
+
+---
+
+### 4. `extension/popup.html` & `popup.js`
+* **Purpose:** The user interface presented when the extension toolbar icon is clicked.
+* **Key Components:**
+  - Onboarding Screen (`onboardingView`): Step 1 Welcome message with leaf brand logo; Step 2 Persona selector (Student, Professional, Influencer, Creator, Other).
+  - Main View (`mainView`): Streak badge, Focus Mode toggle switch, Shorts & Reels switch (Student only), Scheduled Focus collapsible time editor (start/end pickers, Save button, next focus status text), Pomodoro Sprint controller (Start/Stop buttons, live timer display), Distracting Sites card (with per-site limit gear buttons and global limit modal), Productive Sites card, Connected Account status, and API Token credentials drawer.
+  - Modals: `customLimitModal` (per-site minutes), `globalLimitModal` (global minutes), `confirmOverlay` (reset all timers confirmation).
+* **Interacts With:** `background.js` (via `chrome.runtime.sendMessage`), `chrome.storage.local`, `theme.css`.
+
+---
+
+### 5. `extension/blocked.html`
+* **Purpose:** The friendly interception screen presented when a user attempts to access a blocked site (either via 100% daily limit or active Focus Mode).
+* **Key Features:** Reads query parameter `?site=...`, displays the domain name, presents encouraging mindfulness copy ("Time to refocus on what matters"), and displays a countdown timer until the midnight reset.
+* **Interacts With:** `theme.css`, `background.js`.
+
+---
+
+### 6. `dashboard/core/models.py`
+* **Purpose:** Defines the relational data models and domain classification logic for SQLite persistence via Django ORM.
+* **Core Models & Functions:**
+  - `UserProfile`: Extends Django's `auth_user` with 1-to-1 relationship. Fields: `phone`, `persona` (Student, Professional, Influencer, Creator, Other), `is_verified` (Boolean), `xp` (Integer, default 0), `level` (Integer, default 1), and badge booleans: `has_zen_master`, `has_deep_worker`, `has_iron_will`. Includes `seed_demo_gamification()` helper.
+  - `UserSettings`: User preferences. Fields: `focus_mode_active`, `daily_limit_minutes`, `focus_goal_minutes`, `streak_days`, `require_challenge`, `blocked_sites` (newline-delimited text), `allowed_sites`, `schedule_enabled`, `schedule_start`, `schedule_end`.
+  - `UsageLog`: Ingested dwell logs. Fields: `user` (FK), `website_url`, `time_spent_seconds`, `category`, `date`, timestamps.
+  - `SiteLimit`: Per-domain limit configurations. Fields: `user` (FK), `domain`, `daily_limit_minutes`, `enabled`.
+  - `CategoryOverride`: User-defined category overrides. Fields: `user` (FK), `domain`, `category`.
+  - `FocusSession`: Completed focus sprint records. Fields: `user` (FK), `duration_minutes`, `started_at`, `completed`.
+  - `clean_domain(url)`: Strips schemes, paths, and `www.` prefixes to isolate standard domain names.
+  - `classify_domain(domain, user=None)`: Looks up user `CategoryOverride`, then checks static `CATEGORY_MAP` (45+ domains), falls back to academic TLD heuristic, and defaults to `CATEGORY_OTHERS`.
+* **Interacts With:** `views.py`, `serializers.py`, `admin.py`, `tests.py`.
+
+---
+
+### 7. `dashboard/core/serializers.py`
+* **Purpose:** Serializes Django model instances to JSON and validates inbound API payloads.
+* **Key Components:**
+  - `PERSONA_DEFAULTS`: Static dictionary storing default distracting and productive site lists and recommended schedule windows for each of the 5 personas.
+  - `apply_persona_defaults(user, persona, keep_user_sites=False)`: Seeds initial site limits and schedule settings for a user. If `keep_user_sites=True`, preserves any custom sites previously added by the user.
+  - `RegisterSerializer`: Validates registration input (`username`, `email`, `phone`, `password`, `persona`), enforces uniqueness, hashes passwords securely, and creates `UserProfile` and `UserSettings`.
+  - `UsageLogSerializer`: Validates batch usage log payloads for `/api/usage/`.
+  - `UserSettingsSerializer`: Handles partial updates to user settings (focus toggle, schedule times, site lists).
+  - `SiteLimitSerializer`, `CategoryOverrideSerializer`, `FocusSessionSerializer`: CRUD serialization.
+* **Interacts With:** `models.py`, `views.py`.
+
+---
+
+### 8. `dashboard/core/views.py`
+* **Purpose:** The backend view controller housing REST API endpoints, analytics calculations, and HTML template renderers.
+* **Primary Functions:**
+  - `auth_page(request)`: Renders the split-screen `auth.html` page.
+  - `dashboard_page(request)`: Authenticated view rendering `dashboard.html` with initial context (user, persona, token, settings).
+  - `register_view(request)`: `POST /api/auth/register/`. Validates email with `EmailValidator`, creates user and profile, sets `is_verified=True`, seeds demo gamification, generates DRF token, logs user in, and returns `{ redirect: '/dashboard/' }`.
+  - `login_view(request)`: `POST /api/auth/login/`. Resolves identifier across username, email, or normalized phone number, authenticates password, and issues DRF token.
+  - `logout_view(request)`: Logs user out and flushes the session.
+  - `google_auth_view(request)`: `POST /api/auth/google/`. Handles Google Identity Services ID tokens or Quick Demo sign-in, auto-provisioning verified accounts.
+  - `regenerate_token_view(request)`: `POST /api/auth/regenerate-token/`. Deletes existing DRF token and generates a new one.
+  - `usage_log_view(request)`: `POST /api/usage/`. Ingests batch usage logs from extension, classifying domains and updating daily logs.
+  - `summary_view(request)`: `GET /api/summary/`. Central analytics engine. Computes 7-day category totals, today's stats, focus efficiency score, consecutive streak count, 30-day Green Grove forest statuses (`grown`, `withered`, `empty`), and returns user gamification data (`level`, `xp`, `xp_progress`, badges).
+  - `settings_view(request)`: `GET/PATCH /api/settings/`. Retrieves and updates user settings, handling schedule times and persona changes.
+  - `limits_list_create_view()` & `limits_detail_view()`: CRUD operations for `SiteLimit`.
+  - `categories_list_create_view()` & `categories_detail_view()`: CRUD operations for `CategoryOverride`.
+  - `sessions_view(request)`: `GET/POST /api/sessions/`. Lists and records focus sessions.
+  - `data_export_view(request)`: `GET /api/data/export/`. Exports all user data as a downloadable JSON file.
+  - `data_delete_view(request)`: `POST /api/data/delete/`. Completely deletes all browsing logs, site limits, and focus sessions for the authenticated user.
+* **Interacts With:** `models.py`, `serializers.py`, `urls.py`, `auth.html`, `dashboard.html`.
+
+---
+
+### 9. `dashboard/core/templates/auth.html`
+* **Purpose:** Split-screen authentication interface.
+* **Key Features:** 50/50 desktop split layout; brand header with official leaf logo; "Continue with Google" button; email/password form with strict HTML5 and regex validation; toggle between Sign In and Sign Up tabs; demo login shortcuts.
+* **Interacts With:** `/api/auth/login/`, `/api/auth/register/`, `/api/auth/google/`, `theme.css`.
+
+---
+
+### 10. `dashboard/core/templates/dashboard.html`
+* **Purpose:** The main 3D Neumorphic web dashboard.
+* **Key Features:**
+  - Top Glassmorphism Header: Greeting, persona selector dropdown, date display, theme switcher, API token display with copy button.
+  - Left Sidebar: User avatar, Level & XP progress bar, 3D shiny badges grid (*Zen Master*, *Deep Worker*, *Iron Will*), Priority To-Do planner checklist widget.
+  - Main Grid: Focus Mode hero card, 4 KPI cards (Productive Time, Distracting Time, Focus Efficiency, Daily Streak), Focus Goal ring, Chart.js analytics with Bar/Line toggle, 30-Day Green Grove forest visual, Top Distractions list with per-site limit controls, and Data Management panel (Export / Delete).
+* **Interacts With:** `/api/summary/`, `/api/settings/`, `/api/limits/`, `/api/data/`, Chart.js, `theme.css`.
+
+---
+
+### 11. `dashboard/core/tests.py`
+* **Purpose:** Automated test suite verifying the integrity of the backend API and data models.
+* **Test Classes & Methods (16 Total Tests, All Passing):**
+  - `RegisterViewTests`: Verifies valid registration, duplicate email rejection, invalid email rejection.
+  - `LoginViewTests`: Verifies login with username, login with email, login with phone number, bad password rejection.
+  - `GoogleAuthViewTests`: Verifies demo Google login creates and logs in user with verified status.
+  - `RegenerateTokenViewTests`: Verifies token invalidation and new token generation.
+  - `UsageLogViewTests`: Verifies posting usage deltas, classification, and rate throttling.
+  - `SummaryViewTests`: Verifies summary payload structure, stats, weekly totals, grove days, and gamification fields.
+  - `SiteLimitTests`: Verifies creating, listing, updating, and deleting per-site limits.
+  - `SettingsViewTests`: Verifies retrieving and patching settings (focus toggle, schedule times, persona).
+  - `CategoryOverrideTests`: Verifies creating and deleting category overrides.
+  - `FocusSessionTests`: Verifies recording completed focus sprint sessions.
+  - `DataManagementTests`: Verifies JSON export and total history deletion.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-8">Chapter 8: Chrome Extension Architecture</h1>
+
+The DRIFTLESS browser extension is built on **Google Chrome Manifest V3**. This chapter details the service worker lifecycle, timer mechanics, escalation engine, blocking rules, schedule automation, and inter-process messaging catalog.
+
+## 8.1 Service Worker Lifecycle & Precision Heartbeat
+Under Manifest V3, background pages are replaced by **ephemeral service workers**. A service worker is started by browser events (such as alarms, tab focus changes, or runtime messages) and is automatically terminated by Chrome after approximately 30 seconds of inactivity.
+
+### The 1-Second Heartbeat Pipeline
+Standard background `setInterval` timers stop firing when the worker terminates, causing timer lag. DRIFTLESS overcomes this via an active tab heartbeat architecture:
+1. `extension/content.js` runs in the page execution context on every standard HTTP/HTTPS page.
+2. It monitors `visibilitychange`, `window.focus`, and `window.blur`.
+3. When `!document.hidden && document.hasFocus()`, it executes a 1000ms interval loop.
+4. Each second, it sends `PAGE_HEARTBEAT_TICK` to `background.js`.
+5. The message wakes the service worker (if suspended), allowing `background.js` to accumulate active dwell time second-by-second into `siteTimes` in `chrome.storage.local`.
+6. When the tab loses focus, `content.js` clears its interval and sends `PAGE_HEARTBEAT_PAUSE`, prompting `background.js` to execute `commitActiveTime()` and prevent phantom dwell accumulation.
+
+![Precision Tracking Workflow](diagrams/workflow_1_tracking.svg)
+
+## 8.2 3-Tier Escalation Engine & DNR Enforcement
+DRIFTLESS enforces site limits through a graduated 3-tier escalation pipeline rather than sudden punitive cutoffs:
+
+```text
+[ Browsing Distracting Site ]
+             │
+             ▼ (Accumulated Seconds >= 80% Limit)
+  Tier 1: 80% Gentle Nudge
+  • state.nudged = true
+  • sendNudgeNotification(domain)
+  • "Almost at your daily limit! Consider wrapping up."
+             │
+             ▼ (Accumulated Seconds >= 100% Limit)
+  Tier 2: 100% Limit Alert
+  • state.blocked = true
+  • sendLimitReachedNotification(domain)
+  • "Daily limit reached. This site is now locked until midnight."
+             │
+             ▼ (Immediate DNR Dynamic Rule Injection)
+  Tier 3: Declarative Net Request Block & Redirection
+  • Injects DNR rule in ID range 1000..1999
+  • content.js receives { blocked: true } -> redirects to blocked.html
+  • Future network requests intercepted at browser engine level
+```
+
+![Escalation and Enforcement Workflow](diagrams/workflow_2_escalation_block.svg)
+
+## 8.3 Declarative Net Request (DNR) Rule ID Catalog
+DRIFTLESS segments its dynamic Declarative Net Request rules into distinct, collision-free numeric bands:
+
+| Numeric Range | Rule Purpose | Action | Condition | Triggering Event |
+| :--- | :--- | :--- | :--- | :--- |
+| **`100` to `899`** | Manual Focus Mode & Scheduled Focus | `block` | `urlFilter: "||domain"`, all resource types | Focus Mode enabled, Scheduled start alarm |
+| **`1000` to `1999`** | Per-Site 100% Limit Enforcement | `block` | `urlFilter: "||domain"`, all resource types | Accumulated time breaches 100% daily limit |
+| **`2000` to `2009`** | Shorts & Reels Blocker | `block` | Rule 2001: `||youtube.com/shorts*`<br>Rule 2002: `||instagram.com/reels*` | Shorts & Reels toggle (Student persona) |
+
+All rules specify `priority: 1` and target resource types: `main_frame`, `sub_frame`, `xmlhttprequest`, `script`, `image`, `stylesheet`, `font`, `media`, `websocket`, and `other`.
+
+## 8.4 Scheduled Focus Mode Automation
+Scheduled Focus allows users to establish daily recurring deep work windows (e.g., 20:00 to 22:30).
+* **Alarms:** `background.js` schedules two daily Chrome alarms:
+  - `driftless_schedule_start`: Fires at `schedule_start`.
+  - `driftless_schedule_end`: Fires at `schedule_end`.
+* **State Check:** On startup or schedule update, `evaluateScheduleState()` calls `isWithinScheduleWindow()`. If the current time is currently within the window, Focus Mode is automatically activated.
+* **Midnight Crossing:** If `schedule_end < schedule_start` (e.g. 23:00 to 01:00), the window spans across midnight: time is within the window if `current >= start OR current < end`.
+
+![Scheduled Focus Workflow](diagrams/workflow_3_scheduled_focus.svg)
+
+## 8.5 Pomodoro Sprint State Machine
+The Pomodoro feature implements structured sprint intervals:
+* **Work Phase (25 Minutes):** User clicks "Start Pomodoro". Focus Mode is engaged (DNR rules 100..899 active). Chrome alarm `driftless_pomodoro` is scheduled for 25 minutes.
+* **Completion & Transition:** At T+25m, the alarm fires. A desktop chime and notification alert the user. Focus Mode disengages, a `FocusSession` record is synced to `/api/sessions/`, +50 XP is awarded, and a 5-minute break alarm is scheduled.
+* **Break Phase (5 Minutes):** Distracting sites are unblocked. Popup displays a relaxing green countdown timer.
+
+![Pomodoro Sprint Workflow](diagrams/workflow_4_pomodoro.svg)
+
+## 8.6 Cloud Synchronization & Midnight Reset
+* **Periodic Sync (`ALARM_PERIODIC_SYNC`):** Scheduled with `periodInMinutes: 15`. Gathers `unsyncedDeltas` from `chrome.storage.local`, posts them to `POST /api/usage/`, fetches updated settings from `GET /api/settings/`, and resets `unsyncedDeltas`.
+* **Midnight Reset (`ALARM_MIDNIGHT_RESET`):** Calculates exact milliseconds until local midnight (`00:00:00.050`). At midnight, clears `siteTimes`, resets `escalationState`, strips limit DNR rules `1000..1999`, and reschedules the alarm for the next midnight.
+
+## 8.7 Complete Message Catalog
+Below is the definitive catalog of all 14 message types handled by `background.js` via `chrome.runtime.onMessage.addListener`:
+
+| Message Type | Direction | Payload Schema | Action Performed | Response Schema |
+| :--- | :--- | :--- | :--- | :--- |
+| `PAGE_HEARTBEAT_TICK` | `content.js` -> `background.js` | `{ type, domain, url, timestamp }` | Validates active tab, increments dwell seconds, checks 80%/100% limits | `{ blocked, domain, elapsed, limit, nudgeAt }` |
+| `PAGE_HEARTBEAT_PAUSE` | `content.js` -> `background.js` | `{ type, domain, timestamp }` | Flushes active dwell delta, marks tab inactive | `{ success: true }` |
+| `SET_FOCUS_MODE` | `popup.js` -> `background.js` | `{ type, enabled: boolean }` | Toggles Focus Mode DNR rules (100..899), syncs to backend | `{ success: true, focusModeActive: boolean }` |
+| `UPDATE_SCHEDULE` | `popup.js` -> `background.js` | `{ type, scheduleEnabled, scheduleStart, scheduleEnd }` | Saves schedule times, recreates start/end alarms, re-evaluates window | `{ success: true, scheduleEnabled, ... }` |
+| `UPDATE_SITE_LISTS` | `popup.js` -> `background.js` | `{ type, distractingSites, productiveSites }` | Updates storage site lists, re-evaluates active focus rules, syncs to backend | `{ success: true }` |
+| `SET_GLOBAL_LIMIT` | `popup.js` -> `background.js` | `{ type, limitMinutes: number }` | Updates `userTimeLimitMinutes`, syncs to `/api/settings/` | `{ success: true }` |
+| `SET_CUSTOM_LIMIT` | `popup.js` -> `background.js` | `{ type, domain, limitMinutes }` | Sets per-domain limit, syncs `POST /api/limits/` | `{ success: true }` |
+| `REMOVE_CUSTOM_LIMIT` | `popup.js` -> `background.js` | `{ type, domain }` | Removes custom limit, syncs `DELETE /api/limits/<id>/` | `{ success: true }` |
+| `TRIGGER_SYNC` | `popup.js` -> `background.js` | `{ type }` | Triggers immediate `syncToBackend()` push and pull | `{ success: true }` |
+| `RESET_ALL_TIMERS` | `popup.js` -> `background.js` | `{ type }` | Resets today's `siteTimes` and `escalationState` in storage | `{ success: true }` |
+| `TOGGLE_SHORTS_REELS`| `popup.js` -> `background.js` | `{ type, enabled: boolean }` | Toggles DNR dynamic rules 2001 & 2002 for Shorts/Reels | `{ success: true, enabled: boolean }` |
+| `START_POMODORO` | `popup.js` -> `background.js` | `{ type }` | Starts 25m work phase, activates focus DNR rules, sets alarm | `{ success: true, state: "running", mode: "work" }` |
+| `STOP_POMODORO` | `popup.js` -> `background.js` | `{ type }` | Cancels Pomodoro alarm, deactivates focus rules, resets state | `{ success: true, state: "idle" }` |
+| `PAUSE_POMODORO` | `popup.js` -> `background.js` | `{ type }` | Pauses Pomodoro timer and records remaining time | `{ success: true, state: "paused" }` |
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-9">Chapter 9: Django Backend Architecture</h1>
+
+The DRIFTLESS backend is constructed using **Django 4.2+** and **Django REST Framework (DRF 3.17+)**. This chapter examines configuration settings, data models, serialization logic, analytics computations, streak algorithms, Green Grove calculations, and gamification mechanics.
+
+## 9.1 Settings & Configuration Architecture
+Key settings in `dashboard/driftless/settings.py`:
+* **CORS & CSRF:** Configured for cross-origin extension communication and local development.
+* **REST Framework Configuration:**
+  - `DEFAULT_AUTHENTICATION_CLASSES`: `TokenAuthentication` and `SessionAuthentication`.
+  - `DEFAULT_PERMISSION_CLASSES`: `IsAuthenticated` (view-level overrides for auth routes).
+  - Rate Throttling: `SyncRateThrottle` limits sync ingestion to 120 requests/minute per authenticated user.
+* **Security & Secret Hygiene:** Secrets are loaded from environment variables (`.env`). In development, fallback placeholders are provided for local presentation.
+
+## 9.2 Domain Normalization & Classification Engine
+All web traffic processed by the backend is routed through normalization and categorization functions in `dashboard/core/models.py`:
+* **`clean_domain(url)`:** Strips protocol schemes (`http://`, `https://`), path segments, and leading `www.` subdomains.
+* **`classify_domain(domain, user=None)`:** Determines the category:
+  1. Checks if the user has an explicit record in `CategoryOverride`.
+  2. Checks static `CATEGORY_MAP` (covering 45+ popular websites).
+  3. Checks academic TLD regex (`.edu`, `.ac.uk`, `.org`).
+  4. Defaults to `CATEGORY_OTHERS` (`'Others'`).
+
+Standardized Categories (Migration 0006):
+- `Productive sites`
+- `Distracting sites`
+- `Others`
+
+## 9.3 Analytics & Streak Calculation Algorithm
+In `dashboard/core/views.py:summary_view()`, analytics and streaks are computed strictly:
+1. **Focus Efficiency Score:**
+   $$\text{Efficiency} = \frac{\text{Productive Seconds}}{\text{Productive Seconds} + \text{Distracting Seconds}} \times 100$$
+2. **Strict Consecutive Daily Streak:**
+   - Evaluates consecutive days descending from yesterday back to 60 days.
+   - For each day, the day is considered **successful** if:
+     - Total logged seconds > 0.
+     - No custom `SiteLimit` was exceeded.
+     - Total unconfigured distracting time did NOT exceed `global_limit_minutes`.
+     - Total productive focus time met or exceeded `focus_goal_minutes` (if configured).
+   - The first day that breaches any limit terminates the streak count.
+
+## 9.4 Green Grove 30-Day Forest Status Engine
+The Green Grove visualizer calculates progress across the preceding 30 days (`views.py:552-649`):
+* For each day in `[today - 29 days .. today]`:
+  - **`status = 'empty'`:** No browsing dwell logs exist for that date (`total_seconds == 0`). Rendered as an empty soil plot.
+  - **`status = 'grown'`:** User logged browsing activity and stayed strictly within all per-site and global distracting limits. Rendered as a healthy green pine tree.
+  - **`status = 'withered'`:** User exceeded either a custom site limit or the global distracting limit. Rendered as a withered amber/gray tree.
+
+![Green Grove Calculation Workflow](diagrams/workflow_7_green_grove.svg)
+
+## 9.5 Gamification & Reward Engine
+DRIFTLESS implements an ethical digital gamification system designed to reinforce habit formation without misleading financial claims:
+* **Database Fields (`UserProfile`):** `level` (Integer), `xp` (Integer), and three badge flags: `has_zen_master`, `has_deep_worker`, `has_iron_will`.
+* **Milestone Rules:**
+  - 🧘‍♂️ **Zen Master:** Awarded for maintaining a 10-day focus streak without limit violations.
+  - 🧠 **Deep Worker:** Awarded for completing 2+ hours (120 minutes) of deep focus sprints.
+  - 🛡️ **Iron Will:** Awarded for immediate limit compliance (closing a distracting site upon receiving the 80% nudge).
+* **Presentation Demo Helper (`seed_demo_gamification`):** Pre-seeds Level 5, 80 XP progress, and unlocks all 3 badges on initial registration or demo login.
+* **API Delivery:** Returned via `GET /api/summary/` inside the `user` dictionary: `{ level, xp, xp_progress, has_zen_master, has_deep_worker, has_iron_will }`.
+
+![Gamification Reward Flow](diagrams/gamification_reward_flow.svg)
+
+## 9.6 Evolution of Authentication: Email OTP Removal
+In earlier development (Migration 0008), an `EmailOTP` model was introduced to send 6-digit codes via Gmail SMTP. To ensure frictionless user onboarding during live presentations and avoid third-party email delivery delays, the OTP system was **completely removed in Migration 0009**:
+* Removed `EmailOTP` model and its database table.
+* Removed OTP generation, email dispatch, and verification endpoints.
+* Replaced with streamlined direct registration: strict frontend regex validation, backend `EmailValidator` check, immediate `is_verified=True`, demo gamification seeding, DRF token generation, and instant redirect to `/dashboard/`.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-10">Chapter 10: Complete API Reference</h1>
+
+This chapter details every REST API endpoint exposed by the DRIFTLESS backend. All endpoints are prefixed with `/api/` and return `application/json`.
+
+---
+
+### 1. Register User
+* **Endpoint:** `POST /api/auth/register/`
+* **Authentication:** None (Public)
+* **Handler:** `dashboard/core/views.py:register_view()`
+* **Request Body:**
+  ```json
+  {
+    "username": "student_alex",
+    "email": "alex@university.edu",
+    "password": "SecurePassword123!",
+    "phone": "+15551234567",
+    "persona": "student"
+  }
+  ```
+* **Success Response (`201 Created`):**
+  ```json
+  {
+    "success": true,
+    "token": "4f8a9e2d1c3b5a7e9f0d2c4b6a8e0f1d3c5b7a9e",
+    "username": "student_alex",
+    "is_verified": true,
+    "redirect": "/dashboard/"
+  }
+  ```
+* **Error Response (`400 Bad Request`):**
+  ```json
+  {
+    "error": "Please enter a valid email address.",
+    "email": ["Please enter a valid email address."]
+  }
+  ```
+
+---
+
+### 2. Login User
+* **Endpoint:** `POST /api/auth/login/`
+* **Authentication:** None (Public)
+* **Handler:** `dashboard/core/views.py:login_view()`
+* **Request Body:** Accepts `username`, `email`, or `phone` in the identifier field:
+  ```json
+  {
+    "username": "alex@university.edu",
+    "password": "SecurePassword123!"
+  }
+  ```
+* **Success Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "token": "4f8a9e2d1c3b5a7e9f0d2c4b6a8e0f1d3c5b7a9e",
+    "username": "student_alex",
+    "is_verified": true,
+    "redirect": "/dashboard/"
+  }
+  ```
+
+---
+
+### 3. Google Sign-In & Demo Auth
+* **Endpoint:** `POST /api/auth/google/`
+* **Authentication:** None (Public)
+* **Handler:** `dashboard/core/views.py:google_auth_view()`
+* **Request Body:** Real Google ID token OR Demo payload:
+  ```json
+  {
+    "email": "alex.demo@gmail.com",
+    "name": "Alex Demo",
+    "demo": true
+  }
+  ```
+* **Success Response (`200 OK` / `201 Created`):**
+  ```json
+  {
+    "success": true,
+    "token": "4f8a9e2d1c3b5a7e9f0d2c4b6a8e0f1d3c5b7a9e",
+    "username": "alex_demo",
+    "email": "alex.demo@gmail.com",
+    "name": "Alex Demo",
+    "redirect": "/dashboard/"
+  }
+  ```
+
+---
+
+### 4. Regenerate API Token
+* **Endpoint:** `POST /api/auth/regenerate-token/`
+* **Authentication:** Session or Token (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:regenerate_token_view()`
+* **Success Response (`200 OK`):**
+  ```json
+  {
+    "token": "8a7e9f0d2c4b6a8e0f1d3c5b7a9e4f8a9e2d1c3b"
+  }
+  ```
+
+---
+
+### 5. Ingest Usage Dwell Logs
+* **Endpoint:** `POST /api/usage/`
+* **Authentication:** Token (`IsAuthenticated`), Rate Throttled (120/min)
+* **Handler:** `dashboard/core/views.py:usage_log_view()`
+* **Request Body (Batch Array or Single Object):**
   ```json
   [
     {
       "website_url": "github.com",
-      "time_spent_seconds": 60,
-      "date": "2026-10-26"
+      "time_spent_seconds": 360,
+      "date": "2026-10-31"
     },
     {
       "website_url": "instagram.com",
-      "time_spent_seconds": 45,
-      "date": "2026-10-26"
+      "time_spent_seconds": 120,
+      "date": "2026-10-31"
     }
   ]
   ```
-- **Validation:**
-  - `website_url` is normalized through `clean_domain()`.
-  - `time_spent_seconds` must be `>= 0` and `<= 86400` (24-hour sanity clamp).
-- **Database Operation:** Finds or creates a `UsageLog` for `(request.user, website_url, date)`. Increments `time_spent_seconds` atomically and recalculates category via `classify_domain()`.
-- **Response `200 OK`:**
+* **Success Response (`200 OK`):**
   ```json
   {
-    "created": 1,
-    "updated": 1
+    "status": "success",
+    "message": "Logged 2 entries successfully"
   }
   ```
-- **Error Responses:**
-  - `400 Bad Request`: Payload validation error (e.g. invalid domain or negative seconds).
-  - `401 Unauthorized`: Missing or invalid token.
 
 ---
 
-### 2.2. Analytics: `GET /api/summary/`
-- **Purpose:** Primary analytics aggregation endpoint powering the Web Dashboard and Extension Popup.
-- **Headers:** `Authorization: Token <api_token>` or Session Cookie.
-- **Response `200 OK` Schema:**
+### 6. Analytics Summary
+* **Endpoint:** `GET /api/summary/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:summary_view()`
+* **Success Response (`200 OK`):**
   ```json
   {
-    "weekly": [
-      {
-        "date": "2026-10-20",
-        "total_seconds": 14400,
-        "productivity_seconds": 10800,
-        "social_seconds": 1800,
-        "entertainment_seconds": 1800,
-        "other_seconds": 0
-      }
-    ],
-    "daily": [
-      {
-        "website_url": "github.com",
-        "total_seconds": 7200,
-        "category": "Productivity"
-      }
-    ],
     "stats": {
-      "today_total_seconds": 14400,
-      "productive_seconds": 10800,
-      "social_seconds": 1800,
-      "entertainment_seconds": 1800,
-      "focus_efficiency": 75,
-      "top_site": "github.com",
-      "streak": 14,
-      "today_sessions_count": 2,
-      "longest_session_minutes": 45,
-      "data_days_count": 14
-    },
-    "distractions": [
-      {
-        "website_url": "instagram.com",
-        "category": "Social",
-        "used_minutes": 25,
-        "limit_minutes": 30,
-        "percentage": 83,
-        "enabled": true,
-        "limit_id": 4
-      }
-    ],
-    "settings": {
-      "focus_mode_active": false,
-      "daily_limit_minutes": 60,
-      "focus_goal_minutes": 180,
-      "streak_days": 14,
-      "require_challenge": false,
-      "blocked_sites": "",
-      "allowed_sites": ""
+      "productive_time": "3h 45m",
+      "distracting_time": "25m",
+      "focus_efficiency": 90,
+      "streak_days": 10,
+      "longest_session": "45m"
     },
     "user": {
-      "username": "demo",
-      "persona": "student"
+      "username": "student_alex",
+      "persona": "student",
+      "level": 5,
+      "xp": 80,
+      "xp_progress": 80,
+      "has_zen_master": true,
+      "has_deep_worker": true,
+      "has_iron_will": true
+    },
+    "grove": {
+      "days": [
+        {
+          "date": "2026-10-31",
+          "status": "grown",
+          "day_name": "Sat",
+          "day_num": 31,
+          "formatted_date": "Oct 31",
+          "total_seconds": 14400
+        }
+      ],
+      "total_grown": 28,
+      "current_streak": 10
+    },
+    "weekly": {
+      "labels": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+      "productive": [120, 150, 180, 200, 210, 190, 225],
+      "distracting": [30, 25, 20, 15, 10, 20, 25],
+      "others": [10, 15, 10, 5, 10, 15, 10]
+    },
+    "settings": {
+      "focus_mode_active": false,
+      "schedule_enabled": true,
+      "schedule_start": "20:00",
+      "schedule_end": "22:30",
+      "blocked_sites": "instagram.com\nfacebook.com\nreddit.com\nyoutube.com",
+      "allowed_sites": "github.com\nstackoverflow.com\ndocs.google.com"
     }
   }
   ```
 
 ---
 
-### 2.3. Per-Site Limits: `/api/limits/`
-- **`GET /api/limits/`**: Returns all limits created by the authenticated user.
-- **`POST /api/limits/`**:
-  - **Request Body:**
-    ```json
-    {
-      "domain": "reddit.com",
-      "daily_limit_minutes": 25,
-      "enabled": true
-    }
-    ```
-  - **Validation:** `daily_limit_minutes` must be between `1` and `1440`.
-  - **Response `201 Created` / `200 OK`:**
-    ```json
-    {
-      "id": 12,
-      "domain": "reddit.com",
-      "daily_limit_minutes": 25,
-      "enabled": true,
-      "updated_at": "2026-10-26T07:15:00Z"
-    }
-    ```
-- **`DELETE /api/limits/<id>/`**: Deletes limit if owned by user. Returns `204 No Content`. Returns `404 Not Found` if the limit belongs to another user (ensuring data isolation).
+### 7. Settings Management
+* **Endpoint:** `GET /api/settings/` & `PATCH /api/settings/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:settings_view()`
+* **Patch Body (Any subset):**
+  ```json
+  {
+    "focus_mode_active": true,
+    "schedule_enabled": true,
+    "schedule_start": "21:00",
+    "schedule_end": "23:00",
+    "persona": "professional"
+  }
+  ```
+* **Success Response (`200 OK`):** Returns updated `UserSettingsSerializer` payload plus `persona`.
 
 ---
 
-### 2.4. Category Overrides: `/api/categories/`
-- **`POST /api/categories/`**:
-  - **Request Body:**
-    ```json
-    {
-      "domain": "youtube.com",
-      "category": "Productivity"
-    }
-    ```
-  - **Validation:** Category must be one of `Productivity`, `Social`, `Entertainment`, `Other`.
-  - **Side Effect:** Automatically executes `UsageLog.objects.filter(user=request.user, website_url=domain).update(category=category)` to reclassify all past records.
-- **`DELETE /api/categories/<id>/`**:
-  - Deletes override and recalculates default category for all historical logs of that domain.
+### 8. Per-Site Limits CRUD
+* **List / Create:** `GET/POST /api/limits/`
+* **Detail / Patch / Delete:** `GET/PATCH/DELETE /api/limits/<int:pk>/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:limits_list_create_view()`, `limits_detail_view()`
+* **Create Body:**
+  ```json
+  {
+    "domain": "reddit.com",
+    "daily_limit_minutes": 20,
+    "enabled": true
+  }
+  ```
+* **Success Response (`201 Created` / `200 OK`):**
+  ```json
+  {
+    "id": 4,
+    "domain": "reddit.com",
+    "daily_limit_minutes": 20,
+    "enabled": true
+  }
+  ```
 
 ---
 
-### 2.5. Data Sovereignty: `/api/data/export/` & `/api/data/delete/`
-- **`GET /api/data/export/`**:
-  - Returns `application/json` payload containing username, export timestamp, user settings, all usage logs, site limits, category overrides, and completed focus sessions.
-- **`POST /api/data/delete/`**:
-  - Deletes all usage logs and focus sessions for the authenticated user.
-  - Response `200 OK`: `{"detail": "All browsing records and focus sessions have been erased."}`
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Database Schema & Data Flow Architecture
-
-## 1. Database Overview & Migration History
-
-DRIFTLESS utilizes **SQLite 3** as its primary persistence engine (`db.sqlite3`), supported natively by Django's database abstraction layer. 
-
-### Applied Migrations (`dashboard/core/migrations/`):
-- `0001_initial`: Created initial base models (`UsageLog`, `UserSettings`).
-- `0002_usagelog_category_usersettings`: Added `category` column to `UsageLog` and expanded `UserSettings`.
-- `0003_userprofile`: Created `UserProfile` model extending Django's auth `User` with phone and persona.
-- `0004_alter_userprofile_persona`: Updated persona choices to support `student`, `professional`, `influencer`, `creator`, and `other`.
-- `0005_usersettings_allowed_sites_and_more`: Added `SiteLimit`, `CategoryOverride`, `FocusSession`, unique constraints, and indexes.
+### 9. Category Overrides CRUD
+* **List / Create:** `GET/POST /api/categories/`
+* **Delete:** `DELETE /api/categories/<int:pk>/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:categories_list_create_view()`, `categories_detail_view()`
+* **Create Body:**
+  ```json
+  {
+    "domain": "news.ycombinator.com",
+    "category": "Productive sites"
+  }
+  ```
 
 ---
 
-## 2. Entity-Relationship (ER) Schema
-
-```mermaid
-erDiagram
-    auth_user ||--|| core_userprofile : "extends (1:1)"
-    auth_user ||--|| core_usersettings : "configures (1:1)"
-    auth_user ||--o{ core_usagelog : "accumulates (1:N)"
-    auth_user ||--o{ core_sitelimit : "enforces (1:N)"
-    auth_user ||--o{ core_categoryoverride : "overrides (1:N)"
-    auth_user ||--o{ core_focussession : "completes (1:N)"
-    auth_user ||--o| authtoken_token : "authenticates (1:1)"
-
-    auth_user {
-        int id PK
-        varchar_150 username "UNIQUE"
-        varchar_254 email
-        varchar_128 password
-        boolean is_active
-        datetime date_joined
-    }
-
-    core_userprofile {
-        int id PK
-        int user_id FK "UNIQUE"
-        varchar_32 phone
-        varchar_20 persona "student|professional|influencer|creator|other"
-    }
-
-    core_usersettings {
-        int id PK
-        int user_id FK "UNIQUE"
-        boolean focus_mode_active
-        integer daily_limit_minutes "DEFAULT 60"
-        integer focus_goal_minutes "DEFAULT 180"
-        integer streak_days "DEFAULT 0"
-        boolean require_challenge "DEFAULT FALSE"
-        text blocked_sites
-        text allowed_sites
-        datetime updated_at
-    }
-
-    core_usagelog {
-        int id PK
-        int user_id FK
-        varchar_255 website_url
-        integer time_spent_seconds "DEFAULT 0"
-        varchar_20 category "Productivity|Social|Entertainment|Other"
-        date date
-        datetime created_at
-        datetime updated_at
-    }
-
-    core_sitelimit {
-        int id PK
-        int user_id FK
-        varchar_255 domain
-        integer daily_limit_minutes "DEFAULT 30"
-        boolean enabled "DEFAULT TRUE"
-        datetime created_at
-        datetime updated_at
-    }
-
-    core_categoryoverride {
-        int id PK
-        int user_id FK
-        varchar_255 domain
-        varchar_30 category
-        datetime created_at
-        datetime updated_at
-    }
-
-    core_focussession {
-        int id PK
-        int user_id FK
-        integer duration_minutes "DEFAULT 25"
-        datetime started_at
-        boolean completed "DEFAULT TRUE"
-    }
-
-    authtoken_token {
-        varchar_40 key PK
-        int user_id FK "UNIQUE"
-        datetime created
-    }
-```
+### 10. Focus Sessions
+* **List / Record:** `GET/POST /api/sessions/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:sessions_view()`
+* **Record Body:**
+  ```json
+  {
+    "duration_minutes": 25,
+    "completed": true
+  }
+  ```
 
 ---
 
-## 3. Detailed Model Field Specifications
+### 11. Privacy & Data Export / Erasure
+* **Export:** `GET /api/data/export/`
+  - Returns complete JSON export containing `profile`, `settings`, `usage_logs`, `site_limits`, and `focus_sessions`.
+* **Erasure:** `POST /api/data/delete/`
+  - Completely purges all `UsageLog`, `SiteLimit`, and `FocusSession` records for the user. Returns `{ "status": "success", "message": "All user data deleted" }`.
 
-### 3.1. `core_usagelog`
-- **Primary Key:** `id` (`BigAutoField`, Auto-increment).
-- **Foreign Key:** `user_id` referencing `auth_user(id)` with `on_delete=CASCADE`.
-- **Fields:**
-  - `website_url` (`CharField(255)`): Sanitized domain name (e.g. `github.com`).
-  - `time_spent_seconds` (`PositiveIntegerField`): Accumulated dwell time for that calendar date.
-  - `category` (`CharField(20)`): Classification label (`Productivity`, `Social`, `Entertainment`, `Other`).
-  - `date` (`DateField`): The specific calendar date of the dwell activity.
-- **Constraints & Indexes:**
-  - `unique_together = ('user', 'website_url', 'date')` guarantees that each website has at most one row per user per calendar day.
-  - `Index(fields=['user', 'date'])` accelerates 7-day range scans for weekly summaries.
 
-### 3.2. `core_sitelimit`
-- **Unique Constraint:** `unique_together = ('user', 'domain')`.
-- **Fields:**
-  - `domain` (`CharField(255)`): Target sanitized hostname.
-  - `daily_limit_minutes` (`PositiveIntegerField`, default `30`): Daily time cap in minutes.
-  - `enabled` (`BooleanField`, default `True`): Toggles enforcement of the limit.
+<div class="page-break"></div>
 
-### 3.3. `core_categoryoverride`
-- **Unique Constraint:** `unique_together = ('user', 'domain')`.
-- **Fields:**
-  - `domain` (`CharField(255)`): Overridden hostname.
-  - `category` (`CharField(30)`): Target category choice.
+<h1 id="ch-11">Chapter 11: Database Schema &amp; Migration History</h1>
+
+This chapter details the relational database schema implemented in SQLite 3 via the Django ORM, followed by the complete chronological migration history.
+
+## 11.1 Relational Entity-Relationship Diagram
+
+![Database ER Diagram](diagrams/database_er_diagram.svg)
+
+## 11.2 Model & Field Reference
+
+### 1. `auth_user` (Django Built-in)
+* `id`: `INTEGER [PK]`
+* `username`: `VARCHAR(150) [Unique]`
+* `email`: `VARCHAR(254)`
+* `password`: `VARCHAR(128)` (PBKDF2 SHA-256 hash)
+* `is_active`: `BOOLEAN`
+* `date_joined`: `DATETIME`
+
+### 2. `core_userprofile` (One-to-One with `auth_user`)
+* `id`: `INTEGER [PK]`
+* `user_id`: `INTEGER [FK, Unique]`
+* `phone`: `VARCHAR(32)` (Blank allowed)
+* `persona`: `VARCHAR(20)` (Choices: `student`, `professional`, `influencer`, `creator`, `other`)
+* `is_verified`: `BOOLEAN` (Default `True`)
+* `xp`: `INTEGER` (Default `0`)
+* `level`: `INTEGER` (Default `1`)
+* `has_zen_master`: `BOOLEAN` (Default `False`)
+* `has_deep_worker`: `BOOLEAN` (Default `False`)
+* `has_iron_will`: `BOOLEAN` (Default `False`)
+
+### 3. `core_usersettings` (One-to-One with `auth_user`)
+* `id`: `INTEGER [PK]`
+* `user_id`: `INTEGER [FK, Unique]`
+* `focus_mode_active`: `BOOLEAN` (Default `False`)
+* `daily_limit_minutes`: `POSITIVE_INTEGER` (Default `60`)
+* `focus_goal_minutes`: `POSITIVE_INTEGER` (Default `180` - 3 hours)
+* `streak_days`: `POSITIVE_INTEGER` (Default `0`)
+* `require_challenge`: `BOOLEAN` (Default `False`)
+* `blocked_sites`: `TEXT` (Newline-delimited distracting domains)
+* `allowed_sites`: `TEXT` (Newline-delimited productive domains)
+* `schedule_enabled`: `BOOLEAN` (Default `False`)
+* `schedule_start`: `VARCHAR(5)` (Default `'20:00'`)
+* `schedule_end`: `VARCHAR(5)` (Default `'22:00'`)
+* `updated_at`: `DATETIME`
+
+### 4. `core_usagelog` (Many-to-One with `auth_user`)
+* `id`: `INTEGER [PK]`
+* `user_id`: `INTEGER [FK]`
+* `website_url`: `VARCHAR(255)`
+* `time_spent_seconds`: `POSITIVE_INTEGER` (Default `0`)
+* `category`: `VARCHAR(20)` (Default `'Others'`)
+* `date`: `DATE`
+* `created_at`: `DATETIME`
+* `updated_at`: `DATETIME`
+
+### 5. `core_sitelimit` (Many-to-One with `auth_user`)
+* `id`: `INTEGER [PK]`
+* `user_id`: `INTEGER [FK]`
+* `domain`: `VARCHAR(255)`
+* `daily_limit_minutes`: `POSITIVE_INTEGER` (Default `30`)
+* `enabled`: `BOOLEAN` (Default `True`)
+* `created_at`: `DATETIME`
+* `updated_at`: `DATETIME`
+
+### 6. `core_categoryoverride` (Many-to-One with `auth_user`)
+* `id`: `INTEGER [PK]`
+* `user_id`: `INTEGER [FK]`
+* `domain`: `VARCHAR(255)`
+* `category`: `VARCHAR(30)` (Choices: `Productive sites`, `Distracting sites`, `Others`)
+* `created_at`: `DATETIME`
+* `updated_at`: `DATETIME`
+
+### 7. `core_focussession` (Many-to-One with `auth_user`)
+* `id`: `INTEGER [PK]`
+* `user_id`: `INTEGER [FK]`
+* `duration_minutes`: `POSITIVE_INTEGER` (Default `25`)
+* `started_at`: `DATETIME`
+* `completed`: `BOOLEAN` (Default `True`)
 
 ---
 
-## 4. End-to-End Data Flow (Browser Storage ↔ Backend Database)
+## 11.3 Complete Migration History
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant ActiveTab as User Tab (e.g. youtube.com)
-    participant SW as Service Worker (background.js)
-    participant Storage as chrome.storage.local
-    participant API as Django Ingestion (/api/usage/)
-    participant DB as SQLite (UsageLog)
-    participant SummaryAPI as Django Analytics (/api/summary/)
-    participant Dashboard as Web Dashboard (dashboard.html)
-
-    ActiveTab->>SW: Navigation & Active Dwell
-    SW->>Storage: Increment siteTimes['youtube.com'] += 60s
-    SW->>Storage: Increment unsyncedDeltas['youtube.com'] += 60s
-
-    Note over SW,API: 60s Periodic Sync Alarm Triggered
-    SW->>Storage: Read unsyncedDeltas
-    SW->>API: POST /api/usage/ [{ website_url: "youtube.com", time_spent_seconds: 60, date: "2026-10-26" }]
-    API->>DB: UsageLog.objects.get_or_create(user, "youtube.com", date)
-    API->>DB: time_spent_seconds += 60, save()
-    API-->>SW: HTTP 200 OK { created: 0, updated: 1 }
-    SW->>Storage: unsyncedDeltas['youtube.com'] = 0
-
-    Note over Dashboard,SummaryAPI: Dashboard Page Loaded or Auto-Refreshed
-    Dashboard->>SummaryAPI: GET /api/summary/
-    SummaryAPI->>DB: Query 7-day logs (UsageLog.objects.filter(date__gte=week_ago))
-    SummaryAPI->>DB: Calculate strict streak & focus efficiency
-    SummaryAPI-->>Dashboard: Return { weekly: [...], daily: [...], stats: {...} }
-    Dashboard->>Dashboard: Chart.js updates canvas; KPI metrics rendered
-```
-
----
-
-## 5. Storage Partitioning: Browser Local vs. Backend Database
-
-| Metric / Attribute | Browser-Local Storage (`chrome.storage.local`) | Backend Database (`db.sqlite3`) |
+| Migration File | Key Operations Performed | Rationale |
 | :--- | :--- | :--- |
-| **Storage Lifetime** | Resets daily at midnight; cleared if extension is uninstalled. | Permanent historical record across months and years. |
-| **Tracking Granularity**| Sub-minute raw second increments (`siteTimes`). | Daily aggregated seconds (`UsageLog.time_spent_seconds`). |
-| **Sync Buffer** | Unsent delta queue (`unsyncedDeltas`) buffered during offline intervals. | Clean committed state. |
-| **Enforcement States** | 3-tier escalation flags (`escalationState[domain].nudged/alerted/blocked`). | `SiteLimit` rules and threshold configurations. |
-| **Focus Mode State** | Dynamic DNR rule status (`focusModeActive`, `focusTimerEndTime`). | Persistent user preference flag (`UserSettings.focus_mode_active`). |
-| **Authentication** | Bearer API token string (`apiToken`). | `authtoken_token` table linking token key to `auth_user`. |
+| `0001_initial.py` | Created `UsageLog`, `SiteLimit`, `CategoryOverride` models. | Baseline data schema for tracking and custom limits. |
+| `0002_usagelog_category_usersettings.py` | Added `category` field to `UsageLog`; created `UserSettings` model. | Introduced user configuration and initial category tags. |
+| `0003_userprofile.py` | Created `UserProfile` model with `phone` and `persona`. | Introduced multi-identifier login and persona support. |
+| `0004_alter_userprofile_persona.py` | Expanded persona choices (`student`, `professional`, `influencer`, `creator`, `other`). | Allowed users to customize onboarding presets. |
+| `0005_usersettings_allowed_sites_and_more.py` | Added `allowed_sites` and `focus_goal_minutes` to `UserSettings`. | Supported whitelist configuration and 3-hour daily goal ring. |
+| `0006_alter_categoryoverride_category_and_more.py` | Standardized category choices to `Productive sites`, `Distracting sites`, `Others`. | Eliminated confusing 4-category split; aligned with modern UX. |
+| `0007_usersettings_schedule_enabled_and_more.py` | Added `schedule_enabled`, `schedule_start`, `schedule_end` to `UserSettings`. | Backed Scheduled Focus Mode time-picker controls. |
+| `0008_userprofile_is_verified_emailotp.py` | Added `is_verified` to `UserProfile`; created `EmailOTP` model. | Initial implementation of 6-digit email OTP system. |
+| `0009_delete_emailotp.py` | Deleted `EmailOTP` model. | Removed email OTP in favor of streamlined direct signup. |
+| `0010_userprofile_has_deep_worker_and_more.py` | Added `xp`, `level`, `has_zen_master`, `has_deep_worker`, `has_iron_will` to `UserProfile`. | Backed 3D gamification, XP progression, and badge unlocks. |
 
+
+<div class="page-break"></div>
+
+<h1 id="ch-12">Chapter 12: Frontend Architecture &amp; UI Design</h1>
+
+The DRIFTLESS frontend consists of two distinct presentation applications:
+1. **The Chrome Extension Popup (`popup.html` &amp; `popup.js`):** A compact, responsive browser action window.
+2. **The Web Dashboard Application (`dashboard.html` &amp; `auth.html`):** A full-featured 3D Neumorphic / Glassmorphic single-page web interface.
+
+Both applications share the **DRIFTLESS Design System**, featuring high-contrast typography, tactile depth, and a dual-theme color architecture.
 
 ---
 
+## 12.1 Chrome Extension Popup Interface
 
-<!-- PAGE BREAK -->
+The extension popup (`popup.html`) is structured with modular views and interactive modal drawers:
 
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — End-to-End System Architecture & Workflows
-
-## 1. System Architecture Map
-
-```mermaid
-graph TB
-    subgraph BrowserClient["User Browser Runtime (Google Chrome)"]
-        subgraph ExtensionRuntime["Driftless Extension (Manifest V3)"]
-            POPUP["Popup Controller<br/>(popup.html / popup.js)"]
-            BG["Background Service Worker<br/>(background.js)"]
-            BLOCKED_PAGE["Blocked Landing Page<br/>(blocked.html)"]
-        end
-
-        subgraph ChromeAPIs["Native Chrome APIs"]
-            API_TABS["chrome.tabs<br/>(URL & switch events)"]
-            API_WINDOWS["chrome.windows<br/>(Focus state)"]
-            API_IDLE["chrome.idle<br/>(60s inactivity)"]
-            API_NOTIF["chrome.notifications<br/>(Nudges & alerts)"]
-            API_ALARMS["chrome.alarms<br/>(Periodic sync & midnight)"]
-            API_STORAGE["chrome.storage.local<br/>(siteTimes & unsyncedDeltas)"]
-            API_DNR["declarativeNetRequest<br/>(Dynamic redirect rules)"]
-        end
-
-        subgraph WebClient["Web Dashboard Application"]
-            AUTH_VIEW["Auth & Persona Portal<br/>(auth.html)"]
-            DASH_VIEW["Analytics Dashboard<br/>(dashboard.html)"]
-            CHART_ENGINE["Chart.js 4.4 Engine<br/>(Canvas visualization)"]
-        end
-    end
-
-    subgraph BackendServer["Django 4.2 LTS Application Server (port 8000)"]
-        MIDDLEWARE["Middleware Stack<br/>(CORS, WhiteNoise, Session)"]
-        ROUTER["URL Dispatcher<br/>(driftless/urls.py & core/urls.py)"]
-        
-        subgraph DRFControllers["Django REST Framework Views"]
-            AUTH_CTRL["Auth Controller<br/>(/api/auth/*)"]
-            USAGE_CTRL["Usage Ingestion<br/>(/api/usage/)"]
-            SUMMARY_CTRL["Analytics Engine<br/>(/api/summary/)"]
-            LIMITS_CTRL["Limits Controller<br/>(/api/limits/)"]
-            SETTINGS_CTRL["Settings Controller<br/>(/api/settings/)"]
-            CATEGORY_CTRL["Category Controller<br/>(/api/categories/)"]
-            PRIVACY_CTRL["Data Sovereignty<br/>(/api/data/*)"]
-        end
-
-        ORM["Django ORM Layer"]
-    end
-
-    subgraph Database["Persistence Layer (SQLite)"]
-        SQLITE_DB[("db.sqlite3<br/>Tables: User, UserProfile,<br/>UserSettings, UsageLog,<br/>SiteLimit, CategoryOverride,<br/>FocusSession, authtoken_token")]
-    end
-
-    %% Extension Internal Wiring
-    BG --> API_TABS
-    BG --> API_WINDOWS
-    BG --> API_IDLE
-    BG --> API_NOTIF
-    BG --> API_ALARMS
-    BG --> API_STORAGE
-    BG --> API_DNR
-    POPUP --> API_STORAGE
-    POPUP -- "chrome.runtime.sendMessage" --> BG
-    API_DNR -- "Redirects violation" --> BLOCKED_PAGE
-
-    %% Extension to Backend
-    BG -- "POST /api/usage/ (Bearer Token)" --> MIDDLEWARE
-    BG -- "GET /api/limits/ & /api/settings/" --> MIDDLEWARE
-    POPUP -- "PATCH /api/settings/ & /api/limits/" --> MIDDLEWARE
-
-    %% Web Frontend to Backend
-    AUTH_VIEW -- "POST /api/auth/login/ & register/" --> MIDDLEWARE
-    DASH_VIEW -- "GET /api/summary/" --> MIDDLEWARE
-    DASH_VIEW -- "PATCH /api/settings/ & /api/limits/" --> MIDDLEWARE
-    DASH_VIEW --> CHART_ENGINE
-
-    %% Backend Routing & Execution
-    MIDDLEWARE --> ROUTER
-    ROUTER --> AUTH_CTRL
-    ROUTER --> USAGE_CTRL
-    ROUTER --> SUMMARY_CTRL
-    ROUTER --> LIMITS_CTRL
-    ROUTER --> SETTINGS_CTRL
-    ROUTER --> CATEGORY_CTRL
-    ROUTER --> PRIVACY_CTRL
-
-    AUTH_CTRL --> ORM
-    USAGE_CTRL --> ORM
-    SUMMARY_CTRL --> ORM
-    LIMITS_CTRL --> ORM
-    SETTINGS_CTRL --> ORM
-    CATEGORY_CTRL --> ORM
-    PRIVACY_CTRL --> ORM
-
-    ORM --> SQLITE_DB
+```text
+┌────────────────────────────────────────────────────────┐
+│  🍃 DRIFTLESS            [🔥 10-Day Streak]  [⚙️ Token] │
+├────────────────────────────────────────────────────────┤
+│  ⚡ FOCUS MODE                       [ Toggle Switch ]  │
+│     Block all distracting sites instantly             │
+├────────────────────────────────────────────────────────┤
+│  🎬 BLOCK SHORTS & REELS (Student)   [ Toggle Switch ]  │
+│     YouTube Shorts & Instagram Reels blocked           │
+├────────────────────────────────────────────────────────┤
+│  ⏰ SCHEDULED FOCUS                  [ Toggle Switch ]  │
+│     Active 08:00 PM to 10:30 PM (Next: Today at 8:00)  │
+│     ▼ Edit Times                                       │
+│     [ Start: 20:00 ]  [ End: 22:30 ]  [ Save Button ]  │
+├────────────────────────────────────────────────────────┤
+│  🍅 POMODORO SPRINT                                    │
+│     25:00 Focus Phase       [ Start Sprint ]  [ Reset ]│
+├────────────────────────────────────────────────────────┤
+│  ⏳ DISTRACTING SITES (Global Limit: 60m)  [ + Add ]   │
+│     • instagram.com     45s / 2m    [ ⚙️ Limit ]  [ 🗑️ ] │
+│     • reddit.com        12m / 20m   [ ⚙️ Limit ]  [ 🗑️ ] │
+├────────────────────────────────────────────────────────┤
+│  🌱 PRODUCTIVE SITES                      [ + Add ]   │
+│     • github.com                    [ Whitelisted ]    │
+│     • stackoverflow.com             [ Whitelisted ]    │
+├────────────────────────────────────────────────────────┤
+│  👤 Connected as student_alex        [ 🔗 Dashboard ]  │
+│  🔄 Cloud Sync (Last: Just now)      [ Sync Now ]      │
+└────────────────────────────────────────────────────────┘
 ```
 
+### Key Popup UI Modules:
+* **Welcome &amp; Persona Onboarding (`onboardingView`):** Displayed when `userPersona` is uninitialized. Steps user through initial brand introduction and persona selection.
+* **Scheduled Focus Collapsible Drawer:** Expands when Scheduled Focus is active or tapped. Houses two HTML5 `<input type="time">` pickers, displays human-readable 12-hour formatted labels, and includes an explicit **Save** button.
+* **Custom Limit Modal (`customLimitModal`):** Prompts for per-site minutes (1 to 1440) or provides a "Remove Limit" button to fall back to the global limit.
+* **Global Limit Modal (`globalLimitModal`):** Modifies default limit for unconfigured distracting sites.
+
 ---
 
-## 2. Core Workflow Diagrams
+## 12.2 Web Dashboard Architecture (`dashboard.html`)
 
-### 2.1. Website Time Tracking Workflow
+The web dashboard employs a modern **3D Neumorphic / Glassmorphic** aesthetic:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Tabs as chrome.tabs
-    participant Idle as chrome.idle
-    participant SW as background.js
-    participant Storage as chrome.storage.local
-
-    User->>Tabs: Navigates to or switches tab
-    Tabs->>SW: onActivated or onUpdated event
-    SW->>SW: commitActiveTime()
-    Note over SW: If currentTabStartTime exists and window is focused:<br/>elapsed = floor((now - currentTabStartTime)/1000)
-    SW->>Storage: siteTimes[domain] += elapsed
-    SW->>Storage: unsyncedDeltas[domain] += elapsed
-    SW->>Tabs: Query active tab URL
-    Tabs-->>SW: Return new tab URL
-    SW->>SW: cleanDomain(url) -> targetDomain
-    SW->>SW: currentTabDomain = targetDomain
-    SW->>SW: currentTabStartTime = Date.now()
-
-    User->>Idle: Leaves desk for 75 seconds
-    Idle->>SW: onStateChanged("idle")
-    SW->>SW: commitActiveTime() (Commits up to 60s)
-    SW->>SW: isUserActive = false (Pauses tracking)
-
-    User->>Idle: Moves mouse
-    Idle->>SW: onStateChanged("active")
-    SW->>SW: isUserActive = true
-    SW->>SW: currentTabStartTime = Date.now() (Resumes tracking)
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  🍃 DRIFTLESS  [ 👨‍🎓 Student ▼ ]     [ 🌓 Theme ]  [ 🔑 API Token ]  [ Logout ] │
+├──────────────────────┬───────────────────────────────────────────────────────┤
+│  SIDEBAR             │  MAIN WORKSPACE                                       │
+│                      │                                                       │
+│  [ Avatar ]          │  ⚡ FOCUS MODE STATUS CARD                             │
+│  student_alex        │     [ ON / OFF Switch ]  Status: Focus Mode Active    │
+│  LVL 5               │                                                       │
+│  [================-] │  4 KPI CARDS (3D Layered Shadows):                    │
+│  80 / 100 XP (80%)   │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌────────┐ │
+│                      │  │ 3h 45m    │ │ 25m       │ │ 90%       │ │ 🔥 10  │ │
+│  MY BADGES (3D):     │  │ Productive│ │Distracting│ │ Efficiency│ │ Streak │ │
+│  ┌────────────────┐  │  └───────────┘ └───────────┘ └───────────┘ └────────┘ │
+│  │ 🧘‍♂️ Zen Master  │  │                                                       │
+│  └────────────────┘  │  🎯 3-HOUR DAILY FOCUS GOAL RING                       │
+│  ┌────────────────┐  │     Circular SVG Progress Ring (125% Goal Achieved)   │
+│  │ 🧠 Deep Worker │  │                                                       │
+│  └────────────────┘  │  📊 ANALYTICS CHART [ Bar Chart ] [ Line Chart ]       │
+│  ┌────────────────┐  │     Weekly category dwell breakdown (Productive vs    │
+│  │ 🛡️ Iron Will   │  │     Distracting vs Others)                            │
+│  └────────────────┘  │                                                       │
+│                      │  🌲 30-DAY GREEN GROVE FOREST                         │
+│  PRIORITY TO-DOS:    │     30 tactile tree icons (Pine = Success,            │
+│  [ Task input... ]   │     Withered = Exceeded, Empty = No Data)             │
+│  [x] Complete paper  │                                                       │
+│  [ ] Review PR #42   │  🛑 TOP DISTRACTIONS & SITE LIMITS                    │
+│  [ 1 / 2 Done ]      │     Per-domain limit editor with live progress bars   │
+└──────────────────────┴───────────────────────────────────────────────────────┘
 ```
 
----
-
-### 2.2. Threshold Notifications & 3-Tier Escalation Workflow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant SW as background.js
-    participant Storage as chrome.storage.local
-    participant Notif as chrome.notifications
-    participant DNR as declarativeNetRequest
-    participant Tab as Active Browser Tab
-
-    SW->>SW: evaluateSiteLimits(domain, totalSeconds)
-    SW->>Storage: Read siteLimits[domain] & escalationState[domain]
-    
-    alt totalSeconds >= 80% limit and !state.nudged
-        SW->>Storage: escalationState[domain].nudged = true
-        SW->>Notif: create("nudge-<domain>", title="Nudge ⏳", message="Used 80%...")
-        Notif-->>User: Desktop Toast Nudge Appears
-    else totalSeconds >= 100% limit and !state.alerted
-        SW->>Storage: escalationState[domain].alerted = true, streakAtRisk = true
-        SW->>Notif: create("alert-<domain>", title="100% Limit Reached ⚠️", message="5m grace active...")
-        Notif-->>User: Desktop Toast Warning Appears
-    else totalSeconds >= 100% limit + 300s (5m Grace) and !state.blocked
-        SW->>Storage: escalationState[domain].blocked = true
-        SW->>DNR: updateDynamicRules({ addRules: [redirectRule] })
-        SW->>Tab: tabs.update(activeTab.id, { url: blocked.html?site=domain })
-        Tab-->>User: Displays blocked.html Splash Screen
-    end
-```
-
----
-
-### 2.3. Focus Mode Activation & Network Blocking Workflow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Popup as popup.js
-    participant SW as background.js
-    participant DNR as declarativeNetRequest
-    participant Alarms as chrome.alarms
-    participant API as Django REST API
-
-    User->>Popup: Clicks "45m" Focus Sprint Button
-    Popup->>SW: sendMessage({ type: 'START_FOCUS_TIMER', durationMinutes: 45 })
-    SW->>DNR: updateDynamicRules(Install redirect rules for distracting sites)
-    SW->>Alarms: create("driftless_focus_timer_end", { delayInMinutes: 45 })
-    SW-->>Popup: { success: true }
-    Popup->>Popup: renderFocusTimerCountdown(Active: 45:00)
-
-    Note over User,SW: 45 Minutes Pass...
-
-    Alarms->>SW: onAlarm("driftless_focus_timer_end")
-    SW->>DNR: updateDynamicRules(removeRuleIds: [focusRules])
-    SW->>API: POST /api/sessions/ { duration_minutes: 45 }
-    SW->>User: Desktop Notification ("Focus Session Completed! 🎯")
-```
-
----
-
-### 2.4. Usage Data Synchronization Workflow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Alarms as chrome.alarms
-    participant SW as background.js
-    participant Storage as chrome.storage.local
-    participant API as Django (/api/usage/)
-    participant DB as SQLite (UsageLog)
-
-    Alarms->>SW: onAlarm("driftless_periodic_sync") (Every 60s)
-    SW->>SW: commitActiveTime()
-    SW->>Storage: Read unsyncedDeltas & apiToken
-    
-    alt unsyncedDeltas has values > 0 and apiToken present
-        SW->>API: POST /api/usage/ [{ website_url, time_spent_seconds, date }]
-        API->>DB: Atomically find or create UsageLog rows and increment seconds
-        API-->>SW: HTTP 200 OK { created: 0, updated: 2 }
-        SW->>Storage: Clear unsyncedDeltas, update lastSyncedTime
-        SW->>API: GET /api/settings/ & GET /api/limits/
-        API-->>SW: Return fresh server limits & flags
-        SW->>Storage: Update siteLimits & focusModeActive in local cache
-    else Offline / Server Unreachable
-        API--xSW: Network Error
-        SW->>SW: Keep unsyncedDeltas intact in storage for next retry
-    end
-```
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Feature-to-Code Mapping & Cooperation Analysis
-
-## 1. Master Feature-to-Code Traceability Matrix
-
-| Feature | Frontend Files | Extension Files | Backend Files | API & Database Dependencies | Implementation Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **User Registration & Persona Onboarding** | `dashboard/core/templates/auth.html` | None | `core/views.py:73`, `core/serializers.py:63`, `core/models.py:16` | `POST /api/auth/register/`, `User`, `UserProfile`, `UserSettings`, `SiteLimit` | **PASS (Fully Verified)** |
-| **Multi-Identifier Login (Username/Email/Phone)**| `dashboard/core/templates/auth.html` | None | `core/views.py:92`, `core/models.py:16` | `POST /api/auth/login/`, `Token`, `User`, `UserProfile` | **PASS (Fully Verified)** |
-| **API Token Copy & Regeneration** | `dashboard/core/templates/dashboard.html` | `extension/popup.html`, `extension/popup.js` | `core/views.py:150` | `POST /api/auth/regenerate-token/`, `authtoken_token` | **PASS (Fully Verified)** |
-| **Passive Tab Dwell Tracking** | None | `extension/background.js` | None (Local accumulation) | `chrome.tabs`, `chrome.windows`, `chrome.idle`, `chrome.storage.local` | **PASS (Fully Verified)** |
-| **Automatic Idle Detection** | None | `extension/background.js:208` | None | `chrome.idle.setDetectionInterval(60)` | **PASS (Fully Verified)** |
-| **Periodic 60s Delta Sync** | None | `extension/background.js:263`, `extension/manifest.json` | `core/views.py:165`, `core/serializers.py:116`, `core/models.py:214` | `POST /api/usage/`, `UsageLog`, `chrome.alarms` | **PASS (Fully Verified)** |
-| **Midnight Dwell Commit & Reset**| None | `extension/background.js:217` | `core/views.py:165` | `POST /api/usage/`, `chrome.alarms`, `declarativeNetRequest` | **PASS (Fully Verified)** |
-| **3-Tier Escalation: 80% Nudge** | None | `extension/background.js:93`, `extension/popup.js:133` | None | `chrome.notifications.create`, `chrome.storage.local` | **PASS (Fully Verified)** |
-| **3-Tier Escalation: 100% Alert** | None | `extension/background.js:101` | None | `chrome.notifications.create`, `chrome.storage.local` | **PASS (Fully Verified)** |
-| **3-Tier Escalation: 5m Grace + DNR Block** | None | `extension/background.js:109`, `extension/blocked.html` | None | `chrome.declarativeNetRequest.updateDynamicRules` | **PASS (Fully Verified)** |
-| **Focus Mode Toggling** | `dashboard/core/templates/dashboard.html:1115` | `extension/popup.js:201`, `extension/background.js:352` | `core/views.py:443`, `core/models.py:246` | `PATCH /api/settings/`, `UserSettings.focus_mode_active` | **PASS (Fully Verified)** |
-| **Timed Focus Sprints (25/45/60m)**| None | `extension/popup.js:228`, `extension/background.js:416` | `core/views.py:577`, `core/models.py:199` | `POST /api/sessions/`, `FocusSession`, `chrome.alarms` | **PASS (Fully Verified)** |
-| **Per-Site Daily Limit Configuration**| `dashboard/core/templates/dashboard.html:1212` | `extension/popup.js:245` | `core/views.py:467`, `core/serializers.py:135`, `core/models.py:174` | `GET/POST/PATCH/DELETE /api/limits/`, `SiteLimit` | **PASS (Fully Verified)** |
-| **Dynamic Domain Categorization**| None | `extension/popup.js:141` | `core/models.py:106` (`classify_domain`) | `CATEGORY_MAP`, `UserProfile.persona`, academic domain regex | **PASS (Fully Verified)** |
-| **User Category Overrides** | `dashboard/core/templates/dashboard.html:1261` | None | `core/views.py:526`, `core/serializers.py:152`, `core/models.py:153` | `GET/POST/DELETE /api/categories/`, `CategoryOverride` | **PASS (Fully Verified)** |
-| **7-Day Analytics & Charting** | `dashboard/core/templates/dashboard.html:913` | None | `core/views.py:213` | `GET /api/summary/`, `UsageLog`, Chart.js 4.4 | **PASS (Fully Verified)** |
-| **Strict Streak Calculation** | `dashboard/core/templates/dashboard.html:874` | `extension/popup.js:61` | `core/views.py:294` | `GET /api/summary/`, `UsageLog`, `SiteLimit`, `UserSettings` | **PASS (Fully Verified)** |
-| **Focus Goal Ring (3h Default)** | `dashboard/core/templates/dashboard.html:890` | None | `core/views.py:213`, `core/models.py:253` | `UserSettings.focus_goal_minutes`, SVG `stroke-dasharray` | **PASS (Fully Verified)** |
-| **Dual-Theme System (Calm Sky / Opal Noir)**| `dashboard/core/templates/*.html`, `core/static/css/theme.css` | `extension/popup.html`, `extension/blocked.html`, `theme.css` | None | CSS custom properties, `localStorage['driftless-theme']` | **PASS (Fully Verified)** |
-| **Demo vs. Live Data Switcher**| `dashboard/core/templates/dashboard.html:786` | None | `core/management/commands/seed_demo.py` | Client toggle switching between fallback demo payload and `/api/summary/` | **PASS (Fully Verified)** |
-| **1-Click Data Export (JSON)** | `dashboard/core/templates/dashboard.html:1285` | None | `core/views.py:603` | `GET /api/data/export/`, `UsageLog`, `SiteLimit`, `FocusSession` | **PASS (Fully Verified)** |
-| **1-Click Browsing History Erasure**| `dashboard/core/templates/dashboard.html:1289` | `extension/popup.js:318` | `core/views.py:632` | `POST /api/data/delete/`, `RESET_ALL_TIMERS` message | **PASS (Fully Verified)** |
-
----
-
-## 2. Multi-File Component Cooperation Analysis
-
-### 2.1. Cooperating Modules: Per-Site Limits Enforcement
-A user configures a 25-minute limit on `reddit.com`. Here is how the files cooperate:
-1. **Creation (`dashboard.html` or `popup.js`):** The user enters the domain and limit. An asynchronous `POST /api/limits/` is dispatched to the Django backend.
-2. **Persistence (`core/views.py` & `core/models.py`):** The DRF view validates `1 <= daily_limit_minutes <= 1440` and updates the `SiteLimit` record in `db.sqlite3`.
-3. **Synchronization (`background.js`):** During the next 60-second pull cycle, `pullBackendConfig()` requests `GET /api/limits/` and caches the limit in `chrome.storage.local.set({ siteLimits })`.
-4. **Enforcement (`background.js`):** As the user spends time on `reddit.com`, `evaluateSiteLimits()` tracks accumulated seconds against 25 minutes. At 20 minutes (80%), a desktop nudge is created. At 25 minutes (100%), an alert is shown. At 30 minutes (100% + 5m), a DNR redirect rule is created.
-5. **Interception (`blocked.html`):** Future requests to `reddit.com` are caught by Chrome's network engine and redirected to `chrome-extension://.../blocked.html?site=reddit.com`.
-6. **Analytics (`views.py` & `dashboard.html`):** The dashboard `/api/summary/` checks `reddit.com` against the `SiteLimit`. If exceeded, it breaks the consecutive daily streak.
-
----
-
-### 2.2. Cooperating Modules: Persona-Driven Onboarding
-1. **Registration UI (`auth.html`):** The user registers, choosing persona `"influencer"`.
-2. **Validation & Defaults (`core/serializers.py`):** `RegisterSerializer` calls `apply_persona_defaults()`, seeding initial `SiteLimit` records (e.g. Netflix: 30m, Twitch: 25m, Reddit: 20m).
-3. **Classification (`core/models.py`):** `classify_domain()` checks `user.profile.persona`. When the influencer browses `instagram.com` or `youtube.com`, the engine categorizes it as `Productivity` instead of `Social` or `Entertainment`.
-4. **Visualization (`dashboard.html`):** Time spent on Instagram is rendered in emerald green on the 7-day chart, increasing the user's Focus Efficiency score.
-
----
-
-## 3. Implementation State Classifications
-
-- **Verified Live Full-Stack Features:**
-  - Multi-identifier authentication, Token auth, persona seeding.
-  - Periodic delta ingestion, SQLite persistence, and aggregation.
-  - Per-site limits, category overrides, and data export/deletion.
-  - Active tab tracking, 3-tier escalation, DNR blocking, and focus sprint timers.
-  - Calm Sky & Opal Noir dual-theme styling across dashboard, popup, and blocked screen.
-- **Client-Side Isolated Features:**
-  - Timer countdown ticker (`popup.js` `setInterval`).
-  - Active window focus and 60-second idle detection (`chrome.idle`).
-  - FOUC-prevention scripts in HTML `<head>`.
-- **Demo Mode Fallback:**
-  - The dashboard includes a built-in toggle (`Demo` vs. `Live`). In Demo mode, it renders a 14-day sample payload without requiring an active server connection. In Live mode, it fetches directly from `/api/summary/`.
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Configuration & Dependency Specifications
-
-## 1. Python Dependencies (`dashboard/requirements.txt`)
-
-```
-Django>=4.2,<5.0
-djangorestframework>=3.15
-django-cors-headers>=4.3
-whitenoise>=6.6
-python-dotenv>=1.0
-gunicorn>=21.2
-sqlparse>=0.5
-```
-
-### Detailed Dependency Explanations:
-1. **`Django>=4.2,<5.0`:** Long-Term Support (LTS) release of the Django web framework. Provides the core ORM, database migrations, model definitions, session management, template rendering, and administrative back office.
-2. **`djangorestframework>=3.15`:** The standard toolkit for REST APIs in Django. Powers serializer validation, token-based authentication (`rest_framework.authtoken`), view decorators (`@api_view`), permission classes, and throttling engines.
-3. **`django-cors-headers>=4.3`:** Middleware that attaches Cross-Origin Resource Sharing (CORS) headers to HTTP responses. Essential for enabling the Chrome extension runtime (`chrome-extension://...`) to make fetch calls to the Django backend.
-4. **`whitenoise>=6.6`:** Static file serving engine. Binds directly to the WSGI pipeline, enabling Gunicorn to serve production static assets (CSS, logos, themes) with Brotli/Gzip compression and permanent caching headers without requiring Nginx.
-5. **`python-dotenv>=1.0`:** Automatically discovers and parses key-value pairs from `.env` files into Python's `os.environ`, decoupling sensitive secrets and deployment flags from code.
-6. **`gunicorn>=21.2`:** Production-grade WSGI HTTP server designed for Unix/Linux container environments (Render, Heroku, Docker).
-7. **`sqlparse>=0.5`:** Non-validating SQL parser required internally by Django's database management engine to format and execute migration scripts.
-
----
-
-## 2. Environment Variables Specification (`dashboard/.env` & `.env.example`)
-
-| Variable Name | Default in Code | Purpose | Production Requirement |
-| :--- | :--- | :--- | :--- |
-| `SECRET_KEY` | `'driftless-dev-secret-change-in-production-pleaseee'` | Cryptographic signing key for sessions, CSRF tokens, and passwords | **MANDATORY:** Must be set to a secure 50+ character random string in production |
-| `DEBUG` | `True` | Toggles Django debug traceback pages and query logging | **MANDATORY:** Must be set to `False` in production |
-| `ALLOWED_HOSTS` | `*` | Comma-delimited list of host/domain names that this Django site can serve | Set to production domain (e.g. `driftless.onrender.com,localhost`) |
-| `CORS_ALLOW_ALL_ORIGINS`| `True` | Enables open CORS access | Can remain `True` or restrict to specific origins and Chrome extension regex |
-| `CSRF_TRUSTED_ORIGINS`| Ngrok, Cloudflare, Localhost list | Comma-delimited origins trusted for POST requests | Include production domain (e.g. `https://driftless.onrender.com`) |
-| `SECURE_SSL_REDIRECT` | `False` | Forces all HTTP requests to be redirected to HTTPS | Set to `True` when running behind SSL-terminating reverse proxies |
-
----
-
-## 3. Extension Manifest Specification (`extension/manifest.json`)
-
-```json
-{
-  "manifest_version": 3,
-  "name": "Driftless - Focus & Wellbeing Companion",
-  "version": "1.1",
-  "description": "Digital wellbeing & distraction tracker with per-site limits, focus mode, and cloud sync.",
-  "icons": {
-    "16": "icons/icon-16.png",
-    "48": "icons/icon-48.png",
-    "128": "icons/icon-128.png"
-  },
-  "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "icons/icon-16.png",
-      "48": "icons/icon-48.png",
-      "128": "icons/icon-128.png"
-    }
-  },
-  "permissions": [
-    "tabs",
-    "storage",
-    "alarms",
-    "notifications",
-    "idle",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
-    "declarativeNetRequestFeedback"
-  ],
-  "host_permissions": ["<all_urls>"],
-  "web_accessible_resources": [
-    {
-      "resources": ["blocked.html", "theme.css", "icons/*"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  "background": {
-    "service_worker": "background.js"
-  }
-}
-```
-
----
-
-## 4. Build & Development Scripts
-
-### 4.1. Extension Packager: `scripts/build_extension.py`
-- **Execution:** `python scripts/build_extension.py`
-- **Behavior:**
-  1. Resolves `ROOT_DIR / 'extension'`.
-  2. Unlinks any pre-existing `driftless-extension.zip`.
-  3. Recursively gathers all files in `extension/`, excluding hidden OS/Git files.
-  4. Generates a clean, deflated zip file (`driftless-extension.zip`) ready for direct distribution or uploading to `chrome://extensions`.
-
-### 4.2. Shell Alternative: `scripts/build_extension.sh`
-- A Bash equivalent for Unix/macOS environments using standard `zip -r`.
-
----
-
-## 5. Deployment Configurations
-
-### 5.1. `dashboard/Procfile`
-```procfile
-web: gunicorn driftless.wsgi:application --bind 0.0.0.0:$PORT
-```
-Declares the process command for PaaS platforms like Render or Heroku to launch Gunicorn bound to the dynamically assigned `$PORT`.
-
-### 5.2. `dashboard/render.yaml`
-```yaml
-services:
-  - type: web
-    name: driftless-dashboard
-    env: python
-    buildCommand: "pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput && python manage.py seed_demo"
-    startCommand: "gunicorn driftless.wsgi:application"
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.12
-      - key: DEBUG
-        value: "False"
-      - key: SECRET_KEY
-        generateValue: true
-```
-Infrastructure-as-code specification for Render.com that automates dependency installation, database migration, static collection via WhiteNoise, demo account seeding, and Gunicorn startup.
-
----
-
-## 6. Git Ignore Directives (`.gitignore`)
-The repository includes `.gitignore` rules that protect the codebase against accidental leakage of:
-- Virtual environments (`venv/`, `env/`, `.venv/`)
-- Compiled Python bytecode (`__pycache__/`, `*.py[cod]`)
-- SQLite database binaries (`*.sqlite3`)
-- Environment secret files (`.env`)
-- Static collection dumps (`staticfiles/`)
-- Operating system cache files (`Thumbs.db`, `.DS_Store`)
-
-
----
-
-
-<!-- PAGE BREAK -->
-
-<div style="page-break-before: always; break-before: always;"></div>
-
-# DRIFTLESS — Security Posture, Data Privacy & Reliability Analysis
-
-## 1. Security Architecture & Threat Model
-
-DRIFTLESS implements an defense-in-depth posture balancing continuous telemetry with strict data privacy:
-
-```mermaid
-graph TD
-    subgraph ClientTrustBoundary["Client Boundary (Chrome Sandbox)"]
-        TABS["Browser Tabs"] -->|Domain only (No path/DOM/query)| SW["background.js Service Worker"]
-        SW -->|Local Key-Value Storage| STORAGE["chrome.storage.local"]
-        SW -->|DNR Dynamic Redirects| NET["Network Layer Interception"]
-    end
-
-    subgraph TransportBoundary["Transport Layer"]
-        SW -->|HTTPS / HTTP Authorization: Token| API_GATE["Django REST API"]
-    end
-
-    subgraph ServerTrustBoundary["Server Boundary (Django Backend)"]
-        API_GATE --> AUTH_GUARD["Token / Session Authentication Guard"]
-        AUTH_GUARD --> THROTTLE["SyncRateThrottle (120/min)"]
-        THROTTLE --> VALIDATOR["Serializer Input Sanitizer"]
-        VALIDATOR --> ISOLATION["Per-User Data Isolation Queryset"]
-        ISOLATION --> DB[("SQLite Database")]
-    end
-```
-
----
-
-## 2. Authentication, Token Handling & Authorization
-
-### 2.1. Dual Authentication Support
-- **Web Dashboard:** Protected by Django session cookies (`SessionAuthentication`) with standard CSRF protection and HTTP-only session cookies.
-- **Chrome Extension:** Authenticated using Django REST Framework's Token Authentication (`TokenAuthentication`). The extension attaches `Authorization: Token <key>` to all HTTP requests.
-
-### 2.2. Token Lifecycle & Regeneration
-- Upon user registration or login, an authentication token is issued from `rest_framework.authtoken.models.Token`.
-- **Token Regeneration:** If a user suspects token exposure or wants to revoke an extension's access, they can trigger `/api/auth/regenerate-token/` from the dashboard. The server deletes the existing token row and generates a cryptographically random 40-character hex string. All subsequent requests using the old token immediately return `HTTP 401 Unauthorized`.
-
-### 2.3. Multi-Tenant Data Isolation
-Every API endpoint strictly enforces user boundaries:
-```python
-# Verified in core/views.py and core/tests.py
-user_logs = UsageLog.objects.filter(user=request.user)
-site_limits = SiteLimit.objects.filter(user=request.user)
-```
-- In `core/tests.py` (`test_per_user_data_isolation_limits`), automated tests verify that User B cannot query, update, or delete User A's `SiteLimit` entries, returning `HTTP 404 Not Found` when attempting cross-user object access.
-
----
-
-## 3. Data Privacy & Zero-Knowledge Browsing
-
-### 3.1. Domain-Only Ingestion Policy
-- DRIFTLESS collects **only** sanitized domain hostnames (`cleanDomain(url)`):
-  - Strip protocol (`https://`).
-  - Strip subdomain prefix (`www.`).
-  - Strip port (`:8000`), path (`/watch?v=xyz`), hash fragments, and query parameters.
-- **Never Collected or Transmitted:**
-  - Full URLs or file paths
-  - Page titles or document contents
-  - Form inputs, cookies, or session headers
-  - Keystrokes, search queries, or clipboard data
-  - Video titles, message text, or user posts
-
-### 3.2. Data Sovereignty & GDPR-Style Controls
-Under `dashboard/core/views.py`:
-1. **Full Archive Export (`/api/data/export/`):** Generates a complete, structured JSON archive of all records linked to the user's account (`UsageLog`, `SiteLimit`, `CategoryOverride`, `FocusSession`).
-2. **Instant History Erasure (`/api/data/delete/`):** Executes an atomic purge of `UsageLog` and `FocusSession` entries, instantly zeroing screen time and analytics while leaving the account credentials intact.
-
----
-
-## 4. Input Validation & Defense Against Injection
-
-- **Domain Normalization:** All domain fields undergo regex sanitization in `clean_domain()` (`core/models.py:95`), stripping protocol headers and directory slashes before database insertion.
-- **Time Dwell Clamping:** In `UsageLogSerializer`, incoming dwell seconds are bounded:
-  ```python
-  if value < 0:
-      raise serializers.ValidationError('time_spent_seconds must be non-negative.')
-  if value > 86_400:
-      raise serializers.ValidationError('time_spent_seconds exceeds 24 hours — likely a bug.')
+### Neumorphic &amp; 3D CSS Design System:
+* **Dual Drop Shadows:** Cards utilize opposing layered shadows:
+  ```css
+  box-shadow: 8px 8px 16px rgba(0, 0, 0, 0.06), -8px -8px 16px rgba(255, 255, 255, 0.8);
   ```
-- **Limit Range Enforcement:** In `SiteLimitSerializer`, daily limit minutes must fall strictly between `1` and `1440` (24 hours).
-- **ORM Protection:** All database interactions use Django's parameterized ORM querysets, eliminating raw SQL injection vulnerabilities.
+* **Glassmorphic Navigation:** Top header and sidebar feature:
+  ```css
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  ```
+* **Animated XP Bar:** Features shimmering light bars and smooth CSS width transitions.
+* **3D Metallic Badges:** Features metallic bevel borders, tactile drop shadows, and a 45-degree animated sheen sweep on hover (`.badge-sheen`).
+* **Priority To-Do Planner:** Interactive daily checklist widget saving directly to `localStorage['driftless_priority_todos']`.
 
 ---
 
-## 5. Security & Reliability Findings Matrix
-
-| Category | Finding / Observation | Risk Level | Codebase Status | Recommended Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **Secrets Management** | Default fallback `SECRET_KEY` in `settings.py` | Low (Dev) / High (Prod) | Hardcoded dev default if `.env` is omitted | Set unique `SECRET_KEY` in production environment variables |
-| **Debug Flag** | `DEBUG` defaults to `True` in local development | Low (Dev) / High (Prod) | Configurable via `os.getenv('DEBUG')` | Ensure `DEBUG=False` on production deployments |
-| **CORS Policy** | `CORS_ALLOW_ALL_ORIGINS = True` | Low | Enabled for local demo and extension sharing | Restrict to `CORS_ALLOWED_ORIGIN_REGEXES` matching extension IDs in production |
-| **Service Worker Sleep**| Background worker suspends after 30s inactivity | Low | Mitigated via `chrome.alarms` and tab event listeners | Architecture handles worker sleep gracefully |
-| **Offline Buffering** | Uncommitted dwell deltas buffered in storage | Low | Mitigated: Buffered in `unsyncedDeltas` until connection restored | Verified; deltas sync immediately upon reconnect |
-| **Force-Quit Precision**| Browser process terminated via Task Manager | Low | Uncommitted dwell since last 60s flush may be dropped | Inherent to browser extensions; acceptable wellbeing tolerance |
-| **Token Storage** | API token stored in plain text in `chrome.storage.local`| Low | Standard for Chrome MV3 extensions | Protected by Chrome extension sandbox boundary |
-
+## 12.3 Split-Screen Authentication UI (`auth.html`)
+Inspired by modern SaaS interfaces:
+* **Left Branding Panel (45%):** Displays the official green leaf "D" brand logo, large typography, and value proposition feature highlights.
+* **Right Auth Card (55%):** Form card (max-width: 440px) featuring:
+  - Prominent "Continue with Google" button with official Google SVG mark.
+  - "or continue with email" horizontal divider.
+  - High-contrast inputs (48px height) with emerald focus rings.
+  - Strict client-side email format regex validation.
+  - Instant direct sign-in and sign-up with demo shortcuts.
 
 ---
 
+## 12.4 Dual-Theme Token Architecture (`theme.css`)
+DRIFTLESS supports two palettes toggled via `localStorage['driftless-theme']`:
+1. **Calm Sky (Light Mode):** Clean slate background (`#f8fafc`), crisp white cards, and ocean blue / emerald accents.
+2. **Opal Noir (Dark Mode):** Deep obsidian background (`#090d16`), elevated dark slate cards (`#131b2e`), and luminescent cyan / emerald glows.
 
-<!-- PAGE BREAK -->
 
-<div style="page-break-before: always; break-before: always;"></div>
+<div class="page-break"></div>
 
-# DRIFTLESS — Codebase Verification & Test Report
+<h1 id="ch-13">Chapter 13: End-to-End Workflows as Diagrams</h1>
 
-## 1. Executive Summary
-
-This report documents the empirical testing, automated test execution, and static analysis performed on the DRIFTLESS repository. Testing was executed in the active Windows runtime environment using Python 3.10+ in the virtual environment `dashboard/venv`.
-
-- **Automated Test Results:** **7 Passed, 0 Failed, 0 Errors (100% Pass Rate)**
-- **System Verification Status:** **ALL CORE CHECKS PASSED**
-- **Test Date:** October 26, 2026
+This chapter details the 8 core operational workflows of the DRIFTLESS platform, illustrating the exact sequence of events, message exchanges, and data state transitions.
 
 ---
 
-## 2. Test Execution & Verification Matrix
+### Workflow 1: Precision Active Tab Dwell Tracking
+Solves service worker idling by using an active tab heartbeat script to emit 1-second ticks.
 
-| Component / Subsystem | Verification Check | Status | Evidence / Terminal Output |
-| :--- | :--- | :--- | :--- |
-| **Django Backend** | Server Startup & Binding | **PASS** | Development server successfully bound to `http://127.0.0.1:8000/`. Responding with HTTP 200/302. |
-| **Django Backend** | Database Migrations Application | **PASS** | `manage.py showmigrations` confirms all 5 core migrations (`0001` through `0005`) are applied. |
-| **Django Backend** | Static Files Collection | **PASS** | `collectstatic --noinput` ran cleanly; collected theme stylesheets, scripts, and logos into `staticfiles/`. |
-| **Automated Tests** | Domain Normalization (`clean_domain`)| **PASS** | Strips `https://`, `www.`, ports, paths, and trailing slashes correctly (`test_clean_domain`). |
-| **Automated Tests** | Domain Categorization Logic | **PASS** | Confirmed `github.com` and `.edu` -> Productivity; `instagram.com` -> Social; `netflix.com` -> Entertainment (`test_classification_logic`). |
-| **Automated Tests** | User Custom Category Overrides | **PASS** | User overriding `instagram.com` to `Productivity` successfully overrides global map (`test_user_category_override`). |
-| **Automated Tests** | Registration & Persona Defaults | **PASS** | POST `/api/auth/register/` generates Token and auto-populates persona preset limits (`test_registration_and_persona_defaults`). |
-| **Automated Tests** | Multi-Tenant Data Isolation (Limits)| **PASS** | Confirms User B cannot view, modify, or delete User A's `SiteLimit` entries (`test_per_user_data_isolation_limits`). |
-| **Automated Tests** | Multi-Tenant Data Isolation (Usage)| **PASS** | Confirms Alice's productive dwell time does not bleed into Bob's summary calculation (`test_per_user_data_isolation_usage_and_summary`). |
-| **Automated Tests** | Token Invalidation & Regeneration | **PASS** | POST `/api/auth/regenerate-token/` issues new key; verifies old key is immediately rejected with HTTP 401 (`test_token_regeneration`). |
-| **Web Frontend** | Dashboard HTML Page Rendering | **PASS** | HTTP GET `/dashboard/` returns HTTP 200 with complete HTML payload, `<script>` blocks, and CSS tokens. |
-| **Web Frontend** | Authentication Page Rendering | **PASS** | HTTP GET `/` returns HTTP 200 with login forms, persona cards, and theme switcher. |
-| **Web Frontend** | Dual-Theme Token Integrity | **PASS** | `theme.css` successfully serves Calm Sky (`#6463E0`, `#F3F7FD`) and Opal Noir (`#0A0A0A`, `#E2C9FF`) tokens without syntax errors. |
-| **Web Frontend** | Chart.js Dynamic Integration | **PASS** | `renderChart()` executes cleanly; reads dynamic CSS variables directly from `window.getComputedStyle()`. |
-| **Demo Seeding** | Evaluator Demo Account Seeding | **PASS** | `seed_demo.py` creates `demo@driftless.app` / `demo123456` with 14 days of mathematically consistent usage and streak data. |
-| **Chrome Extension** | Extension ZIP Packaging Script | **PASS** | `scripts/build_extension.py` packages all files into `driftless-extension.zip` without errors. |
-| **Chrome Extension** | Manifest V3 Syntax & Permissions | **PASS** | `manifest.json` conforms strictly to Manifest V3 specification; service worker and permissions verified. |
-| **Headless Browser**| Playwright Browser Subagent | **BLOCKED** | Browser subagent failed due to external Azure CDN 404 in sandboxed runner; validated via direct HTTP requests and Python test suite instead. |
+![Workflow 1: Active Tab Dwell Tracking](diagrams/workflow_1_tracking.svg)
+
+1. User focuses on tracked site (e.g. `reddit.com`).
+2. `content.js` detects `!document.hidden && document.hasFocus()`.
+3. Starts 1000ms `setInterval` loop emitting `PAGE_HEARTBEAT_TICK`.
+4. `background.js` verifies tab is active in the current window and increments `siteTimes[domain]` by 1 second.
+5. `background.js` checks accumulated dwell against 80% nudge and 100% block thresholds.
+6. When the user switches tabs or minimizes the window, `content.js` detects `blur` / `visibilitychange`, clears the interval, and sends `PAGE_HEARTBEAT_PAUSE`.
+7. `background.js` flushes uncommitted time to storage via `commitActiveTime()`.
 
 ---
 
-## 3. Automated Test Suite Output Log
+### Workflow 2: 3-Tier Timer Escalation &amp; DNR Enforcement
+Graduated enforcement from gentle notification to complete browser network blocking.
 
-Executed command: `venv\Scripts\python.exe manage.py test`
+![Workflow 2: Escalation & Enforcement](diagrams/workflow_2_escalation_block.svg)
 
+1. User browses a distracting site with a 2-minute (120s) limit.
+2. At 96 seconds (80%), `background.js` fires `sendNudgeNotification()`.
+3. If the user continues browsing and reaches 120 seconds (100%), `background.js` fires `sendLimitReachedNotification()`.
+4. `background.js` immediately calls `blockDomainViaDNR(domain)`, installing a dynamic DNR rule in the `1000..1999` range.
+5. Future network requests to `domain` are intercepted at the browser engine level and redirected to `blocked.html`.
+6. Daily limits and DNR rules persist until the midnight alarm (`ALARM_MIDNIGHT_RESET`) executes at `00:00:00`.
+
+---
+
+### Workflow 3: Scheduled Focus Mode Lifecycle
+Automated daily focus windows with start and end alarms.
+
+![Workflow 3: Scheduled Focus](diagrams/workflow_3_scheduled_focus.svg)
+
+1. User configures schedule times (e.g. 20:00 to 22:30) in the popup time pickers.
+2. User taps "Save Schedule", dispatching `UPDATE_SCHEDULE` message.
+3. `background.js` saves times to `chrome.storage.local` and patches `/api/settings/`.
+4. `background.js` clears existing alarms and creates `driftless_schedule_start` and `driftless_schedule_end`.
+5. At 20:00, `driftless_schedule_start` fires, calling `enableFocusMode()` to inject DNR rules 100..899.
+6. At 22:30, `driftless_schedule_end` fires, calling `disableFocusMode()` to remove DNR rules.
+
+---
+
+### Workflow 4: Pomodoro Focus Sprint State Machine
+25-minute deep focus sprints followed by 5-minute restorative breaks.
+
+![Workflow 4: Pomodoro Focus Sprint](diagrams/workflow_4_pomodoro.svg)
+
+1. User clicks "Start Pomodoro" in the popup.
+2. `background.js` enters `work` mode, enables Focus Mode DNR rules (100..899), and sets `driftless_pomodoro` alarm for 25 minutes.
+3. At T+25m, the alarm fires: Focus Mode disengages, audio chime plays, +50 XP is awarded, and `POST /api/sessions/` is recorded.
+4. `background.js` enters `break` mode, schedules a 5-minute rest alarm, and unblocks distracting sites.
+5. At T+30m, the break ends, and the state machine resets to `idle`.
+
+---
+
+### Workflow 5: Authentication &amp; Persona Onboarding
+Frictionless direct registration, Google auth, and initial extension setup.
+
+![Workflow 5: Authentication & Onboarding](diagrams/workflow_5_auth_onboarding.svg)
+
+1. User signs up on `auth.html` or chooses "Continue with Google".
+2. Client performs strict email regex validation before form submission.
+3. Backend `register_view` validates format with Django's `EmailValidator`, sets `is_verified=True`, seeds demo gamification (Level 5, 80 XP, 3 badges), and returns DRF Token.
+4. User is redirected straight to `/dashboard/`.
+5. When opening the extension, `popup.js` detects uninitialized persona and presents the Welcome screen.
+6. User selects their persona (e.g. Student), auto-populating recommended site lists and suggested schedule.
+
+---
+
+### Workflow 6: Periodic Cloud Synchronization
+Batch transmission of local dwell time deltas and bidirectional settings synchronization.
+
+![Workflow 6: Periodic Cloud Sync](diagrams/workflow_6_sync.svg)
+
+1. Every 15 minutes, `ALARM_PERIODIC_SYNC` fires in `background.js` (or user clicks "Sync Now").
+2. `background.js` reads `unsyncedDeltas` from `chrome.storage.local`.
+3. If deltas exist and API token is present, sends `POST /api/usage/`.
+4. DRF ingests the logs and updates SQLite `UsageLog` records.
+5. `background.js` fetches `GET /api/settings/` to retrieve any updated site lists, schedule times, or persona changes made on the web dashboard.
+
+---
+
+### Workflow 7: 30-Day Green Grove Forest Calculation
+Strict daily habit evaluation classifying days into grown, withered, or empty tree plots.
+
+![Workflow 7: Green Grove Calculation](diagrams/workflow_7_green_grove.svg)
+
+1. Dashboard calls `GET /api/summary/`.
+2. Backend loops through past 30 days (`[today - 29 .. today]`).
+3. For each day, if total dwell is 0, status is set to `'empty'` (soil plot).
+4. If dwell exists, compares every domain against custom `SiteLimit` and global distracting limit.
+5. If any limit was breached, status is set to `'withered'`.
+6. If all limits were respected, status is set to `'grown'` (+1 to total trees grown).
+
+---
+
+### Workflow 8: Gamification &amp; Reward Unlock
+Milestone evaluation awarding XP and unlocking 3D shiny badges.
+
+![Workflow 8: Gamification Reward Flow](diagrams/gamification_reward_flow.svg)
+
+1. User achieves behavioral milestone (10-day streak, 2h focus sprint, limit adherence).
+2. Backend verifies rule condition during session logging or summary computation.
+3. Model fields (`has_zen_master`, `has_deep_worker`, `has_iron_will`, `level`, `xp`) are updated in SQLite `UserProfile`.
+4. Left sidebar of `dashboard.html` renders animated XP progress bar and tactile 3D badges with metallic sheen sweep.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-14">Chapter 14: Privacy &amp; Security Architecture</h1>
+
+DRIFTLESS is designed with a **privacy-first, local-first** philosophy. This chapter conducts an honest audit of what data is collected, how it is handled, and what is explicitly excluded.
+
+---
+
+## 14.1 Honest Content Script Audit (`content.js`)
+Earlier documentation claimed that DRIFTLESS operated with "no content scripts". That is **no longer true**. A content script (`extension/content.js`) was added in late October to resolve Manifest V3 service worker throttling.
+
+Because content scripts have technical access to page DOMs, the following boundaries are strictly enforced:
+
+| Property | What `content.js` Reads | What `content.js` NEVER Reads |
+| :--- | :--- | :--- |
+| **Domain** | Reads `window.location.hostname` (e.g. `reddit.com`) | Does NOT read URL search parameters, hash fragments, or query strings |
+| **Full URL** | Reads `window.location.href` ONLY to check if URL matches YouTube Shorts (`/shorts/`) or Instagram Reels (`/reels/`) | Does NOT log, transmit, or store search queries, article titles, or path strings |
+| **Page DOM** | **Zero inspection.** Does not touch `document.body`, `document.getElementById`, or HTML nodes | Does NOT read page text, comments, articles, videos, or images |
+| **User Input** | **Zero inspection.** No event listeners on `input`, `keydown`, `keypress`, or `change` | Does NOT read passwords, credit card numbers, form inputs, or keystrokes |
+| **Cookies / Auth** | **Zero inspection.** Does not read `document.cookie`, `localStorage`, or `sessionStorage` | Does NOT read session tokens, cookies, auth headers, or credentials |
+
+`content.js` operates solely as a **precision stopwatch pulse generator**, confirming whether the user is actively viewing and interacting with the browser tab.
+
+---
+
+## 14.2 Data Collection &amp; Storage Audit
+
+### What Data IS Collected:
+* **Account Credentials:** Username, email address, optional phone number, and bcrypt-hashed password (handled via Django standard auth).
+* **Domain-Level Dwell Time:** Aggregated seconds spent per domain per calendar date (e.g., `github.com`: 3,600s on `2026-10-31`).
+* **User Preferences:** Selected persona, custom per-site limits, schedule start/end times, and blocked/allowed site lists.
+* **Gamification Progress:** XP points, user level, and 3 badge unlock booleans.
+
+### What Data is NEVER Collected:
+* Full browsing history, page titles, or search queries.
+* Incognito browsing dwell time (extension disabled in incognito by default).
+* Form inputs, passwords, credit card details, or financial data.
+* Webpage contents, personal emails, or private messages.
+
+---
+
+## 14.3 Storage &amp; Transit Security
+1. **Local-First Storage:** All real-time second counters and active timer states reside exclusively in the user's browser via `chrome.storage.local`.
+2. **Token Authentication:** Extension-to-backend communication utilizes DRF Token Authentication (`Authorization: Token <key>`). Tokens can be instantly revoked and regenerated via `POST /api/auth/regenerate-token/`.
+3. **Transport Encryption:** In production, all API communication must be enforced over TLS/HTTPS.
+4. **Data Ownership:** The user has sovereign control over their data:
+   - `GET /api/data/export/`: Complete 1-click JSON export of all stored data.
+   - `POST /api/data/delete/`: Complete 1-click permanent erasure of all browsing logs, site limits, and focus sessions.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-15">Chapter 15: Setup &amp; Execution Guide</h1>
+
+This step-by-step setup guide is written so that any team member, regardless of coding background, can run and test DRIFTLESS locally.
+
+---
+
+## 15.1 Prerequisites
+Ensure the following tools are installed on your workstation:
+* **Python 3.10+** (Python 3.11, 3.12, or 3.13 recommended)
+* **Google Chrome** (or Chromium-based browser such as Brave, Edge, or Arc)
+* **Git** (for version control cloning)
+
+---
+
+## 15.2 Step 1: Clone Repository &amp; Set Up Virtual Environment
+
+Open your terminal (PowerShell on Windows, or Bash on macOS/Linux):
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/aadi8200/driftless.git
+cd driftless
+
+# 2. Navigate to dashboard backend directory
+cd dashboard
+
+# 3. Create a Python virtual environment
+python -m venv venv
+
+# 4. Activate the virtual environment
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# On macOS / Linux:
+source venv/bin/activate
+
+# 5. Install Python dependencies
+pip install -r ../requirements.txt
 ```
-Creating test database for alias 'default'...
-Found 7 test(s).
-System check identified no issues (0 silenced).
-.......
-----------------------------------------------------------------------
-Ran 7 tests in 5.519s
 
-OK
-Destroying test database for alias 'default'...
+---
+
+## 15.3 Step 2: Configure Environment Variables
+
+In the `dashboard/` folder, copy the `.env.example` file to create your `.env` file:
+
+```bash
+# On Windows:
+copy .env.example .env
+# On macOS / Linux:
+cp .env.example .env
+```
+
+Open `.env` in any text editor. The variable **names** required by the system are:
+* `SECRET_KEY`: Django cryptographic signing key (a default is provided for local development).
+* `DEBUG`: Set to `True` for local development.
+* `ALLOWED_HOSTS`: Set to `127.0.0.1,localhost`.
+* `GOOGLE_CLIENT_ID`: (Optional) Google OAuth Client ID for live Google Sign-In.
+* `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`: (Optional) SMTP credentials.
+
+---
+
+## 15.4 Step 3: Run Database Migrations &amp; Start Server
+
+With your virtual environment activated inside `dashboard/`:
+
+```bash
+# 1. Apply database migrations (applies 0001 through 0010)
+python manage.py migrate
+
+# 2. (Optional) Run backend tests to verify system health
+python manage.py test core
+
+# 3. Start the Django development server
+python manage.py runserver 127.0.0.1:8000
+```
+
+You should see:
+```text
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CTRL-BREAK.
 ```
 
 ---
 
-## 4. Empirical API Verification Results
+## 15.5 Step 4: Load Chrome Extension in Developer Mode
 
-A direct HTTP inspection was performed against the running development server (`http://127.0.0.1:8000`):
-
-1. **Root URL (`/`)**:
-   - Status: `200 OK`
-   - Content: Verified presence of `authThemeToggle`, registration forms, persona choices, and Calm Sky / Opal Noir tokens.
-2. **Static Asset Route (`/static/css/theme.css`)**:
-   - Status: `200 OK`
-   - Content: Verified presence of `[data-theme="dark"]`, `--pri: #E2C9FF`, `--bg: #0A0A0A`, `--ink: #FFFFFF`.
-3. **Summary API Route (`/api/summary/`)**:
-   - Status: `401 Unauthorized` without credentials (verifying security guard).
-   - Status: `200 OK` with valid Token (verifying 7-day stats and strict streak calculation).
+1. Open **Google Chrome**.
+2. In the URL bar, navigate to: `chrome://extensions/`
+3. In the top-right corner, toggle **Developer mode** to **ON**.
+4. Click the **Load unpacked** button in the top-left corner.
+5. In the file picker dialog, select the `extension/` folder inside your cloned `driftless/` repository.
+6. The DRIFTLESS extension card will appear with version **1.1** and the green leaf icon.
 
 ---
 
-## 5. Summary of System Readiness
+## 15.6 Step 5: Execute First End-to-End Verification Test
 
-- **Backend:** Fully operational, secure, and covered by unit/integration tests.
-- **Frontend:** Fully responsive with zero-FOUC dual-theme system, interactive Chart.js graphs, and demo/live data switching.
-- **Chrome Extension:** Valid Manifest V3 implementation with passive dwell tracking, 3-tier escalation, DNR dynamic redirects, and periodic background sync.
-- **Production Readiness:** Configured with WhiteNoise, Gunicorn, Procfile, and Render specification.
+1. **Open Web App:** Navigate to `http://127.0.0.1:8000/` in Chrome.
+2. **Sign Up:** Click "Sign Up", enter a valid email address (e.g. `test@driftless.local`) and password, and submit. You will be immediately redirected to the 3D dashboard at `/dashboard/`.
+3. **Copy API Token:** In the dashboard header, click **Copy Token**.
+4. **Open Extension Popup:** Click the DRIFTLESS leaf icon in the Chrome toolbar.
+5. **Complete Onboarding:** On the Welcome screen, click **Get Started**, choose **Student**, and click **Finish Setup**.
+6. **Connect API Token:** In the extension popup, expand the settings drawer, paste your API token, and click **Save Token**.
+7. **Test Timer Accuracy:**
+   - In the popup, locate `instagram.com` (or add it to Distracting Sites).
+   - Click the gear icon and set a custom limit of **1 minute**.
+   - Open a new tab and browse `https://www.instagram.com`.
+   - Keep the tab focused. Watch the live counter in the popup.
+   - At ~48 seconds (80%), confirm the desktop nudge notification appears.
+   - At 60 seconds (100%), confirm the alert appears and the page redirects to `blocked.html`.
 
+
+<div class="page-break"></div>
+
+<h1 id="ch-16">Chapter 16: Known Limitations &amp; Technical Debt</h1>
+
+In the interest of full technical transparency, this chapter documents the known limitations, architectural trade-offs, and minor technical debt in the current codebase.
 
 ---
+
+## 16.1 Service Worker Cold-Start Latency
+* **Behavior:** When the service worker in `background.js` is asleep, an incoming message or alarm requires ~150ms to 250ms to wake the V8 execution context.
+* **Impact:** Minimal. `content.js` queues initial ticks safely, and the browser handles message awakening asynchronously.
+
+---
+
+## 16.2 Multi-Window Concurrent Dwell Tracking
+* **Behavior:** Dwell tracking checks `sender.tab.active` within its browser window.
+* **Limitation:** If a user opens two separate Chrome windows side-by-side on dual monitors and both windows are active, Chrome considers only the single window with OS operating system focus as currently focused. Time is accumulated only on the OS-focused window.
+
+---
+
+## 16.3 Manual Token Copy for Extension Linking
+* **Behavior:** The extension does not currently utilize an automated OAuth cookie bridge to inherit the session from `http://127.0.0.1:8000/` automatically.
+* **Workaround:** Users copy their API token from the dashboard header and paste it once into the extension popup. It persists indefinitely in `chrome.storage.local`.
+
+---
+
+## 16.4 Declarative Net Request Dynamic Rule Ceiling
+* **Behavior:** Chrome enforces a hard ceiling of 5,000 dynamic DNR rules per extension.
+* **Impact:** Negligible. DRIFTLESS utilizes rule IDs `100..899` (Focus Mode), `1000..1999` (Limit Blocks), and `2000..2009` (Shorts/Reels), which easily accommodates hundreds of configured domains without approaching the limit.
+
+---
+
+## 16.5 Gmail SMTP Fallback
+* **Behavior:** In development mode without valid SMTP credentials, attempting to send email raises connection errors.
+* **Solution Implemented:** Email OTP was completely removed in Migration 0009. The application now uses direct registration with strict format validation, avoiding external email delivery dependencies entirely.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-17">Chapter 17: Planned &amp; Unbuilt Features</h1>
+
+To prevent any confusion regarding current capabilities versus future roadmap concepts, this chapter explicitly lists features that are **NOT BUILT** in the codebase as of October 31, 2026.
+
+---
+
+## 17.1 Real-World Physical or Monetary Rewards
+* **Status:** `NOT BUILT`
+* **Clarification:** The DRIFTLESS reward system consists entirely of **digital gamification** (user levels, XP points, 3D shiny badges in the web dashboard, and the 30-day Green Grove visual forest). The codebase does NOT contain integrations with tree-planting non-profits, payment processors, gift card APIs, or physical delivery services.
+
+---
+
+## 17.2 Native Mobile Companion Apps (iOS &amp; Android)
+* **Status:** `NOT BUILT`
+* **Clarification:** DRIFTLESS is implemented exclusively as a desktop Chrome extension and a responsive web dashboard. No Swift, Kotlin, or React Native mobile applications exist in the repository.
+
+---
+
+## 17.3 Social Sharing of Achievements &amp; Badges
+* **Status:** `NOT BUILT`
+* **Clarification:** Badges (*Zen Master*, *Deep Worker*, *Iron Will*) and streaks are stored in the user's private database profile and rendered on the private dashboard. There are no public user profile URLs or social media share sheet integrations.
+
+---
+
+## 17.4 Team &amp; Enterprise Workspace Dashboards
+* **Status:** `NOT BUILT`
+* **Clarification:** DRIFTLESS is designed as an individual personal wellbeing platform. There are no multi-tenant organizational hierarchies, team leaderboards, manager oversight views, or enterprise billing modules.
+
+---
+
+## 17.5 Automated Weekly Email Digest
+* **Status:** `NOT BUILT`
+* **Clarification:** There is no background cron job or scheduled task generating weekly PDF or HTML email summary digests. Analytics are viewed interactively on the web dashboard.
+
+
+<div class="page-break"></div>
+
+<h1 id="ch-18">Chapter 18: Glossary of Technical Terms</h1>
+
+This glossary provides plain English definitions for technical concepts used throughout this documentation.
+
+* **Alarm (`chrome.alarms`):** A browser-managed scheduling mechanism that wakes up background extension scripts at specified times or recurring intervals without draining system memory.
+* **Authentication Token:** A unique cryptographic string (e.g. `4f8a9e2d...`) sent in HTTP request headers (`Authorization: Token <key>`) allowing the backend to verify the user's identity without requiring session cookies.
+* **Content Script (`content.js`):** A lightweight JavaScript file injected directly into web pages that can interact with the page environment (such as monitoring tab focus) and communicate with the extension background worker.
+* **Cross-Site Request Forgery (CSRF):** A security vulnerability where malicious websites trick a user's browser into executing unauthorized actions on a web application where they are currently authenticated.
+* **Declarative Net Request (DNR):** A modern browser API that allows extensions to block or redirect network requests by declaring rules in advance, executed directly by the browser's C++ networking core.
+* **Django REST Framework (DRF):** A powerful toolkit for building Web APIs in Python, handling data validation, serialization, authentication, and HTTP response formatting.
+* **Dwell Time:** The cumulative active time (measured in seconds) that a user spends actively focused on a specific website domain.
+* **Glassmorphism:** A user interface design trend characterized by translucent frosted-glass panels, soft borders, and blurred background layers (`backdrop-filter: blur()`).
+* **Manifest V3:** The current generation of the Google Chrome Extension platform, emphasizing performance, privacy, and security by replacing persistent background pages with event-driven service workers.
+* **Migration (Django):** Python files (such as `0010_userprofile...`) that record changes to data models and automatically update the database schema without manual SQL authoring.
+* **Neumorphism (Soft UI):** A visual design style combining light and dark drop-shadows to give flat user interface cards an elevated, tactile 3D appearance.
+* **Object-Relational Mapping (ORM):** A programming technique that allows developers to query and manipulate database tables using Python objects rather than raw SQL statements.
+* **Pomodoro Technique:** A time-management methodology dividing deep work into 25-minute uninterrupted sprint intervals separated by 5-minute restorative breaks.
+* **Service Worker (`background.js`):** An event-driven background script in Manifest V3 that runs independently of web pages, terminating when idle and waking up only to handle specific events.

@@ -1,184 +1,266 @@
-# DRIFTLESS — Complete REST API Reference
+<h1 id="ch-10">Chapter 10: Complete API Reference</h1>
 
-All endpoints are registered in `dashboard/core/urls.py` and implemented in `dashboard/core/views.py`. Default base URL during local development is `http://127.0.0.1:8000`.
-
----
-
-## 1. Master API Endpoints Directory
-
-| HTTP Method | Actual Endpoint | Authentication | Input Format | Processing Summary | Output Format | Implementation File |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register/` | AllowAny | JSON Body | Creates User, UserProfile, UserSettings, applies persona limits, logs in session | JSON `{ token, username }` | `core/views.py:73` |
-| `POST` | `/api/auth/login/` | AllowAny | JSON Body | Authenticates by username, email, or normalized phone; issues token | JSON `{ token, username }` | `core/views.py:92` |
-| `POST` | `/api/auth/logout/` | IsAuthenticated | None | Deletes auth token and terminates Django user session | JSON `{ detail }` | `core/views.py:140` |
-| `POST` | `/api/auth/regenerate-token/` | IsAuthenticated | None | Deletes existing auth token and creates a new Token instance | JSON `{ token }` | `core/views.py:150` |
-| `POST` | `/api/usage/` | IsAuthenticated (Token/Session) | JSON Object or Array | Validates domain and seconds; creates or increments `UsageLog` records | JSON `{ created, updated }` | `core/views.py:165` |
-| `GET` | `/api/summary/` | IsAuthenticated (Token/Session) | None | Aggregates 7-day stats, daily logs, strict streaks, and distractions | JSON `{ weekly, daily, stats, ... }`| `core/views.py:213` |
-| `GET` | `/api/settings/` | IsAuthenticated (Token/Session) | None | Retrieves user settings object | JSON `{ focus_mode_active, ... }` | `core/views.py:443` |
-| `PATCH` | `/api/settings/` | IsAuthenticated (Token/Session) | JSON Partial Body | Partially updates user settings fields | JSON `{ focus_mode_active, ... }` | `core/views.py:443` |
-| `GET` | `/api/limits/` | IsAuthenticated (Token/Session) | None | Lists all configured per-site limits for the authenticated user | JSON Array `[{ id, domain, ... }]` | `core/views.py:467` |
-| `POST` | `/api/limits/` | IsAuthenticated (Token/Session) | JSON Body | Creates or updates a `SiteLimit` record for domain | JSON `{ id, domain, daily_limit... }`| `core/views.py:467` |
-| `PATCH` | `/api/limits/<id>/` | IsAuthenticated (Token/Session) | JSON Partial Body | Partially updates an existing `SiteLimit` by primary key | JSON `{ id, domain, ... }` | `core/views.py:499` |
-| `DELETE`| `/api/limits/<id>/` | IsAuthenticated (Token/Session) | None | Deletes an existing `SiteLimit` record | HTTP 204 No Content | `core/views.py:499` |
-| `GET` | `/api/categories/` | IsAuthenticated (Token/Session) | None | Lists all user category overrides | JSON Array `[{ id, domain, ... }]` | `core/views.py:526` |
-| `POST` | `/api/categories/` | IsAuthenticated (Token/Session) | JSON Body | Creates category override and retroactively updates past `UsageLog`s | JSON `{ id, domain, category }` | `core/views.py:526` |
-| `DELETE`| `/api/categories/<id>/` | IsAuthenticated (Token/Session) | None | Deletes category override and recalculates past `UsageLog` categories | HTTP 204 No Content | `core/views.py:556` |
-| `GET` | `/api/sessions/` | IsAuthenticated (Token/Session) | None | Returns the 10 most recent focus sessions for the user | JSON Array `[{ id, duration... }]` | `core/views.py:577` |
-| `POST` | `/api/sessions/` | IsAuthenticated (Token/Session) | JSON Body | Logs a completed focus session block | JSON `{ id, duration_minutes, ... }` | `core/views.py:577` |
-| `GET` | `/api/data/export/` | IsAuthenticated (Token/Session) | None | Streams full JSON data archive of user's logs, limits, and sessions | Downloadable JSON payload | `core/views.py:603` |
-| `POST` | `/api/data/delete/` | IsAuthenticated (Token/Session) | None | Purges all `UsageLog` and `FocusSession` records for user | JSON `{ detail }` | `core/views.py:632` |
+This chapter details every REST API endpoint exposed by the DRIFTLESS backend. All endpoints are prefixed with `/api/` and return `application/json`.
 
 ---
 
-## 2. Endpoint Specifications
+### 1. Register User
+* **Endpoint:** `POST /api/auth/register/`
+* **Authentication:** None (Public)
+* **Handler:** `dashboard/core/views.py:register_view()`
+* **Request Body:**
+  ```json
+  {
+    "username": "student_alex",
+    "email": "alex@university.edu",
+    "password": "SecurePassword123!",
+    "phone": "+15551234567",
+    "persona": "student"
+  }
+  ```
+* **Success Response (`201 Created`):**
+  ```json
+  {
+    "success": true,
+    "token": "4f8a9e2d1c3b5a7e9f0d2c4b6a8e0f1d3c5b7a9e",
+    "username": "student_alex",
+    "is_verified": true,
+    "redirect": "/dashboard/"
+  }
+  ```
+* **Error Response (`400 Bad Request`):**
+  ```json
+  {
+    "error": "Please enter a valid email address.",
+    "email": ["Please enter a valid email address."]
+  }
+  ```
 
-### 2.1. Ingestion: `POST /api/usage/`
-- **Purpose:** Ingests uncommitted browsing dwell time from the Chrome extension.
-- **Headers:**
-  - `Content-Type: application/json`
-  - `Authorization: Token <api_token>`
-- **Throttling:** Custom `SyncRateThrottle` at `120 requests/minute`.
-- **Request Body (Batch or Single):**
+---
+
+### 2. Login User
+* **Endpoint:** `POST /api/auth/login/`
+* **Authentication:** None (Public)
+* **Handler:** `dashboard/core/views.py:login_view()`
+* **Request Body:** Accepts `username`, `email`, or `phone` in the identifier field:
+  ```json
+  {
+    "username": "alex@university.edu",
+    "password": "SecurePassword123!"
+  }
+  ```
+* **Success Response (`200 OK`):**
+  ```json
+  {
+    "success": true,
+    "token": "4f8a9e2d1c3b5a7e9f0d2c4b6a8e0f1d3c5b7a9e",
+    "username": "student_alex",
+    "is_verified": true,
+    "redirect": "/dashboard/"
+  }
+  ```
+
+---
+
+### 3. Google Sign-In & Demo Auth
+* **Endpoint:** `POST /api/auth/google/`
+* **Authentication:** None (Public)
+* **Handler:** `dashboard/core/views.py:google_auth_view()`
+* **Request Body:** Real Google ID token OR Demo payload:
+  ```json
+  {
+    "email": "alex.demo@gmail.com",
+    "name": "Alex Demo",
+    "demo": true
+  }
+  ```
+* **Success Response (`200 OK` / `201 Created`):**
+  ```json
+  {
+    "success": true,
+    "token": "4f8a9e2d1c3b5a7e9f0d2c4b6a8e0f1d3c5b7a9e",
+    "username": "alex_demo",
+    "email": "alex.demo@gmail.com",
+    "name": "Alex Demo",
+    "redirect": "/dashboard/"
+  }
+  ```
+
+---
+
+### 4. Regenerate API Token
+* **Endpoint:** `POST /api/auth/regenerate-token/`
+* **Authentication:** Session or Token (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:regenerate_token_view()`
+* **Success Response (`200 OK`):**
+  ```json
+  {
+    "token": "8a7e9f0d2c4b6a8e0f1d3c5b7a9e4f8a9e2d1c3b"
+  }
+  ```
+
+---
+
+### 5. Ingest Usage Dwell Logs
+* **Endpoint:** `POST /api/usage/`
+* **Authentication:** Token (`IsAuthenticated`), Rate Throttled (120/min)
+* **Handler:** `dashboard/core/views.py:usage_log_view()`
+* **Request Body (Batch Array or Single Object):**
   ```json
   [
     {
       "website_url": "github.com",
-      "time_spent_seconds": 60,
-      "date": "2026-10-26"
+      "time_spent_seconds": 360,
+      "date": "2026-10-31"
     },
     {
       "website_url": "instagram.com",
-      "time_spent_seconds": 45,
-      "date": "2026-10-26"
+      "time_spent_seconds": 120,
+      "date": "2026-10-31"
     }
   ]
   ```
-- **Validation:**
-  - `website_url` is normalized through `clean_domain()`.
-  - `time_spent_seconds` must be `>= 0` and `<= 86400` (24-hour sanity clamp).
-- **Database Operation:** Finds or creates a `UsageLog` for `(request.user, website_url, date)`. Increments `time_spent_seconds` atomically and recalculates category via `classify_domain()`.
-- **Response `200 OK`:**
+* **Success Response (`200 OK`):**
   ```json
   {
-    "created": 1,
-    "updated": 1
+    "status": "success",
+    "message": "Logged 2 entries successfully"
   }
   ```
-- **Error Responses:**
-  - `400 Bad Request`: Payload validation error (e.g. invalid domain or negative seconds).
-  - `401 Unauthorized`: Missing or invalid token.
 
 ---
 
-### 2.2. Analytics: `GET /api/summary/`
-- **Purpose:** Primary analytics aggregation endpoint powering the Web Dashboard and Extension Popup.
-- **Headers:** `Authorization: Token <api_token>` or Session Cookie.
-- **Response `200 OK` Schema:**
+### 6. Analytics Summary
+* **Endpoint:** `GET /api/summary/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:summary_view()`
+* **Success Response (`200 OK`):**
   ```json
   {
-    "weekly": [
-      {
-        "date": "2026-10-20",
-        "total_seconds": 14400,
-        "productivity_seconds": 10800,
-        "social_seconds": 1800,
-        "entertainment_seconds": 1800,
-        "other_seconds": 0
-      }
-    ],
-    "daily": [
-      {
-        "website_url": "github.com",
-        "total_seconds": 7200,
-        "category": "Productivity"
-      }
-    ],
     "stats": {
-      "today_total_seconds": 14400,
-      "productive_seconds": 10800,
-      "social_seconds": 1800,
-      "entertainment_seconds": 1800,
-      "focus_efficiency": 75,
-      "top_site": "github.com",
-      "streak": 14,
-      "today_sessions_count": 2,
-      "longest_session_minutes": 45,
-      "data_days_count": 14
-    },
-    "distractions": [
-      {
-        "website_url": "instagram.com",
-        "category": "Social",
-        "used_minutes": 25,
-        "limit_minutes": 30,
-        "percentage": 83,
-        "enabled": true,
-        "limit_id": 4
-      }
-    ],
-    "settings": {
-      "focus_mode_active": false,
-      "daily_limit_minutes": 60,
-      "focus_goal_minutes": 180,
-      "streak_days": 14,
-      "require_challenge": false,
-      "blocked_sites": "",
-      "allowed_sites": ""
+      "productive_time": "3h 45m",
+      "distracting_time": "25m",
+      "focus_efficiency": 90,
+      "streak_days": 10,
+      "longest_session": "45m"
     },
     "user": {
-      "username": "demo",
-      "persona": "student"
+      "username": "student_alex",
+      "persona": "student",
+      "level": 5,
+      "xp": 80,
+      "xp_progress": 80,
+      "has_zen_master": true,
+      "has_deep_worker": true,
+      "has_iron_will": true
+    },
+    "grove": {
+      "days": [
+        {
+          "date": "2026-10-31",
+          "status": "grown",
+          "day_name": "Sat",
+          "day_num": 31,
+          "formatted_date": "Oct 31",
+          "total_seconds": 14400
+        }
+      ],
+      "total_grown": 28,
+      "current_streak": 10
+    },
+    "weekly": {
+      "labels": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+      "productive": [120, 150, 180, 200, 210, 190, 225],
+      "distracting": [30, 25, 20, 15, 10, 20, 25],
+      "others": [10, 15, 10, 5, 10, 15, 10]
+    },
+    "settings": {
+      "focus_mode_active": false,
+      "schedule_enabled": true,
+      "schedule_start": "20:00",
+      "schedule_end": "22:30",
+      "blocked_sites": "instagram.com\nfacebook.com\nreddit.com\nyoutube.com",
+      "allowed_sites": "github.com\nstackoverflow.com\ndocs.google.com"
     }
   }
   ```
 
 ---
 
-### 2.3. Per-Site Limits: `/api/limits/`
-- **`GET /api/limits/`**: Returns all limits created by the authenticated user.
-- **`POST /api/limits/`**:
-  - **Request Body:**
-    ```json
-    {
-      "domain": "reddit.com",
-      "daily_limit_minutes": 25,
-      "enabled": true
-    }
-    ```
-  - **Validation:** `daily_limit_minutes` must be between `1` and `1440`.
-  - **Response `201 Created` / `200 OK`:**
-    ```json
-    {
-      "id": 12,
-      "domain": "reddit.com",
-      "daily_limit_minutes": 25,
-      "enabled": true,
-      "updated_at": "2026-10-26T07:15:00Z"
-    }
-    ```
-- **`DELETE /api/limits/<id>/`**: Deletes limit if owned by user. Returns `204 No Content`. Returns `404 Not Found` if the limit belongs to another user (ensuring data isolation).
+### 7. Settings Management
+* **Endpoint:** `GET /api/settings/` & `PATCH /api/settings/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:settings_view()`
+* **Patch Body (Any subset):**
+  ```json
+  {
+    "focus_mode_active": true,
+    "schedule_enabled": true,
+    "schedule_start": "21:00",
+    "schedule_end": "23:00",
+    "persona": "professional"
+  }
+  ```
+* **Success Response (`200 OK`):** Returns updated `UserSettingsSerializer` payload plus `persona`.
 
 ---
 
-### 2.4. Category Overrides: `/api/categories/`
-- **`POST /api/categories/`**:
-  - **Request Body:**
-    ```json
-    {
-      "domain": "youtube.com",
-      "category": "Productivity"
-    }
-    ```
-  - **Validation:** Category must be one of `Productivity`, `Social`, `Entertainment`, `Other`.
-  - **Side Effect:** Automatically executes `UsageLog.objects.filter(user=request.user, website_url=domain).update(category=category)` to reclassify all past records.
-- **`DELETE /api/categories/<id>/`**:
-  - Deletes override and recalculates default category for all historical logs of that domain.
+### 8. Per-Site Limits CRUD
+* **List / Create:** `GET/POST /api/limits/`
+* **Detail / Patch / Delete:** `GET/PATCH/DELETE /api/limits/<int:pk>/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:limits_list_create_view()`, `limits_detail_view()`
+* **Create Body:**
+  ```json
+  {
+    "domain": "reddit.com",
+    "daily_limit_minutes": 20,
+    "enabled": true
+  }
+  ```
+* **Success Response (`201 Created` / `200 OK`):**
+  ```json
+  {
+    "id": 4,
+    "domain": "reddit.com",
+    "daily_limit_minutes": 20,
+    "enabled": true
+  }
+  ```
 
 ---
 
-### 2.5. Data Sovereignty: `/api/data/export/` & `/api/data/delete/`
-- **`GET /api/data/export/`**:
-  - Returns `application/json` payload containing username, export timestamp, user settings, all usage logs, site limits, category overrides, and completed focus sessions.
-- **`POST /api/data/delete/`**:
-  - Deletes all usage logs and focus sessions for the authenticated user.
-  - Response `200 OK`: `{"detail": "All browsing records and focus sessions have been erased."}`
+### 9. Category Overrides CRUD
+* **List / Create:** `GET/POST /api/categories/`
+* **Delete:** `DELETE /api/categories/<int:pk>/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:categories_list_create_view()`, `categories_detail_view()`
+* **Create Body:**
+  ```json
+  {
+    "domain": "news.ycombinator.com",
+    "category": "Productive sites"
+  }
+  ```
+
+---
+
+### 10. Focus Sessions
+* **List / Record:** `GET/POST /api/sessions/`
+* **Authentication:** Token or Session (`IsAuthenticated`)
+* **Handler:** `dashboard/core/views.py:sessions_view()`
+* **Record Body:**
+  ```json
+  {
+    "duration_minutes": 25,
+    "completed": true
+  }
+  ```
+
+---
+
+### 11. Privacy & Data Export / Erasure
+* **Export:** `GET /api/data/export/`
+  - Returns complete JSON export containing `profile`, `settings`, `usage_logs`, `site_limits`, and `focus_sessions`.
+* **Erasure:** `POST /api/data/delete/`
+  - Completely purges all `UsageLog`, `SiteLimit`, and `FocusSession` records for the user. Returns `{ "status": "success", "message": "All user data deleted" }`.

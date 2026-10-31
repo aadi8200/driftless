@@ -2,7 +2,7 @@
 // DRIFTLESS EXTENSION POPUP CONTROLLER
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SERVER_URL = 'http://127.0.0.1:8000';
+const DEFAULT_SERVER_URL = 'https://driftless-g5cb.onrender.com';
 
 const PERSONA_DEFAULTS = {
   Student: {

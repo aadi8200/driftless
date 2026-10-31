@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280" width="900" height="280" style="background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <marker id="groveArrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#16a34a" />
+    </marker>
+  </defs>
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#0f172a">WORKFLOW 7: 30-Day Green Grove Tree Status Evaluation</text>
+  <text x="450" y="50" text-anchor="middle" font-size="12" fill="#64748b">Daily Dwell Aggregation vs Per-Site &amp; Global Thresholds (core/views.py:552-649)</text>
+
+  <!-- Day Evaluation Node -->
+  <rect x="30" y="75" width="220" height="180" rx="10" fill="#f8fafc" stroke="#cbd5e1" />
+  <rect x="40" y="85" width="200" height="24" rx="4" fill="#334155" />
+  <text x="140" y="101" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">1. Day Log Aggregation</text>
+  <text x="45" y="125" font-size="10" font-weight="bold" fill="#0f172a">Loop 30 Days (T-29 to Today)</text>
+  <text x="45" y="145" font-size="9" fill="#475569">Fetch logs for date d_str</text>
+  <text x="45" y="160" font-size="9" fill="#475569">Case A: day_logs is empty</text>
+  <text x="45" y="175" font-size="9" fill="#64748b">→ status = 'empty' (soil spot)</text>
+  <text x="45" y="195" font-size="9" fill="#475569">Case B: day_logs has dwell</text>
+  <text x="45" y="210" font-size="9" fill="#0284c7">→ Evaluate limits check</text>
+
+  <!-- Check Per-Site & Global Limits -->
+  <rect x="290" y="75" width="230" height="180" rx="10" fill="#eff6ff" stroke="#bfdbfe" />
+  <rect x="300" y="85" width="210" height="24" rx="4" fill="#0284c7" />
+  <text x="405" y="101" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">2. Strict Limit Evaluation</text>
+  <text x="305" y="125" font-size="10" font-weight="bold" fill="#0369a1">For each log in day:</text>
+  <text x="305" y="145" font-size="9" fill="#475569">1. Custom SiteLimit exists?</text>
+  <text x="305" y="160" font-size="9" fill="#dc2626">If time_spent > siteLimit → EXCEEDED</text>
+  <text x="305" y="180" font-size="9" fill="#475569">2. Category == 'Distracting sites'?</text>
+  <text x="305" y="195" font-size="9" fill="#dc2626">If time_spent > global_limit → EXCEEDED</text>
+  <text x="305" y="215" font-size="9" fill="#16a34a">3. Otherwise → Within Limits</text>
+
+  <!-- Final Tree Status Output -->
+  <rect x="560" y="75" width="310" height="180" rx="10" fill="#f0fdf4" stroke="#bbf7d0" />
+  <rect x="570" y="85" width="290" height="24" rx="4" fill="#16a34a" />
+  <text x="715" y="101" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">3. Grove Tree Outcome</text>
+  
+  <rect x="575" y="120" width="135" height="60" rx="6" fill="#ffffff" stroke="#16a34a" />
+  <text x="642" y="140" text-anchor="middle" font-size="10" font-weight="bold" fill="#14532d">🌲 status = 'grown'</text>
+  <text x="642" y="155" text-anchor="middle" font-size="9" fill="#475569">No limit exceeded</text>
+  <text x="642" y="170" text-anchor="middle" font-size="9" fill="#16a34a">+1 Total Trees Grown</text>
+
+  <rect x="720" y="120" width="135" height="60" rx="6" fill="#ffffff" stroke="#e11d48" />
+  <text x="787" y="140" text-anchor="middle" font-size="10" font-weight="bold" fill="#9f1239">🍂 status = 'withered'</text>
+  <text x="787" y="155" text-anchor="middle" font-size="9" fill="#475569">Limit was breached</text>
+  <text x="787" y="170" text-anchor="middle" font-size="9" fill="#dc2626">Breaks user streak</text>
+
+  <text x="715" y="215" text-anchor="middle" font-size="10" font-weight="bold" fill="#0f172a">Rendered as 30 tactile SVG icons on Dashboard</text>
+
+  <!-- Connectors -->
+  <line x1="250" y1="165" x2="290" y2="165" stroke="#16a34a" stroke-width="2" marker-end="url(#groveArrow)" />
+  <line x1="520" y1="165" x2="560" y2="165" stroke="#16a34a" stroke-width="2" marker-end="url(#groveArrow)" />
+</svg>

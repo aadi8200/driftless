@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 620" width="980" height="620" style="background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <filter id="tableShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-opacity="0.1" />
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text x="490" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#0f172a">DRIFTLESS — Relational Database Schema (SQLite / Django ORM)</text>
+  <text x="490" y="58" text-anchor="middle" font-size="12" fill="#64748b">Current Schema as of Migrations 0001 through 0010 (EmailOTP deleted in 0009)</text>
+
+  <!-- Table 1: auth_user (Django Built-in) -->
+  <g transform="translate(40, 80)">
+    <rect width="250" height="160" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 250 0 L 250 28 L 0 28 Z" fill="#475569" />
+    <text x="125" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#ffffff">auth_user (Django Core)</text>
+    <text x="12" y="48" font-size="11" font-weight="bold" fill="#0f172a">id</text><text x="130" y="48" font-size="11" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="68" font-size="11" font-weight="bold" fill="#0f172a">username</text><text x="130" y="68" font-size="11" fill="#64748b">VARCHAR(150) [UQ]</text>
+    <text x="12" y="88" font-size="11" fill="#0f172a">email</text><text x="130" y="88" font-size="11" fill="#64748b">VARCHAR(254)</text>
+    <text x="12" y="108" font-size="11" fill="#0f172a">password</text><text x="130" y="108" font-size="11" fill="#64748b">VARCHAR(128)</text>
+    <text x="12" y="128" font-size="11" fill="#0f172a">is_active</text><text x="130" y="128" font-size="11" fill="#64748b">BOOLEAN</text>
+    <text x="12" y="148" font-size="11" fill="#0f172a">date_joined</text><text x="130" y="148" font-size="11" fill="#64748b">DATETIME</text>
+  </g>
+
+  <!-- Table 2: UserProfile (OneToOne) -->
+  <g transform="translate(360, 80)">
+    <rect width="270" height="235" rx="8" fill="#ffffff" stroke="#0284c7" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 270 0 L 270 28 L 0 28 Z" fill="#0284c7" />
+    <text x="135" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#ffffff">core_userprofile (1-to-1 User)</text>
+    <text x="12" y="48" font-size="11" font-weight="bold" fill="#0f172a">id</text><text x="140" y="48" font-size="11" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="68" font-size="11" font-weight="bold" fill="#0f172a">user_id</text><text x="140" y="68" font-size="11" fill="#64748b">INTEGER [FK, UQ]</text>
+    <text x="12" y="88" font-size="11" fill="#0f172a">phone</text><text x="140" y="88" font-size="11" fill="#64748b">VARCHAR(32)</text>
+    <text x="12" y="108" font-size="11" fill="#0f172a">persona</text><text x="140" y="108" font-size="11" fill="#64748b">VARCHAR(20)</text>
+    <text x="12" y="128" font-size="11" fill="#0f172a">is_verified</text><text x="140" y="128" font-size="11" fill="#64748b">BOOLEAN (default True)</text>
+    <text x="12" y="148" font-size="11" font-weight="bold" fill="#0284c7">xp</text><text x="140" y="148" font-size="11" fill="#0284c7">INTEGER (default 0)</text>
+    <text x="12" y="168" font-size="11" font-weight="bold" fill="#0284c7">level</text><text x="140" y="168" font-size="11" fill="#0284c7">INTEGER (default 1)</text>
+    <text x="12" y="188" font-size="11" fill="#0f172a">has_zen_master</text><text x="140" y="188" font-size="11" fill="#64748b">BOOLEAN (default False)</text>
+    <text x="12" y="208" font-size="11" fill="#0f172a">has_deep_worker</text><text x="140" y="208" font-size="11" fill="#64748b">BOOLEAN (default False)</text>
+    <text x="12" y="228" font-size="11" fill="#0f172a">has_iron_will</text><text x="140" y="228" font-size="11" fill="#64748b">BOOLEAN (default False)</text>
+  </g>
+
+  <!-- Table 3: UserSettings (OneToOne) -->
+  <g transform="translate(680, 80)">
+    <rect width="260" height="255" rx="8" fill="#ffffff" stroke="#16a34a" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 260 0 L 260 28 L 0 28 Z" fill="#16a34a" />
+    <text x="130" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#ffffff">core_usersettings (1-to-1 User)</text>
+    <text x="12" y="48" font-size="11" font-weight="bold" fill="#0f172a">id</text><text x="140" y="48" font-size="11" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="68" font-size="11" font-weight="bold" fill="#0f172a">user_id</text><text x="140" y="68" font-size="11" fill="#64748b">INTEGER [FK, UQ]</text>
+    <text x="12" y="88" font-size="11" fill="#0f172a">focus_mode_active</text><text x="140" y="88" font-size="11" fill="#64748b">BOOLEAN</text>
+    <text x="12" y="108" font-size="11" fill="#0f172a">daily_limit_minutes</text><text x="140" y="108" font-size="11" fill="#64748b">INTEGER</text>
+    <text x="12" y="128" font-size="11" fill="#0f172a">focus_goal_minutes</text><text x="140" y="128" font-size="11" fill="#64748b">INTEGER</text>
+    <text x="12" y="148" font-size="11" fill="#0f172a">streak_days</text><text x="140" y="148" font-size="11" fill="#64748b">INTEGER</text>
+    <text x="12" y="168" font-size="11" fill="#0f172a">blocked_sites</text><text x="140" y="168" font-size="11" fill="#64748b">TEXT</text>
+    <text x="12" y="188" font-size="11" fill="#0f172a">allowed_sites</text><text x="140" y="188" font-size="11" fill="#64748b">TEXT</text>
+    <text x="12" y="208" font-size="11" font-weight="bold" fill="#16a34a">schedule_enabled</text><text x="140" y="208" font-size="11" fill="#16a34a">BOOLEAN</text>
+    <text x="12" y="228" font-size="11" font-weight="bold" fill="#16a34a">schedule_start</text><text x="140" y="228" font-size="11" fill="#16a34a">VARCHAR(5)</text>
+    <text x="12" y="248" font-size="11" font-weight="bold" fill="#16a34a">schedule_end</text><text x="140" y="248" font-size="11" fill="#16a34a">VARCHAR(5)</text>
+  </g>
+
+  <!-- Table 4: UsageLog (FK to User) -->
+  <g transform="translate(40, 360)">
+    <rect width="250" height="175" rx="8" fill="#ffffff" stroke="#d97706" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 250 0 L 250 28 L 0 28 Z" fill="#d97706" />
+    <text x="125" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#ffffff">core_usagelog (1-to-Many)</text>
+    <text x="12" y="48" font-size="11" font-weight="bold" fill="#0f172a">id</text><text x="130" y="48" font-size="11" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="68" font-size="11" font-weight="bold" fill="#0f172a">user_id</text><text x="130" y="68" font-size="11" fill="#64748b">INTEGER [FK]</text>
+    <text x="12" y="88" font-size="11" fill="#0f172a">website_url</text><text x="130" y="88" font-size="11" fill="#64748b">VARCHAR(255)</text>
+    <text x="12" y="108" font-size="11" fill="#0f172a">time_spent_seconds</text><text x="130" y="108" font-size="11" fill="#64748b">INTEGER</text>
+    <text x="12" y="128" font-size="11" fill="#0f172a">category</text><text x="130" y="128" font-size="11" fill="#64748b">VARCHAR(20)</text>
+    <text x="12" y="148" font-size="11" fill="#0f172a">date</text><text x="130" y="148" font-size="11" fill="#64748b">DATE</text>
+    <text x="12" y="168" font-size="11" fill="#0f172a">created_at</text><text x="130" y="168" font-size="11" fill="#64748b">DATETIME</text>
+  </g>
+
+  <!-- Table 5: SiteLimit (FK to User) -->
+  <g transform="translate(360, 360)">
+    <rect width="270" height="155" rx="8" fill="#ffffff" stroke="#9333ea" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 270 0 L 270 28 L 0 28 Z" fill="#9333ea" />
+    <text x="135" y="19" text-anchor="middle" font-size="12" font-weight="bold" fill="#ffffff">core_sitelimit (1-to-Many)</text>
+    <text x="12" y="48" font-size="11" font-weight="bold" fill="#0f172a">id</text><text x="140" y="48" font-size="11" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="68" font-size="11" font-weight="bold" fill="#0f172a">user_id</text><text x="140" y="68" font-size="11" fill="#64748b">INTEGER [FK]</text>
+    <text x="12" y="88" font-size="11" fill="#0f172a">domain</text><text x="140" y="88" font-size="11" fill="#64748b">VARCHAR(255)</text>
+    <text x="12" y="108" font-size="11" fill="#0f172a">daily_limit_minutes</text><text x="140" y="108" font-size="11" fill="#64748b">INTEGER</text>
+    <text x="12" y="128" font-size="11" fill="#0f172a">enabled</text><text x="140" y="128" font-size="11" fill="#64748b">BOOLEAN</text>
+    <text x="12" y="148" font-size="11" fill="#0f172a">updated_at</text><text x="140" y="148" font-size="11" fill="#64748b">DATETIME</text>
+  </g>
+
+  <!-- Table 6: FocusSession & CategoryOverride (Split box) -->
+  <g transform="translate(680, 360)">
+    <rect width="260" height="115" rx="8" fill="#ffffff" stroke="#e11d48" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 260 0 L 260 26 L 0 26 Z" fill="#e11d48" />
+    <text x="130" y="18" text-anchor="middle" font-size="11" font-weight="bold" fill="#ffffff">core_focussession (1-to-Many)</text>
+    <text x="12" y="44" font-size="10" font-weight="bold" fill="#0f172a">id</text><text x="130" y="44" font-size="10" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="62" font-size="10" font-weight="bold" fill="#0f172a">user_id</text><text x="130" y="62" font-size="10" fill="#64748b">INTEGER [FK]</text>
+    <text x="12" y="80" font-size="10" fill="#0f172a">duration_minutes</text><text x="130" y="80" font-size="10" fill="#64748b">INTEGER</text>
+    <text x="12" y="98" font-size="10" fill="#0f172a">completed</text><text x="130" y="98" font-size="10" fill="#64748b">BOOLEAN</text>
+  </g>
+
+  <g transform="translate(680, 490)">
+    <rect width="260" height="115" rx="8" fill="#ffffff" stroke="#0d9488" stroke-width="1.5" filter="url(#tableShadow)" />
+    <path d="M 0 0 L 260 0 L 260 26 L 0 26 Z" fill="#0d9488" />
+    <text x="130" y="18" text-anchor="middle" font-size="11" font-weight="bold" fill="#ffffff">core_categoryoverride (1-to-Many)</text>
+    <text x="12" y="44" font-size="10" font-weight="bold" fill="#0f172a">id</text><text x="130" y="44" font-size="10" fill="#64748b">INTEGER [PK]</text>
+    <text x="12" y="62" font-size="10" font-weight="bold" fill="#0f172a">user_id</text><text x="130" y="62" font-size="10" fill="#64748b">INTEGER [FK]</text>
+    <text x="12" y="80" font-size="10" fill="#0f172a">domain</text><text x="130" y="80" font-size="10" fill="#64748b">VARCHAR(255)</text>
+    <text x="12" y="98" font-size="10" fill="#0f172a">category</text><text x="130" y="98" font-size="10" fill="#64748b">VARCHAR(30)</text>
+  </g>
+
+  <!-- Note on removed EmailOTP -->
+  <rect x="40" y="555" width="590" height="45" rx="6" fill="#fef2f2" stroke="#fecaca" />
+  <text x="50" y="573" font-size="11" font-weight="bold" fill="#991b1b">Note on Database Evolution:</text>
+  <text x="50" y="590" font-size="10" fill="#7f1d1d">EmailOTP model was added in migration 0008 and completely dropped in migration 0009 (streamlined direct signup).</text>
+
+  <!-- Connectors -->
+  <line x1="290" y1="160" x2="360" y2="160" stroke="#0284c7" stroke-width="2" />
+  <line x1="630" y1="160" x2="680" y2="160" stroke="#16a34a" stroke-width="2" />
+  <line x1="165" y1="240" x2="165" y2="360" stroke="#d97706" stroke-width="2" />
+  <line x1="290" y1="210" x2="360" y2="390" stroke="#9333ea" stroke-width="1.5" stroke-dasharray="4,4" />
+</svg>

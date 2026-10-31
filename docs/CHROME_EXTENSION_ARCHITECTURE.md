@@ -1,187 +1,97 @@
-# DRIFTLESS — Chrome Extension Architecture & Execution Model
+<h1 id="ch-8">Chapter 8: Chrome Extension Architecture</h1>
 
-## 1. Overview & Architectural Role
+The DRIFTLESS browser extension is built on **Google Chrome Manifest V3**. This chapter details the service worker lifecycle, timer mechanics, escalation engine, blocking rules, schedule automation, and inter-process messaging catalog.
 
-The DRIFTLESS Chrome Extension is built strictly on **Chrome Manifest V3 (MV3)**. It operates as the client-side telemetry and enforcement agent of the system. Its responsibilities are:
-1. **Passive Time Tracking:** Accurately measuring dwell time on active browser tabs without running invasive content scripts on user web pages.
-2. **Escalation Enforcement:** Evaluating per-site daily limits against accumulated dwell time and executing a 3-tier escalation strategy (80% nudge, 100% alert, +5m DNR block).
-3. **Focus Mode Blocking:** Dynamically redirecting distracting domains to `blocked.html` during dedicated sprint blocks.
-4. **Cloud Synchronization:** Buffering local time deltas in `chrome.storage.local` and pushing them periodically to the Django REST API over authenticated HTTP endpoints.
+## 8.1 Service Worker Lifecycle & Precision Heartbeat
+Under Manifest V3, background pages are replaced by **ephemeral service workers**. A service worker is started by browser events (such as alarms, tab focus changes, or runtime messages) and is automatically terminated by Chrome after approximately 30 seconds of inactivity.
 
----
+### The 1-Second Heartbeat Pipeline
+Standard background `setInterval` timers stop firing when the worker terminates, causing timer lag. DRIFTLESS overcomes this via an active tab heartbeat architecture:
+1. `extension/content.js` runs in the page execution context on every standard HTTP/HTTPS page.
+2. It monitors `visibilitychange`, `window.focus`, and `window.blur`.
+3. When `!document.hidden && document.hasFocus()`, it executes a 1000ms interval loop.
+4. Each second, it sends `PAGE_HEARTBEAT_TICK` to `background.js`.
+5. The message wakes the service worker (if suspended), allowing `background.js` to accumulate active dwell time second-by-second into `siteTimes` in `chrome.storage.local`.
+6. When the tab loses focus, `content.js` clears its interval and sends `PAGE_HEARTBEAT_PAUSE`, prompting `background.js` to execute `commitActiveTime()` and prevent phantom dwell accumulation.
 
-## 2. Manifest V3 Configuration & Permissions
+![Precision Tracking Workflow](diagrams/workflow_1_tracking.svg)
 
-The extension is declared in `extension/manifest.json`:
+## 8.2 3-Tier Escalation Engine & DNR Enforcement
+DRIFTLESS enforces site limits through a graduated 3-tier escalation pipeline rather than sudden punitive cutoffs:
 
-```json
-{
-  "manifest_version": 3,
-  "name": "Driftless - Focus & Wellbeing Companion",
-  "version": "1.1",
-  "permissions": [
-    "tabs",
-    "storage",
-    "alarms",
-    "notifications",
-    "idle",
-    "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess",
-    "declarativeNetRequestFeedback"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["blocked.html", "theme.css", "icons/*"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  "background": {
-    "service_worker": "background.js"
-  }
-}
+```text
+[ Browsing Distracting Site ]
+             │
+             ▼ (Accumulated Seconds >= 80% Limit)
+  Tier 1: 80% Gentle Nudge
+  • state.nudged = true
+  • sendNudgeNotification(domain)
+  • "Almost at your daily limit! Consider wrapping up."
+             │
+             ▼ (Accumulated Seconds >= 100% Limit)
+  Tier 2: 100% Limit Alert
+  • state.blocked = true
+  • sendLimitReachedNotification(domain)
+  • "Daily limit reached. This site is now locked until midnight."
+             │
+             ▼ (Immediate DNR Dynamic Rule Injection)
+  Tier 3: Declarative Net Request Block & Redirection
+  • Injects DNR rule in ID range 1000..1999
+  • content.js receives { blocked: true } -> redirects to blocked.html
+  • Future network requests intercepted at browser engine level
 ```
 
-### Permission Justifications
-- `tabs`: Required to listen to active tab switches (`tabs.onActivated`) and navigation commits (`tabs.onUpdated`), allowing extraction of the hostname for dwell tracking.
-- `storage`: Enables non-volatile asynchronous key-value persistence via `chrome.storage.local` for tracking timers, cached server limits, and unsynced delta buffers.
-- `alarms`: Essential in Manifest V3 to schedule background wake-ups without running continuous infinite loops. Drives the 60-second periodic sync and midnight reset.
-- `notifications`: Allows displaying native system desktop notifications for 80% nudges, 100% streak risk alerts, and focus session completions.
-- `idle`: Detects user inactivity (`chrome.idle.onStateChanged`), pausing time accumulation when the user steps away for > 60 seconds.
-- `declarativeNetRequest`: Performs fast, privacy-preserving network-level redirects to `blocked.html` without executing JavaScript inside the target web page.
-- `host_permissions: ["<all_urls>"]`: Permits declarative interception of any distracting domain matching the user's blocked list.
+![Escalation and Enforcement Workflow](diagrams/workflow_2_escalation_block.svg)
 
----
+## 8.3 Declarative Net Request (DNR) Rule ID Catalog
+DRIFTLESS segments its dynamic Declarative Net Request rules into distinct, collision-free numeric bands:
 
-## 3. Service Worker Lifecycle & Tracking Algorithm
+| Numeric Range | Rule Purpose | Action | Condition | Triggering Event |
+| :--- | :--- | :--- | :--- | :--- |
+| **`100` to `899`** | Manual Focus Mode & Scheduled Focus | `block` | `urlFilter: "||domain"`, all resource types | Focus Mode enabled, Scheduled start alarm |
+| **`1000` to `1999`** | Per-Site 100% Limit Enforcement | `block` | `urlFilter: "||domain"`, all resource types | Accumulated time breaches 100% daily limit |
+| **`2000` to `2009`** | Shorts & Reels Blocker | `block` | Rule 2001: `||youtube.com/shorts*`<br>Rule 2002: `||instagram.com/reels*` | Shorts & Reels toggle (Student persona) |
 
-In Manifest V3, background scripts run as ephemeral service workers that can be suspended by Chrome after ~30 seconds of inactivity. To ensure high tracking accuracy without losing dwell time, `background.js` uses an event-driven accumulation pattern:
+All rules specify `priority: 1` and target resource types: `main_frame`, `sub_frame`, `xmlhttprequest`, `script`, `image`, `stylesheet`, `font`, `media`, `websocket`, and `other`.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Chrome as Chrome Browser
-    participant SW as Service Worker (background.js)
-    participant Storage as chrome.storage.local
-    participant Backend as Django REST API (/api/usage/)
+## 8.4 Scheduled Focus Mode Automation
+Scheduled Focus allows users to establish daily recurring deep work windows (e.g., 20:00 to 22:30).
+* **Alarms:** `background.js` schedules two daily Chrome alarms:
+  - `driftless_schedule_start`: Fires at `schedule_start`.
+  - `driftless_schedule_end`: Fires at `schedule_end`.
+* **State Check:** On startup or schedule update, `evaluateScheduleState()` calls `isWithinScheduleWindow()`. If the current time is currently within the window, Focus Mode is automatically activated.
+* **Midnight Crossing:** If `schedule_end < schedule_start` (e.g. 23:00 to 01:00), the window spans across midnight: time is within the window if `current >= start OR current < end`.
 
-    User->>Chrome: Switches to tab (e.g. reddit.com)
-    Chrome->>SW: chrome.tabs.onActivated
-    SW->>SW: commitActiveTime() (Commits previous tab dwell)
-    SW->>Chrome: chrome.tabs.query({ active: true })
-    Chrome-->>SW: Tab URL (https://reddit.com/r/programming)
-    SW->>SW: cleanDomain(url) -> "reddit.com"
-    SW->>SW: currentTabStartTime = Date.now()
-    
-    Note over User,SW: User browses reddit.com for 120 seconds...
+![Scheduled Focus Workflow](diagrams/workflow_3_scheduled_focus.svg)
 
-    User->>Chrome: Switches to github.com
-    Chrome->>SW: chrome.tabs.onActivated
-    SW->>SW: commitActiveTime()
-    SW->>Storage: siteTimes['reddit.com'] += 120s
-    SW->>Storage: unsyncedDeltas['reddit.com'] += 120s
-    SW->>SW: evaluateSiteLimits('reddit.com', totalSeconds)
+## 8.5 Pomodoro Sprint State Machine
+The Pomodoro feature implements structured sprint intervals:
+* **Work Phase (25 Minutes):** User clicks "Start Pomodoro". Focus Mode is engaged (DNR rules 100..899 active). Chrome alarm `driftless_pomodoro` is scheduled for 25 minutes.
+* **Completion & Transition:** At T+25m, the alarm fires. A desktop chime and notification alert the user. Focus Mode disengages, a `FocusSession` record is synced to `/api/sessions/`, +50 XP is awarded, and a 5-minute break alarm is scheduled.
+* **Break Phase (5 Minutes):** Distracting sites are unblocked. Popup displays a relaxing green countdown timer.
 
-    Note over SW,Backend: Every 60s Alarm (ALARM_PERIODIC_SYNC)
-    SW->>Backend: POST /api/usage/ [{ website_url, time_spent_seconds: 120 }]
-    Backend-->>SW: HTTP 200 OK
-    SW->>Storage: Clear unsyncedDeltas['reddit.com']
-```
+![Pomodoro Sprint Workflow](diagrams/workflow_4_pomodoro.svg)
 
-### 3.1. Tab Dwell Measurement Rules
-Dwell time is accumulated **only** when all of the following conditions hold true:
-1. `currentTabDomain` is a valid HTTP/HTTPS domain.
-2. `currentTabStartTime` is a valid timestamp.
-3. `isWindowFocused === true` (detected via `chrome.windows.onFocusChanged`).
-4. `isUserActive === true` (state is `active` via `chrome.idle.onStateChanged`, interval 60s).
+## 8.6 Cloud Synchronization & Midnight Reset
+* **Periodic Sync (`ALARM_PERIODIC_SYNC`):** Scheduled with `periodInMinutes: 15`. Gathers `unsyncedDeltas` from `chrome.storage.local`, posts them to `POST /api/usage/`, fetches updated settings from `GET /api/settings/`, and resets `unsyncedDeltas`.
+* **Midnight Reset (`ALARM_MIDNIGHT_RESET`):** Calculates exact milliseconds until local midnight (`00:00:00.050`). At midnight, clears `siteTimes`, resets `escalationState`, strips limit DNR rules `1000..1999`, and reschedules the alarm for the next midnight.
 
-If the user minimizes Chrome, switches to another desktop application, locks their screen, or leaves the computer idle for over 60 seconds, `commitActiveTime()` runs immediately, commits the active duration up to that second, and pauses tracking until focus and user activity resume.
+## 8.7 Complete Message Catalog
+Below is the definitive catalog of all 14 message types handled by `background.js` via `chrome.runtime.onMessage.addListener`:
 
----
-
-## 4. 3-Tier Escalation Logic & DNR Blocking
-
-DRIFTLESS does not immediately lock users out of websites without warning. Instead, it enforces a gentle, 3-tier escalation ladder:
-
-```mermaid
-graph TD
-    A["Active Time Monitored on Domain"] --> B{"Current Usage vs. Daily Limit"}
-    B -- "Usage < 80%" --> C["Normal Browsing<br/>(Green / Amber Progress)"]
-    B -- "Usage >= 80% & < 100%" --> D["Tier 1: Gentle Nudge<br/>(Chrome Desktop Notification)"]
-    B -- "Usage >= 100% & < 100% + 5m" --> E["Tier 2: Streak Alert<br/>(Warning Notification + 5m Grace Period)"]
-    B -- "Usage >= 100% + 5m" --> F["Tier 3: Dynamic DNR Block<br/>(Redirect to blocked.html)"]
-
-    D --> G["state.nudged = true"]
-    E --> H["state.alerted = true<br/>streakAtRisk = true"]
-    F --> I["declarativeNetRequest.updateDynamicRules()<br/>Redirects active tab immediately"]
-```
-
-### Escalation Implementation Details
-1. **Tier 1 — 80% Limit Nudge:**
-   - Evaluated in `evaluateSiteLimits()`.
-   - Triggers `sendNudgeNotification()` with message: `"You've used Xm of your Ym daily limit on <domain>."`
-   - Sets `escalationState[domain].nudged = true` to prevent duplicate notifications.
-2. **Tier 2 — 100% Limit Alert:**
-   - Triggers `sendAlertNotification()` with message: `"Daily limit of Ym reached on <domain>! 5m grace period active before site is blocked."`
-   - Sets `escalationState[domain].alerted = true` and `streakAtRisk = true`.
-3. **Tier 3 — Dynamic Request Blocking:**
-   - If user continues browsing past `limitSeconds + 300` (5 minutes grace period), `blockDomainViaDNR(domain)` executes.
-   - Injects a dynamic redirect rule using `chrome.declarativeNetRequest.updateDynamicRules()`:
-     ```javascript
-     {
-       id: newId,
-       priority: 2,
-       action: {
-         type: 'redirect',
-         redirect: { url: chrome.runtime.getURL(`blocked.html?site=${encodeURIComponent(domain)}`) }
-       },
-       condition: {
-         urlFilter: `||${domain}`,
-         resourceTypes: ['main_frame']
-       }
-     }
-     ```
-   - If the user is currently focused on the violating tab, `chrome.tabs.update(activeTab.id, { url: redirectUrl })` instantly redirects them to `blocked.html`.
-
----
-
-## 5. Focus Mode & Discrete Focus Sprints
-
-Focus Mode suppresses distractions on demand:
-- **Default Distraction Filter:** `['instagram.com', 'youtube.com', 'reddit.com', 'x.com', 'twitter.com', 'tiktok.com', 'netflix.com']`, or the user's custom `blocked_sites` list.
-- **Focus Sprints:** The user can initiate a 25, 45, or 60-minute focus sprint from the extension popup.
-- **Sprint Lifecycle:**
-  1. Popup sends `START_FOCUS_TIMER` message with `durationMinutes`.
-  2. Service worker calls `enableFocusMode()`, installing DNR redirect rules with IDs `FOCUS_RULE_BASE_ID + i`.
-  3. Service worker schedules `chrome.alarms.create(ALARM_FOCUS_TIMER_END, { delayInMinutes })`.
-  4. When the alarm triggers, service worker calls `disableFocusMode()`, clears dynamic rules, notifies the user via desktop notification, and logs the completed session to the server via `POST /api/sessions/`.
-
----
-
-## 6. Daily Reset & Offline Synchronization
-
-### 6.1. Periodic Cloud Synchronization
-- Runs every 60 seconds driven by `ALARM_PERIODIC_SYNC`.
-- Sends uncommitted time deltas (`unsyncedDeltas`) to `POST /api/usage/`.
-- If the computer is offline or the server is temporarily unreachable, deltas remain safely buffered in `chrome.storage.local` and are transmitted automatically upon reconnection.
-- Following a successful usage push, calls `pullBackendConfig()` to retrieve updated `siteLimits` and `userSettings`.
-
-### 6.2. Midnight Daily Reset
-- Scheduled via `scheduleMidnightReset()` to fire at `00:00:00` local time.
-- Commits remaining active seconds and performs a final sync to the server.
-- Strips all dynamic limit block rules (`r.id >= LIMIT_BLOCK_RULE_BASE_ID`) from `declarativeNetRequest`.
-- Resets `siteTimes = {}`, `unsyncedDeltas = {}`, `escalationState = {}`, and `streakAtRisk = false`.
-
----
-
-## 7. Known Manifest V3 Constraints & Mitigations
-
-| Manifest V3 Constraint | Technical Impact | Driftless Mitigation Architecture |
-| :--- | :--- | :--- |
-| **Service Worker Termination** | Inactive service workers terminate after ~30 seconds, losing in-memory global variables. | All persistent state is committed immediately to `chrome.storage.local`. In-memory variables (`currentTabStartTime`) are re-initialized on every browser event. |
-| **No DOM Access in Service Workers** | Cannot read web page DOM, cookies, or window titles directly in `background.js`. | Driftless intentionally tracks only the bare hostname via `tab.url`, guaranteeing privacy by design and eliminating the need for DOM access. |
-| **Alarm Minimum Interval** | In production, `chrome.alarms` cannot fire more frequently than once per minute. | 60-second granularity is ideal for digital wellbeing sync and prevents unnecessary server load. |
-| **Browser Force Kill** | If Chrome is killed via Task Manager, uncommitted dwell seconds since the last tab event or 60s alarm could be lost. | Tab switches, window blur events, and idle state transitions trigger immediate commits, keeping uncommitted time under 60 seconds. |
+| Message Type | Direction | Payload Schema | Action Performed | Response Schema |
+| :--- | :--- | :--- | :--- | :--- |
+| `PAGE_HEARTBEAT_TICK` | `content.js` -> `background.js` | `{ type, domain, url, timestamp }` | Validates active tab, increments dwell seconds, checks 80%/100% limits | `{ blocked, domain, elapsed, limit, nudgeAt }` |
+| `PAGE_HEARTBEAT_PAUSE` | `content.js` -> `background.js` | `{ type, domain, timestamp }` | Flushes active dwell delta, marks tab inactive | `{ success: true }` |
+| `SET_FOCUS_MODE` | `popup.js` -> `background.js` | `{ type, enabled: boolean }` | Toggles Focus Mode DNR rules (100..899), syncs to backend | `{ success: true, focusModeActive: boolean }` |
+| `UPDATE_SCHEDULE` | `popup.js` -> `background.js` | `{ type, scheduleEnabled, scheduleStart, scheduleEnd }` | Saves schedule times, recreates start/end alarms, re-evaluates window | `{ success: true, scheduleEnabled, ... }` |
+| `UPDATE_SITE_LISTS` | `popup.js` -> `background.js` | `{ type, distractingSites, productiveSites }` | Updates storage site lists, re-evaluates active focus rules, syncs to backend | `{ success: true }` |
+| `SET_GLOBAL_LIMIT` | `popup.js` -> `background.js` | `{ type, limitMinutes: number }` | Updates `userTimeLimitMinutes`, syncs to `/api/settings/` | `{ success: true }` |
+| `SET_CUSTOM_LIMIT` | `popup.js` -> `background.js` | `{ type, domain, limitMinutes }` | Sets per-domain limit, syncs `POST /api/limits/` | `{ success: true }` |
+| `REMOVE_CUSTOM_LIMIT` | `popup.js` -> `background.js` | `{ type, domain }` | Removes custom limit, syncs `DELETE /api/limits/<id>/` | `{ success: true }` |
+| `TRIGGER_SYNC` | `popup.js` -> `background.js` | `{ type }` | Triggers immediate `syncToBackend()` push and pull | `{ success: true }` |
+| `RESET_ALL_TIMERS` | `popup.js` -> `background.js` | `{ type }` | Resets today's `siteTimes` and `escalationState` in storage | `{ success: true }` |
+| `TOGGLE_SHORTS_REELS`| `popup.js` -> `background.js` | `{ type, enabled: boolean }` | Toggles DNR dynamic rules 2001 & 2002 for Shorts/Reels | `{ success: true, enabled: boolean }` |
+| `START_POMODORO` | `popup.js` -> `background.js` | `{ type }` | Starts 25m work phase, activates focus DNR rules, sets alarm | `{ success: true, state: "running", mode: "work" }` |
+| `STOP_POMODORO` | `popup.js` -> `background.js` | `{ type }` | Cancels Pomodoro alarm, deactivates focus rules, resets state | `{ success: true, state: "idle" }` |
+| `PAUSE_POMODORO` | `popup.js` -> `background.js` | `{ type }` | Pauses Pomodoro timer and records remaining time | `{ success: true, state: "paused" }` |

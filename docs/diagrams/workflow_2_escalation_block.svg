@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320" style="background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <marker id="escArrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ea580c" />
+    </marker>
+  </defs>
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#0f172a">WORKFLOW 2: 3-Tier Timer Escalation &amp; DNR Enforcement</text>
+  <text x="450" y="50" text-anchor="middle" font-size="12" fill="#64748b">Live Second Tracking → 80% Gentle Nudge → 100% Declarative Net Request Block</text>
+
+  <!-- Step 1: Active Dwell -->
+  <rect x="30" y="80" width="180" height="200" rx="10" fill="#f8fafc" stroke="#cbd5e1" />
+  <rect x="40" y="90" width="160" height="24" rx="4" fill="#0284c7" />
+  <text x="120" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">1. Browsing Tracked Site</text>
+  <text x="45" y="130" font-size="10" fill="#0f172a">Example: instagram.com</text>
+  <text x="45" y="145" font-size="9" fill="#64748b">Custom Limit: 2 minutes (120s)</text>
+  <text x="45" y="165" font-size="9" fill="#475569">0s .. 95s: Normal browsing</text>
+  <text x="45" y="180" font-size="9" fill="#475569">Heartbeat ticks every second</text>
+  <text x="45" y="195" font-size="9" fill="#475569">Popup timer counts live</text>
+
+  <!-- Step 2: 80% Nudge -->
+  <rect x="250" y="80" width="190" height="200" rx="10" fill="#fffbeb" stroke="#fde68a" />
+  <rect x="260" y="90" width="170" height="24" rx="4" fill="#d97706" />
+  <text x="345" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">2. 80% Nudge (96s)</text>
+  <text x="265" y="130" font-size="10" font-weight="bold" fill="#b45309">Gentle Desktop Alert</text>
+  <text x="265" y="148" font-size="9" fill="#475569">• currentSeconds >= 96s</text>
+  <text x="265" y="163" font-size="9" fill="#475569">• state.nudged == false</text>
+  <text x="265" y="178" font-size="9" fill="#475569">• state.nudged = true</text>
+  <text x="265" y="193" font-size="9" fill="#475569">• sendNudgeNotification()</text>
+  <text x="265" y="208" font-size="9" fill="#b45309">"Almost at your daily limit!"</text>
+  <text x="265" y="223" font-size="9" fill="#16a34a">Encourages mindful closure</text>
+
+  <!-- Step 3: 100% Block Triggered -->
+  <rect x="480" y="80" width="190" height="200" rx="10" fill="#fef2f2" stroke="#fecaca" />
+  <rect x="490" y="90" width="170" height="24" rx="4" fill="#dc2626" />
+  <text x="575" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">3. 100% Limit Reached (120s)</text>
+  <text x="495" y="130" font-size="10" font-weight="bold" fill="#991b1b">Enforcement Activation</text>
+  <text x="495" y="148" font-size="9" fill="#475569">• currentSeconds >= 120s</text>
+  <text x="495" y="163" font-size="9" fill="#475569">• state.blocked = true</text>
+  <text x="495" y="178" font-size="9" fill="#475569">• sendLimitReachedNotification()</text>
+  <text x="495" y="193" font-size="9" fill="#475569">• blockDomainViaDNR(domain)</text>
+  <text x="495" y="208" font-size="9" fill="#dc2626">DNR Rule ID: 1000..1999</text>
+  <text x="495" y="223" font-size="9" fill="#475569">Action: block all HTTP traffic</text>
+
+  <!-- Step 4: Redirection & Lock -->
+  <rect x="710" y="80" width="160" height="200" rx="10" fill="#f3e8ff" stroke="#d8b4fe" />
+  <rect x="720" y="90" width="140" height="24" rx="4" fill="#9333ea" />
+  <text x="790" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">4. Redirection &amp; Lockout</text>
+  <text x="725" y="130" font-size="10" font-weight="bold" fill="#581c87">blocked.html</text>
+  <text x="725" y="148" font-size="9" fill="#475569">• content.js receives {blocked:true}</text>
+  <text x="725" y="163" font-size="9" fill="#475569">• Redirects to blocked.html</text>
+  <text x="725" y="178" font-size="9" fill="#475569">• Browser network engine blocks future attempts</text>
+  <text x="725" y="198" font-size="9" fill="#16a34a">Midnight Reset Alarm:</text>
+  <text x="725" y="213" font-size="9" fill="#475569">Clears rule at 00:00:00</text>
+
+  <!-- Connectors -->
+  <line x1="210" y1="180" x2="250" y2="180" stroke="#ea580c" stroke-width="2" marker-end="url(#escArrow)" />
+  <line x1="440" y1="180" x2="480" y2="180" stroke="#ea580c" stroke-width="2" marker-end="url(#escArrow)" />
+  <line x1="670" y1="180" x2="710" y2="180" stroke="#ea580c" stroke-width="2" marker-end="url(#escArrow)" />
+</svg>

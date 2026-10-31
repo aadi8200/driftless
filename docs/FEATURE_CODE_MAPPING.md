@@ -1,66 +1,33 @@
-# DRIFTLESS — Feature-to-Code Mapping & Cooperation Analysis
+<h1 id="ch-3">Chapter 3: Master Table &ldquo;Feature to Code&rdquo;</h1>
 
-## 1. Master Feature-to-Code Traceability Matrix
+This master traceability table provides immediate mapping between every user-facing feature, the exact files and functions that implement it, its REST endpoints, its database tables, and its audit status as of **October 31, 2026**.
 
-| Feature | Frontend Files | Extension Files | Backend Files | API & Database Dependencies | Implementation Status |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **User Registration & Persona Onboarding** | `dashboard/core/templates/auth.html` | None | `core/views.py:73`, `core/serializers.py:63`, `core/models.py:16` | `POST /api/auth/register/`, `User`, `UserProfile`, `UserSettings`, `SiteLimit` | **PASS (Fully Verified)** |
-| **Multi-Identifier Login (Username/Email/Phone)**| `dashboard/core/templates/auth.html` | None | `core/views.py:92`, `core/models.py:16` | `POST /api/auth/login/`, `Token`, `User`, `UserProfile` | **PASS (Fully Verified)** |
-| **API Token Copy & Regeneration** | `dashboard/core/templates/dashboard.html` | `extension/popup.html`, `extension/popup.js` | `core/views.py:150` | `POST /api/auth/regenerate-token/`, `authtoken_token` | **PASS (Fully Verified)** |
-| **Passive Tab Dwell Tracking** | None | `extension/background.js` | None (Local accumulation) | `chrome.tabs`, `chrome.windows`, `chrome.idle`, `chrome.storage.local` | **PASS (Fully Verified)** |
-| **Automatic Idle Detection** | None | `extension/background.js:208` | None | `chrome.idle.setDetectionInterval(60)` | **PASS (Fully Verified)** |
-| **Periodic 60s Delta Sync** | None | `extension/background.js:263`, `extension/manifest.json` | `core/views.py:165`, `core/serializers.py:116`, `core/models.py:214` | `POST /api/usage/`, `UsageLog`, `chrome.alarms` | **PASS (Fully Verified)** |
-| **Midnight Dwell Commit & Reset**| None | `extension/background.js:217` | `core/views.py:165` | `POST /api/usage/`, `chrome.alarms`, `declarativeNetRequest` | **PASS (Fully Verified)** |
-| **3-Tier Escalation: 80% Nudge** | None | `extension/background.js:93`, `extension/popup.js:133` | None | `chrome.notifications.create`, `chrome.storage.local` | **PASS (Fully Verified)** |
-| **3-Tier Escalation: 100% Alert** | None | `extension/background.js:101` | None | `chrome.notifications.create`, `chrome.storage.local` | **PASS (Fully Verified)** |
-| **3-Tier Escalation: 5m Grace + DNR Block** | None | `extension/background.js:109`, `extension/blocked.html` | None | `chrome.declarativeNetRequest.updateDynamicRules` | **PASS (Fully Verified)** |
-| **Focus Mode Toggling** | `dashboard/core/templates/dashboard.html:1115` | `extension/popup.js:201`, `extension/background.js:352` | `core/views.py:443`, `core/models.py:246` | `PATCH /api/settings/`, `UserSettings.focus_mode_active` | **PASS (Fully Verified)** |
-| **Timed Focus Sprints (25/45/60m)**| None | `extension/popup.js:228`, `extension/background.js:416` | `core/views.py:577`, `core/models.py:199` | `POST /api/sessions/`, `FocusSession`, `chrome.alarms` | **PASS (Fully Verified)** |
-| **Per-Site Daily Limit Configuration**| `dashboard/core/templates/dashboard.html:1212` | `extension/popup.js:245` | `core/views.py:467`, `core/serializers.py:135`, `core/models.py:174` | `GET/POST/PATCH/DELETE /api/limits/`, `SiteLimit` | **PASS (Fully Verified)** |
-| **Dynamic Domain Categorization**| None | `extension/popup.js:141` | `core/models.py:106` (`classify_domain`) | `CATEGORY_MAP`, `UserProfile.persona`, academic domain regex | **PASS (Fully Verified)** |
-| **User Category Overrides** | `dashboard/core/templates/dashboard.html:1261` | None | `core/views.py:526`, `core/serializers.py:152`, `core/models.py:153` | `GET/POST/DELETE /api/categories/`, `CategoryOverride` | **PASS (Fully Verified)** |
-| **7-Day Analytics & Charting** | `dashboard/core/templates/dashboard.html:913` | None | `core/views.py:213` | `GET /api/summary/`, `UsageLog`, Chart.js 4.4 | **PASS (Fully Verified)** |
-| **Strict Streak Calculation** | `dashboard/core/templates/dashboard.html:874` | `extension/popup.js:61` | `core/views.py:294` | `GET /api/summary/`, `UsageLog`, `SiteLimit`, `UserSettings` | **PASS (Fully Verified)** |
-| **Focus Goal Ring (3h Default)** | `dashboard/core/templates/dashboard.html:890` | None | `core/views.py:213`, `core/models.py:253` | `UserSettings.focus_goal_minutes`, SVG `stroke-dasharray` | **PASS (Fully Verified)** |
-| **Dual-Theme System (Calm Sky / Opal Noir)**| `dashboard/core/templates/*.html`, `core/static/css/theme.css` | `extension/popup.html`, `extension/blocked.html`, `theme.css` | None | CSS custom properties, `localStorage['driftless-theme']` | **PASS (Fully Verified)** |
-| **Demo vs. Live Data Switcher**| `dashboard/core/templates/dashboard.html:786` | None | `core/management/commands/seed_demo.py` | Client toggle switching between fallback demo payload and `/api/summary/` | **PASS (Fully Verified)** |
-| **1-Click Data Export (JSON)** | `dashboard/core/templates/dashboard.html:1285` | None | `core/views.py:603` | `GET /api/data/export/`, `UsageLog`, `SiteLimit`, `FocusSession` | **PASS (Fully Verified)** |
-| **1-Click Browsing History Erasure**| `dashboard/core/templates/dashboard.html:1289` | `extension/popup.js:318` | `core/views.py:632` | `POST /api/data/delete/`, `RESET_ALL_TIMERS` message | **PASS (Fully Verified)** |
-
----
-
-## 2. Multi-File Component Cooperation Analysis
-
-### 2.1. Cooperating Modules: Per-Site Limits Enforcement
-A user configures a 25-minute limit on `reddit.com`. Here is how the files cooperate:
-1. **Creation (`dashboard.html` or `popup.js`):** The user enters the domain and limit. An asynchronous `POST /api/limits/` is dispatched to the Django backend.
-2. **Persistence (`core/views.py` & `core/models.py`):** The DRF view validates `1 <= daily_limit_minutes <= 1440` and updates the `SiteLimit` record in `db.sqlite3`.
-3. **Synchronization (`background.js`):** During the next 60-second pull cycle, `pullBackendConfig()` requests `GET /api/limits/` and caches the limit in `chrome.storage.local.set({ siteLimits })`.
-4. **Enforcement (`background.js`):** As the user spends time on `reddit.com`, `evaluateSiteLimits()` tracks accumulated seconds against 25 minutes. At 20 minutes (80%), a desktop nudge is created. At 25 minutes (100%), an alert is shown. At 30 minutes (100% + 5m), a DNR redirect rule is created.
-5. **Interception (`blocked.html`):** Future requests to `reddit.com` are caught by Chrome's network engine and redirected to `chrome-extension://.../blocked.html?site=reddit.com`.
-6. **Analytics (`views.py` & `dashboard.html`):** The dashboard `/api/summary/` checks `reddit.com` against the `SiteLimit`. If exceeded, it breaks the consecutive daily streak.
-
----
-
-### 2.2. Cooperating Modules: Persona-Driven Onboarding
-1. **Registration UI (`auth.html`):** The user registers, choosing persona `"influencer"`.
-2. **Validation & Defaults (`core/serializers.py`):** `RegisterSerializer` calls `apply_persona_defaults()`, seeding initial `SiteLimit` records (e.g. Netflix: 30m, Twitch: 25m, Reddit: 20m).
-3. **Classification (`core/models.py`):** `classify_domain()` checks `user.profile.persona`. When the influencer browses `instagram.com` or `youtube.com`, the engine categorizes it as `Productivity` instead of `Social` or `Entertainment`.
-4. **Visualization (`dashboard.html`):** Time spent on Instagram is rendered in emerald green on the 7-day chart, increasing the user's Focus Efficiency score.
-
----
-
-## 3. Implementation State Classifications
-
-- **Verified Live Full-Stack Features:**
-  - Multi-identifier authentication, Token auth, persona seeding.
-  - Periodic delta ingestion, SQLite persistence, and aggregation.
-  - Per-site limits, category overrides, and data export/deletion.
-  - Active tab tracking, 3-tier escalation, DNR blocking, and focus sprint timers.
-  - Calm Sky & Opal Noir dual-theme styling across dashboard, popup, and blocked screen.
-- **Client-Side Isolated Features:**
-  - Timer countdown ticker (`popup.js` `setInterval`).
-  - Active window focus and 60-second idle detection (`chrome.idle`).
-  - FOUC-prevention scripts in HTML `<head>`.
-- **Demo Mode Fallback:**
-  - The dashboard includes a built-in toggle (`Demo` vs. `Live`). In Demo mode, it renders a 14-day sample payload without requiring an active server connection. In Live mode, it fetches directly from `/api/summary/`.
+| Feature | What It Does (Plain English) | Files Implementing It | Functions / Handlers | API Endpoints | Database Tables | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **User Registration** | Validates email format, creates account, seeds demo gamification, logs user in immediately. | `dashboard/core/views.py`<br>`dashboard/core/serializers.py`<br>`dashboard/core/templates/auth.html` | `register_view()`<br>`RegisterSerializer.create()`<br>`handleRegister()` | `POST /api/auth/register/` | `auth_user`<br>`core_userprofile`<br>`core_usersettings` | `IMPLEMENTED AND TESTED` |
+| **Multi-Identifier Login** | Authenticates user via username, email address, or phone number. | `dashboard/core/views.py`<br>`dashboard/core/templates/auth.html` | `login_view()`<br>`handleLogin()` | `POST /api/auth/login/` | `auth_user`<br>`core_userprofile`<br>`authtoken_token` | `IMPLEMENTED AND TESTED` |
+| **Google Sign-In** | Authorizes user via Google Identity Services token or Quick Demo modal. | `dashboard/core/views.py`<br>`dashboard/core/templates/auth.html` | `google_auth_view()`<br>`handleGoogleCredentialResponse()` | `POST /api/auth/google/` | `auth_user`<br>`core_userprofile`<br>`authtoken_token` | `IMPLEMENTED AND TESTED` |
+| **Token Regeneration** | Issues a fresh DRF authentication token, invalidating old sessions. | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `regenerate_token_view()`<br>`regenerateToken()` | `POST /api/auth/regenerate-token/` | `authtoken_token` | `IMPLEMENTED AND TESTED` |
+| **1-Second Precision Heartbeat** | Emits active dwell tick every 1000ms while tab is focused; bypasses service worker throttling. | `extension/content.js` | `sendTick()`<br>`startHeartbeat()`<br>`handleStateChange()` | None (Extension internal) | None (Local tab state) | `IMPLEMENTED, NOT TESTED` |
+| **Passive Dwell Accumulation** | Aggregates active seconds per domain; ignores inactive background tabs and idle periods. | `extension/background.js` | `onMessage` handler (`PAGE_HEARTBEAT_TICK`)<br>`commitActiveTime()` | None (Extension internal) | `chrome.storage.local` (`siteTimes`) | `IMPLEMENTED, NOT TESTED` |
+| **80% Nudge Notification** | Sends a gentle desktop notification when user reaches 80% of their daily site limit. | `extension/background.js` | `sendNudgeNotification()`<br>`evaluateSiteLimits()` | None | `chrome.storage.local` (`escalationState`) | `IMPLEMENTED, NOT TESTED` |
+| **100% Limit Hard Block** | Dispatches desktop alert and injects Declarative Net Request block rule when 100% reached. | `extension/background.js`<br>`extension/blocked.html` | `sendLimitReachedNotification()`<br>`blockDomainViaDNR()` | None | `chrome.storage.local`<br>DNR Rules 1000..1999 | `IMPLEMENTED, NOT TESTED` |
+| **Midnight Dwell Reset** | Automatically resets daily dwell counters and clears DNR limit blocks at 00:00:00. | `extension/background.js` | `performMidnightReset()`<br>`scheduleMidnightReset()` | None | `chrome.storage.local` (`siteTimes`) | `IMPLEMENTED, NOT TESTED` |
+| **Manual Focus Mode** | Instant 1-click toggle blocking all distracting sites via dynamic DNR rules. | `extension/popup.js`<br>`extension/background.js`<br>`dashboard/core/templates/dashboard.html` | `toggleFocusMode()`<br>`enableFocusMode()`<br>`disableFocusMode()` | `PATCH /api/settings/` | `core_usersettings`<br>DNR Rules 100..899 | `IMPLEMENTED AND TESTED` |
+| **Scheduled Focus Mode** | Lets user set start & end times; auto-engages focus mode during scheduled hours. | `extension/popup.html`<br>`extension/popup.js`<br>`extension/background.js`<br>`dashboard/core/models.py` | `saveScheduleTimes()`<br>`updateScheduleAlarms()`<br>`evaluateScheduleState()` | `PATCH /api/settings/` | `core_usersettings`<br>(`schedule_start`, `schedule_end`) | `IMPLEMENTED, NOT TESTED` |
+| **Pomodoro Focus Sprints** | 25-minute deep focus sprint followed by 5-minute restorative break with notification. | `extension/popup.html`<br>`extension/popup.js`<br>`extension/background.js` | `startPomodoro()`<br>`stopPomodoro()`<br>`alarmListener` (`ALARM_POMODORO`) | `POST /api/sessions/` | `core_focussession`<br>`chrome.storage.local` | `IMPLEMENTED, NOT TESTED` |
+| **Shorts & Reels Blocker** | Blocks short-form video paths on YouTube (`/shorts*`) and Instagram (`/reels*`) for Student persona. | `extension/popup.html`<br>`extension/popup.js`<br>`extension/background.js` | `toggleShortsReels()`<br>`updateShortsReelsRules()`<br>`isShortsOrReelsUrl()` | None | DNR Rules 2001..2002<br>`chrome.storage.local` | `IMPLEMENTED, NOT TESTED` |
+| **Extension Welcome & Persona** | Displays onboarding screen on initial install; lets user choose persona and seeds site lists. | `extension/popup.html`<br>`extension/popup.js` | `checkOnboarding()`<br>`savePersonaAndProceed()` | `PATCH /api/settings/` | `chrome.storage.local` (`userPersona`) | `IMPLEMENTED, NOT TESTED` |
+| **Dashboard Persona Selector** | Dropdown on dashboard to switch persona; dynamically adjusts site presets. | `dashboard/core/templates/dashboard.html`<br>`dashboard/core/views.py`<br>`dashboard/core/serializers.py` | `onPersonaChange()`<br>`settings_view()`<br>`apply_persona_defaults()` | `PATCH /api/settings/` | `core_userprofile`<br>`core_usersettings` | `IMPLEMENTED AND TESTED` |
+| **Site Lists Configuration** | Lets user add/delete distracting and productive sites with instant storage and cloud sync. | `extension/popup.js`<br>`extension/background.js`<br>`dashboard/core/templates/dashboard.html` | `addSite()`<br>`deleteSite()`<br>`saveSettings()` | `PATCH /api/settings/` | `core_usersettings`<br>(`blocked_sites`, `allowed_sites`) | `IMPLEMENTED AND TESTED` |
+| **Custom Site Limits (CRUD)** | Allows custom per-domain time limits (e.g. reddit.com: 20 mins) via modal. | `extension/popup.js`<br>`dashboard/core/views.py`<br>`dashboard/core/models.py` | `saveCustomLimit()`<br>`limits_list_create_view()`<br>`limits_detail_view()` | `GET/POST /api/limits/`<br>`PATCH/DELETE /api/limits/<id>/` | `core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Domain Categorization** | Automatically categorizes domains as Productive, Distracting, or Others based on master map. | `dashboard/core/models.py`<br>`dashboard/core/views.py` | `classify_domain()`<br>`clean_domain()` | None | `CATEGORY_MAP`<br>`core_categoryoverride` | `IMPLEMENTED AND TESTED` |
+| **Usage Delta Batch Ingestion** | Periodically transmits local browsing time deltas to cloud backend (15m alarm or manual). | `extension/background.js`<br>`dashboard/core/views.py`<br>`dashboard/core/serializers.py` | `syncToBackend()`<br>`usage_log_view()`<br>`UsageLogSerializer` | `POST /api/usage/` | `core_usagelog` | `IMPLEMENTED AND TESTED` |
+| **Unified Analytics Summary** | Computes 7-day category totals, focus efficiency, streak count, and daily breakdowns. | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `summary_view()`<br>`renderDashboard()`<br>`updateCharts()` | `GET /api/summary/` | `core_usagelog`<br>`core_sitelimit`<br>`core_usersettings` | `IMPLEMENTED AND TESTED` |
+| **Strict Streak Calculation** | Computes consecutive days where user stayed within all limits and achieved focus goals. | `dashboard/core/views.py` | `summary_view()` (streak loop) | `GET /api/summary/` | `core_usagelog`<br>`core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Green Grove 30-Day Forest** | Forest visual: grown tree (success), withered tree (limit breached), empty spot (no data). | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `summary_view()` (`grove` array builder)<br>`renderGrove()` | `GET /api/summary/` | `core_usagelog`<br>`core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Gamified Level & Badges** | Tracks XP, levels, and unlocks 3D metallic badges (Zen Master, Deep Worker, Iron Will). | `dashboard/core/models.py`<br>`dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `seed_demo_gamification()`<br>`summary_view()` | `GET /api/summary/` | `core_userprofile`<br>(`level`, `xp`, badges) | `IMPLEMENTED AND TESTED` |
+| **Priority To-Do Planner** | Fast daily task manager in sidebar with completion counter and strike-through styling. | `dashboard/core/templates/dashboard.html` | `renderTodos()`<br>`addPriorityTodo()`<br>`toggleTodo()`<br>`deleteTodo()` | None (Client-side) | `localStorage`<br>(`driftless_priority_todos`) | `IMPLEMENTED, NOT TESTED` |
+| **Data Privacy & Erasure** | 1-Click JSON data export and total browsing history deletion. | `dashboard/core/views.py`<br>`dashboard/core/templates/dashboard.html` | `data_export_view()`<br>`data_delete_view()`<br>`exportData()`<br>`deleteData()` | `GET /api/data/export/`<br>`POST /api/data/delete/` | `core_usagelog`<br>`core_focussession`<br>`core_sitelimit` | `IMPLEMENTED AND TESTED` |
+| **Email OTP Verification** | Email 6-digit code dispatch for verification and password reset. | None (Removed) | None | None | Dropped in migration 0009 | `NOT BUILT` |
+| **Physical / Monetary Prizes** | Real trees planted, cash prizes, gift cards, or physical shipments. | None | None | None | None | `NOT BUILT` |

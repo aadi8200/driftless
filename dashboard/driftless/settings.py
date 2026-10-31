@@ -11,11 +11,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'driftless-dev-secret-change-in-production-
 
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-hosts_env = os.getenv('ALLOWED_HOSTS', '*')
-if hosts_env == '*':
-    ALLOWED_HOSTS = ['*']
-else:
-    ALLOWED_HOSTS = [h.strip() for h in hosts_env.split(',') if h.strip()]
+ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -125,6 +121,7 @@ else:
         'https://*.trycloudflare.com',
         'https://*.pythonanywhere.com',
         'https://*.onrender.com',
+        'https://driftless-g5cb.onrender.com',
         'http://127.0.0.1:8000',
         'http://localhost:8000',
         'http://localhost',
@@ -132,7 +129,7 @@ else:
     ]
 
 # ── CORS — allow Chrome extensions and remote sharing ─────────────────────────
-CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1')
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^chrome-extension://.*$',

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320" style="background:#ffffff; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <defs>
+    <marker id="authArrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
+    </marker>
+  </defs>
+  <text x="450" y="30" text-anchor="middle" font-size="18" font-weight="bold" fill="#0f172a">WORKFLOW 5: Streamlined Authentication &amp; Persona Onboarding</text>
+  <text x="450" y="50" text-anchor="middle" font-size="12" fill="#64748b">Direct Registration + Google Sign-In + Extension Welcome Screen</text>
+
+  <!-- Box 1: UI Input -->
+  <rect x="30" y="80" width="180" height="210" rx="10" fill="#f8fafc" stroke="#cbd5e1" />
+  <rect x="40" y="90" width="160" height="24" rx="4" fill="#2563eb" />
+  <text x="120" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">1. User Signup / Login</text>
+  <text x="45" y="130" font-size="10" font-weight="bold" fill="#0f172a">auth.html Interface</text>
+  <text x="45" y="148" font-size="9" fill="#475569">• Option A: Continue with Google</text>
+  <text x="45" y="163" font-size="9" fill="#475569">• Option B: Username &amp; Email</text>
+  <text x="45" y="180" font-size="9" fill="#2563eb">Frontend Validation:</text>
+  <text x="45" y="195" font-size="9" fill="#475569">Strict regex check for valid domain</text>
+  <text x="45" y="210" font-size="9" fill="#475569">(Blocks invalid strings before submit)</text>
+
+  <!-- Box 2: Backend Processing -->
+  <rect x="250" y="80" width="190" height="210" rx="10" fill="#eff6ff" stroke="#bfdbfe" />
+  <rect x="260" y="90" width="170" height="24" rx="4" fill="#0284c7" />
+  <text x="345" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">2. Backend Verification</text>
+  <text x="265" y="130" font-size="10" font-weight="bold" fill="#0369a1">views.py: register_view</text>
+  <text x="265" y="148" font-size="9" fill="#475569">1. Django EmailValidator check</text>
+  <text x="265" y="163" font-size="9" fill="#475569">2. Creates User record</text>
+  <text x="265" y="178" font-size="9" fill="#475569">3. Sets is_verified = True</text>
+  <text x="265" y="193" font-size="9" fill="#475569">4. Seeds Level 5 demo gamification</text>
+  <text x="265" y="208" font-size="9" fill="#475569">5. Generates DRF Auth Token</text>
+  <text x="265" y="223" font-size="9" fill="#16a34a">6. Immediate 201 redirect to dashboard</text>
+
+  <!-- Box 3: Dashboard Access -->
+  <rect x="480" y="80" width="190" height="210" rx="10" fill="#f0fdf4" stroke="#bbf7d0" />
+  <rect x="490" y="90" width="170" height="24" rx="4" fill="#16a34a" />
+  <text x="575" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">3. Web Dashboard Ready</text>
+  <text x="495" y="130" font-size="10" font-weight="bold" fill="#14532d">dashboard.html</text>
+  <text x="495" y="148" font-size="9" fill="#475569">• Full 3D Neumorphic dashboard</text>
+  <text x="495" y="163" font-size="9" fill="#475569">• Copies API Token to extension</text>
+  <text x="495" y="178" font-size="9" fill="#475569">• Displays 3D badges in sidebar</text>
+  <text x="495" y="193" font-size="9" fill="#475569">• Green Grove forest initialized</text>
+
+  <!-- Box 4: Extension Onboarding -->
+  <rect x="710" y="80" width="160" height="210" rx="10" fill="#fdf4ff" stroke="#f5d0fe" />
+  <rect x="720" y="90" width="140" height="24" rx="4" fill="#a855f7" />
+  <text x="790" y="106" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff">4. Extension Persona</text>
+  <text x="725" y="130" font-size="10" font-weight="bold" fill="#701a75">Welcome Screen</text>
+  <text x="725" y="148" font-size="9" fill="#475569">• Step 1: "Welcome to Driftless"</text>
+  <text x="725" y="163" font-size="9" fill="#475569">• Step 2: "Who are you?"</text>
+  <text x="725" y="178" font-size="9" fill="#475569">• Selects Student/Professional</text>
+  <text x="725" y="193" font-size="9" fill="#475569">• Seeds recommended sites</text>
+  <text x="725" y="208" font-size="9" fill="#16a34a">• Never shows again</text>
+
+  <!-- Connectors -->
+  <line x1="210" y1="185" x2="250" y2="185" stroke="#2563eb" stroke-width="2" marker-end="url(#authArrow)" />
+  <line x1="440" y1="185" x2="480" y2="185" stroke="#2563eb" stroke-width="2" marker-end="url(#authArrow)" />
+  <line x1="670" y1="185" x2="710" y2="185" stroke="#2563eb" stroke-width="2" marker-end="url(#authArrow)" />
+</svg>

@@ -12,7 +12,7 @@ const ALARM_POMODORO           = 'driftless_pomodoro';
 const FOCUS_RULE_BASE_ID       = 100;    // Dynamic rules 100..899 for Focus Mode
 const LIMIT_BLOCK_RULE_BASE_ID = 1000;   // Dynamic rules 1000..1999 for 100% limit reached
 const SHORTS_REELS_RULE_BASE_ID = 2000;  // Dynamic rules 2000..2009 for Shorts & Reels blocking
-const DEFAULT_SERVER_URL       = 'http://127.0.0.1:8000';
+const DEFAULT_SERVER_URL       = 'https://driftless-g5cb.onrender.com';
 
 const PERSONA_DEFAULTS = {
   Student: {
@@ -643,6 +643,23 @@ chrome.windows.onFocusChanged.addListener(async windowId => {
       isUserActive
     }
   });
+});
+
+// ── Incognito Blocker (Anti-Cheat for Focus Mode) ───────────────────────────
+chrome.windows.onCreated.addListener(async (win) => {
+  if (win && win.incognito) {
+    try {
+      const { focusModeActive = false, pomodoroState = 'idle', pomodoroMode = 'work' } =
+        await chrome.storage.local.get(['focusModeActive', 'pomodoroState', 'pomodoroMode']);
+      const isFocusStrict = !!focusModeActive || (pomodoroState === 'running' && pomodoroMode === 'work');
+      if (isFocusStrict) {
+        await chrome.windows.remove(win.id);
+        console.log("Cheat attempt blocked: Closed Incognito window");
+      }
+    } catch (err) {
+      console.error("Error evaluating incognito window:", err);
+    }
+  }
 });
 
 // Idle Detection
