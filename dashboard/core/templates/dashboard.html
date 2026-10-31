@@ -74,18 +74,46 @@
       outline-offset: 2px;
     }
 
-    /* ── Sidebar ─────────────────────────────────────────────── */
-    aside {
-      background: var(--sidebar-bg) !important;
-      border-color: var(--border) !important;
-      transition: background 0.25s ease, border-color 0.25s ease;
+    /* ── 3D / Premium Tokens (Neumorphism & Glassmorphism) ───── */
+    :root {
+      --card-3d-shadow: 8px 8px 18px rgba(0, 0, 0, 0.05), -6px -6px 16px rgba(255, 255, 255, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      --card-3d-hover: 12px 14px 26px rgba(0, 0, 0, 0.08), -8px -8px 20px rgba(255, 255, 255, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      --inner-well-3d: inset 2px 2px 5px rgba(0, 0, 0, 0.05), inset -2px -2px 5px rgba(255, 255, 255, 0.8);
+    }
+    [data-theme="dark"] {
+      --card-3d-shadow: 8px 8px 22px rgba(0, 0, 0, 0.45), -4px -4px 14px rgba(255, 255, 255, 0.025), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      --card-3d-hover: 12px 14px 30px rgba(0, 0, 0, 0.6), -6px -6px 18px rgba(255, 255, 255, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      --inner-well-3d: inset 2px 2px 5px rgba(0, 0, 0, 0.5), inset -1px -1px 3px rgba(255, 255, 255, 0.03);
     }
 
-    /* ── Top Header ──────────────────────────────────────────── */
-    header {
-      background: var(--header-bg) !important;
-      border-color: var(--border) !important;
+    /* ── Sidebar (Glassmorphism + Blur) ──────────────────────── */
+    aside {
+      background: rgba(255, 255, 255, 0.75) !important;
+      backdrop-filter: blur(14px) saturate(180%);
+      -webkit-backdrop-filter: blur(14px) saturate(180%);
+      border-color: rgba(226, 232, 240, 0.7) !important;
       transition: background 0.25s ease, border-color 0.25s ease;
+    }
+    [data-theme="dark"] aside {
+      background: rgba(19, 27, 46, 0.78) !important;
+      backdrop-filter: blur(14px) saturate(180%);
+      -webkit-backdrop-filter: blur(14px) saturate(180%);
+      border-color: rgba(30, 41, 59, 0.7) !important;
+    }
+
+    /* ── Top Header (Glassmorphism + Blur) ───────────────────── */
+    header {
+      background: rgba(255, 255, 255, 0.82) !important;
+      backdrop-filter: blur(14px) saturate(180%);
+      -webkit-backdrop-filter: blur(14px) saturate(180%);
+      border-color: rgba(226, 232, 240, 0.7) !important;
+      transition: background 0.25s ease, border-color 0.25s ease;
+    }
+    [data-theme="dark"] header {
+      background: rgba(19, 27, 46, 0.82) !important;
+      backdrop-filter: blur(14px) saturate(180%);
+      -webkit-backdrop-filter: blur(14px) saturate(180%);
+      border-color: rgba(30, 41, 59, 0.7) !important;
     }
 
     /* ── Nav Links ───────────────────────────────────────────── */
@@ -97,11 +125,13 @@
     .nav-link:hover {
       background: var(--pri-light);
       color: var(--pri);
+      transform: translateX(3px);
     }
     .nav-link.active {
       background: var(--pri-light);
       color: var(--pri);
       font-weight: 700;
+      box-shadow: 0 2px 8px rgba(100, 99, 224, 0.12);
     }
     .nav-link.active .nav-indicator { opacity: 1; }
     .nav-indicator {
@@ -110,26 +140,89 @@
       transition: opacity 0.18s ease;
     }
 
-    /* ── Hero Gradient Card ──────────────────────────────────── */
+    /* ── 3D Elevated Hero Gradient Card ──────────────────────── */
     .hero-card {
       background: var(--hero-grad, var(--grad));
       color: white;
       border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
+      box-shadow: 0 14px 30px rgba(99, 102, 241, 0.28), 0 4px 10px rgba(0, 0, 0, 0.05);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+    }
+    .hero-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 36px rgba(99, 102, 241, 0.35);
     }
 
-    /* ── KPI Cards ───────────────────────────────────────────── */
-    .kpi-card {
+    /* ── 3D Elevated Tactile Cards (KPIs, Charts, Grove, Distractions) ── */
+    .kpi-card, .chart-container, .theme-card, .grove-card, .distraction-card, .settings-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      box-shadow: var(--shadow-sm);
-      transition: box-shadow 0.22s ease, transform 0.22s ease, background 0.25s ease, border-color 0.25s ease;
+      box-shadow: var(--card-3d-shadow);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.25s ease, border-color 0.25s ease;
     }
-    .kpi-card:hover {
-      box-shadow: var(--shadow);
-      transform: translateY(-2px);
+    .kpi-card:hover, .chart-container:hover, .grove-card:hover, .distraction-card:hover, .settings-card:hover {
+      box-shadow: var(--card-3d-hover);
+      transform: translateY(-3px);
     }
+
+    /* ── Priority To-Do Widget 3D Elements ───────────────────── */
+    .todo-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      box-shadow: var(--card-3d-shadow);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .todo-item:hover {
+      box-shadow: var(--card-3d-hover);
+      transform: translateX(2px);
+    }
+    .todo-item.completed {
+      opacity: 0.65;
+      background: var(--bg);
+    }
+    .todo-item.completed .todo-text {
+      text-decoration: line-through;
+      color: var(--ink-subtle);
+    }
+    .todo-checkbox {
+      width: 15px; height: 15px;
+      border-radius: 4px;
+      accent-color: var(--pri);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .todo-text {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink);
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      user-select: none;
+    }
+    .todo-delete-btn {
+      opacity: 0;
+      width: 18px; height: 18px;
+      border: none;
+      background: transparent;
+      color: var(--ink-subtle);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .todo-item:hover .todo-delete-btn { opacity: 1; }
+    .todo-delete-btn:hover { color: var(--ent); background: rgba(244,63,94,0.1); }
 
     /* ── Generic card surface ────────────────────────────────── */
     .theme-card {
@@ -273,15 +366,247 @@
       background: rgba(52,211,153,0.1);
       color: #34d399;
     }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       GAMIFIED LEVEL & BADGE SYSTEM (PREMIUM 3D & SHINY METALLIC STYLING)
+       ═══════════════════════════════════════════════════════════════════════ */
+    .gamify-card {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(14px) saturate(180%);
+      -webkit-backdrop-filter: blur(14px) saturate(180%);
+      border-color: rgba(226, 232, 240, 0.85);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    [data-theme="dark"] .gamify-card {
+      background: rgba(19, 27, 46, 0.65);
+      backdrop-filter: blur(14px) saturate(180%);
+      -webkit-backdrop-filter: blur(14px) saturate(180%);
+      border-color: rgba(30, 41, 59, 0.85);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Level pill badge */
+    .lvl-badge {
+      background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+      color: #FFFFFF;
+      box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+      letter-spacing: 0.02em;
+    }
+
+    /* XP Progress Bar animated glowing shimmer */
+    @keyframes xpShimmer {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    .xp-bar-shimmer {
+      background-size: 200% 200% !important;
+      animation: xpShimmer 3.5s ease infinite;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.45);
+    }
+
+    /* ── 3D & SHINY METALLIC BADGE CARDS ─────────────────────────────────── */
+    .badge-3d {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 9px 4px 7px;
+      border-radius: 14px;
+      cursor: pointer;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+      user-select: none;
+    }
+
+    /* Diagonal glossy sheen light sweep on hover */
+    .badge-sheen {
+      position: absolute;
+      top: -20%;
+      left: -120%;
+      width: 60%;
+      height: 140%;
+      background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.65) 50%, transparent 100%);
+      transform: rotate(25deg);
+      pointer-events: none;
+      transition: left 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 2;
+    }
+    .badge-3d:hover .badge-sheen {
+      left: 170%;
+    }
+
+    .badge-icon-wrap {
+      position: relative;
+      z-index: 1;
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 5px;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .badge-3d:hover .badge-icon-wrap {
+      transform: scale(1.15) translateY(-1px);
+    }
+
+    .badge-emoji {
+      font-size: 19px;
+      line-height: 1;
+      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.18));
+    }
+
+    .badge-info {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      width: 100%;
+      padding: 0 2px;
+    }
+    .badge-title {
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .badge-desc {
+      font-size: 8px;
+      font-weight: 600;
+      opacity: 0.8;
+      letter-spacing: -0.1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+
+    /* 🧘‍♂️ GOLD / ZEN MASTER (10-day streak) */
+    .badge-gold {
+      background: linear-gradient(145deg, #FFFDF5 0%, #FEF3C7 35%, #FDE68A 70%, #F59E0B 100%);
+      border: 1.5px solid #FCD34D;
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.95),
+                  inset 0 -2px 3px rgba(180, 83, 9, 0.22),
+                  0 4px 10px rgba(245, 158, 11, 0.16);
+      color: #78350F;
+    }
+    .badge-gold .badge-icon-wrap {
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(254, 240, 138, 0.6) 100%);
+      box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25), inset 0 1px 1px #FFFFFF;
+    }
+    .badge-gold:hover {
+      transform: translateY(-3.5px) scale(1.04);
+      border-color: #F59E0B;
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 1),
+                  inset 0 -2px 3px rgba(180, 83, 9, 0.35),
+                  0 8px 18px rgba(245, 158, 11, 0.42);
+    }
+    [data-theme="dark"] .badge-gold {
+      background: linear-gradient(145deg, #2A1D06 0%, #452E0B 40%, #78350F 100%);
+      border-color: #D97706;
+      box-shadow: inset 0 1px 1.5px rgba(254, 243, 199, 0.35),
+                  inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                  0 4px 12px rgba(245, 158, 11, 0.22);
+      color: #FDE68A;
+    }
+    [data-theme="dark"] .badge-gold .badge-icon-wrap {
+      background: rgba(245, 158, 11, 0.18);
+      box-shadow: inset 0 1px 1px rgba(254, 243, 199, 0.3);
+    }
+    [data-theme="dark"] .badge-gold:hover {
+      box-shadow: inset 0 1.5px 2px rgba(254, 243, 199, 0.5),
+                  0 8px 20px rgba(245, 158, 11, 0.45);
+    }
+
+    /* 🧠 SAPPHIRE / DEEP WORKER (2 hours pure focus) */
+    .badge-sapphire {
+      background: linear-gradient(145deg, #F8FAFF 0%, #DBEAFE 35%, #BFDBFE 70%, #3B82F6 100%);
+      border: 1.5px solid #93C5FD;
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.95),
+                  inset 0 -2px 3px rgba(29, 78, 216, 0.22),
+                  0 4px 10px rgba(59, 130, 246, 0.16);
+      color: #1E3A8A;
+    }
+    .badge-sapphire .badge-icon-wrap {
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(191, 219, 254, 0.6) 100%);
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25), inset 0 1px 1px #FFFFFF;
+    }
+    .badge-sapphire:hover {
+      transform: translateY(-3.5px) scale(1.04);
+      border-color: #3B82F6;
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 1),
+                  inset 0 -2px 3px rgba(29, 78, 216, 0.35),
+                  0 8px 18px rgba(59, 130, 246, 0.42);
+    }
+    [data-theme="dark"] .badge-sapphire {
+      background: linear-gradient(145deg, #0A192F 0%, #172554 40%, #1E3A8A 100%);
+      border-color: #3B82F6;
+      box-shadow: inset 0 1px 1.5px rgba(191, 219, 254, 0.35),
+                  inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                  0 4px 12px rgba(59, 130, 246, 0.22);
+      color: #BFDBFE;
+    }
+    [data-theme="dark"] .badge-sapphire .badge-icon-wrap {
+      background: rgba(59, 130, 246, 0.18);
+      box-shadow: inset 0 1px 1px rgba(191, 219, 254, 0.3);
+    }
+    [data-theme="dark"] .badge-sapphire:hover {
+      box-shadow: inset 0 1.5px 2px rgba(191, 219, 254, 0.5),
+                  0 8px 20px rgba(59, 130, 246, 0.45);
+    }
+
+    /* 🛡️ EMERALD / IRON WILL (Distraction Slayer / Immediate close) */
+    .badge-emerald {
+      background: linear-gradient(145deg, #F6FEF9 0%, #D1FAE5 35%, #A7F3D0 70%, #10B981 100%);
+      border: 1.5px solid #6EE7B7;
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.95),
+                  inset 0 -2px 3px rgba(4, 120, 87, 0.22),
+                  0 4px 10px rgba(16, 185, 129, 0.16);
+      color: #064E3B;
+    }
+    .badge-emerald .badge-icon-wrap {
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.9) 0%, rgba(167, 243, 208, 0.6) 100%);
+      box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25), inset 0 1px 1px #FFFFFF;
+    }
+    .badge-emerald:hover {
+      transform: translateY(-3.5px) scale(1.04);
+      border-color: #10B981;
+      box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 1),
+                  inset 0 -2px 3px rgba(4, 120, 87, 0.35),
+                  0 8px 18px rgba(16, 185, 129, 0.42);
+    }
+    [data-theme="dark"] .badge-emerald {
+      background: linear-gradient(145deg, #052319 0%, #064E3B 40%, #065F46 100%);
+      border-color: #10B981;
+      box-shadow: inset 0 1px 1.5px rgba(167, 243, 208, 0.35),
+                  inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                  0 4px 12px rgba(16, 185, 129, 0.22);
+      color: #A7F3D0;
+    }
+    [data-theme="dark"] .badge-emerald .badge-icon-wrap {
+      background: rgba(16, 185, 129, 0.18);
+      box-shadow: inset 0 1px 1px rgba(167, 243, 208, 0.3);
+    }
+    [data-theme="dark"] .badge-emerald:hover {
+      box-shadow: inset 0 1.5px 2px rgba(167, 243, 208, 0.5),
+                  0 8px 20px rgba(16, 185, 129, 0.45);
+    }
   </style>
 </head>
 <body class="flex min-h-screen" style="background:var(--bg); color:var(--ink);">
 
   <!-- ===================== DESKTOP SIDEBAR ===================== -->
-  <aside class="hidden lg:flex flex-col w-64 border-r flex-shrink-0 min-h-screen sticky top-0 h-screen select-none z-30" style="background:var(--sidebar-bg); border-color:var(--border);">
+  <aside class="hidden lg:flex flex-col w-64 border-r flex-shrink-0 min-h-screen sticky top-0 h-screen select-none z-30 overflow-y-auto overflow-x-hidden" style="background:var(--sidebar-bg); border-color:var(--border);">
 
     <!-- Brand -->
-    <div class="flex items-center gap-3 px-6 py-5 border-b" style="border-color:var(--border);">
+    <div class="flex items-center gap-3 px-5 py-4 border-b flex-shrink-0" style="border-color:var(--border);">
       <img src="/static/img/logo_symbol.png" alt="Driftless" class="w-9 h-9 object-contain rounded-xl shadow-sm">
       <div>
         <div class="text-base leading-tight font-extrabold" style="color:var(--ink); letter-spacing:-0.3px;">Driftless</div>
@@ -290,19 +615,91 @@
     </div>
 
     <!-- User Persona Badge -->
-    <div class="px-5 py-4">
-      <div class="sidebar-user-badge flex items-center gap-2.5 rounded-xl px-3 py-2.5 border" style="background:var(--bg); border-color:var(--border);">
+    <div class="px-4 pt-3 pb-2 flex-shrink-0">
+      <div class="sidebar-user-badge flex items-center gap-2.5 rounded-xl px-3 py-2 border" style="background:var(--bg); border-color:var(--border);">
         <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
              style="background:var(--grad);" id="userInitial">{{ username|first|upper }}</div>
         <div class="min-w-0">
           <div class="text-xs font-bold truncate" style="color:var(--ink);" id="sidebarUsername">{{ username }}</div>
-          <div class="font-medium capitalize" style="font-size:10.5px; color:var(--ink-muted);">Persona: <span class="font-semibold" style="color:var(--pri);">{{ persona|default:"Student" }}</span></div>
+          <div class="font-medium capitalize" style="font-size:10px; color:var(--ink-muted);">Persona: <span class="font-semibold" style="color:var(--pri);">{{ persona|default:"Student" }}</span></div>
         </div>
       </div>
     </div>
 
+    <!-- ═══ GAMIFIED LEVEL & BADGES WIDGET ═══ -->
+    <div class="px-4 pb-2.5 flex-shrink-0">
+      <div class="gamify-card rounded-2xl p-2.5 border relative overflow-hidden">
+        
+        <!-- Level & XP Header -->
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="lvl-badge font-black text-[10px] px-2 py-0.5 rounded-md flex items-center gap-1 tracking-tight">
+              <span class="text-[9px]">⭐</span>
+              <span id="sidebarUserLevel">LVL {{ level|default:"5" }}</span>
+            </span>
+            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Focus Adept</span>
+          </div>
+          <span class="text-[10px] font-black" style="color:var(--pri);" id="sidebarXpRatio">{{ xp_progress|default:"80" }}% XP</span>
+        </div>
+
+        <!-- Sleek Animated XP Progress Bar -->
+        <div class="w-full h-1.5 rounded-full overflow-hidden bg-slate-200/80 dark:bg-slate-700/60 p-[0.5px] shadow-inner mb-2.5">
+          <div id="sidebarXpBar" class="h-full rounded-full transition-all duration-1000 ease-out xp-bar-shimmer"
+               style="width: {{ xp_progress|default:'80' }}%; background: linear-gradient(90deg, #10B981 0%, #06B6D4 50%, #3B82F6 100%);"></div>
+        </div>
+
+        <!-- Badges Section Header -->
+        <div class="flex items-center justify-between mb-1.5 px-0.5">
+          <span class="uppercase font-black text-[8.5px] tracking-wider" style="color:var(--ink-subtle);">My Badges</span>
+          <span class="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">3 Unlocked</span>
+        </div>
+
+        <!-- 3D Shiny Badges Grid -->
+        <div class="grid grid-cols-3 gap-1.5">
+          
+          <!-- Badge 1: 🧘‍♂️ Zen Master (10-day streak - Gold / Yellow) -->
+          <div class="badge-3d badge-gold group" title="🧘‍♂️ Zen Master: 10-Day Focus Streak Maintained!">
+            <div class="badge-sheen"></div>
+            <div class="badge-icon-wrap">
+              <span class="badge-emoji">🧘‍♂️</span>
+            </div>
+            <div class="badge-info">
+              <div class="badge-title">Zen Master</div>
+              <div class="badge-desc">10d Streak</div>
+            </div>
+          </div>
+
+          <!-- Badge 2: 🧠 Deep Worker (2 hours pure focus - Blue / Sapphire) -->
+          <div class="badge-3d badge-sapphire group" title="🧠 Deep Worker: 2+ Hours of Undistracted Focus!">
+            <div class="badge-sheen"></div>
+            <div class="badge-icon-wrap">
+              <span class="badge-emoji">🧠</span>
+            </div>
+            <div class="badge-info">
+              <div class="badge-title">Deep Worker</div>
+              <div class="badge-desc">2h Focus</div>
+            </div>
+          </div>
+
+          <!-- Badge 3: 🛡️ Iron Will (Distraction Slayer - Silver / Emerald) -->
+          <div class="badge-3d badge-emerald group" title="🛡️ Iron Will: Immediately Closed Distracting Sites!">
+            <div class="badge-sheen"></div>
+            <div class="badge-icon-wrap">
+              <span class="badge-emoji">🛡️</span>
+            </div>
+            <div class="badge-info">
+              <div class="badge-title">Iron Will</div>
+              <div class="badge-desc">Site Shield</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
     <!-- Navigation (Dashboard Route Highlighted By Default) -->
-    <nav class="flex-1 px-3 py-1 space-y-1" aria-label="Main Navigation">
+    <nav class="px-3 py-1 space-y-1 flex-shrink-0" aria-label="Main Navigation">
       <div class="px-3 mb-2 uppercase font-bold" style="font-size:9.5px; letter-spacing:0.08em; color:var(--ink-subtle);">Main Navigation</div>
 
       <button id="nav-btn-dashboard" class="nav-link active w-full flex items-center gap-3 px-3 py-2.5 text-sm text-left relative" onclick="switchMainTab('dashboard')">
@@ -323,6 +720,31 @@
         Settings &amp; Rules
       </button>
     </nav>
+
+    <!-- Priority To-Do Planner Widget (Utilizing Left Sidebar Space) -->
+    <div class="px-3 py-3 border-t flex-1 flex flex-col min-h-0" style="border-color:var(--border);">
+      <div class="flex items-center justify-between px-1 mb-2">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs">⚡</span>
+          <span class="uppercase font-bold text-[10px] tracking-wider" style="color:var(--ink-subtle);">Daily Priorities</span>
+        </div>
+        <span id="todoBadge" class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full" style="background:var(--pri-light); color:var(--pri);">0/0</span>
+      </div>
+
+      <!-- Add Task Form -->
+      <form id="todoForm" class="flex items-center gap-1.5 mb-2 px-0.5" onsubmit="addPriorityTodo(event)">
+        <input type="text" id="todoInput" placeholder="Add priority task…"
+               class="flex-1 min-w-0 px-2.5 py-1.5 text-xs rounded-xl border focus:outline-none transition-all"
+               style="background:var(--bg); border-color:var(--border); color:var(--ink); font-size:11px;" />
+        <button type="submit" class="w-6 h-6 rounded-lg flex items-center justify-center text-white text-xs font-bold transition hover:scale-105 active:scale-95 shadow-sm flex-shrink-0"
+                style="background:var(--grad);" title="Add priority task">+</button>
+      </form>
+
+      <!-- Scrollable Task Checklist UI -->
+      <div id="todoListContainer" class="flex-1 overflow-y-auto space-y-1.5 pr-0.5" style="max-height: 220px;">
+        <!-- Checklist rendered dynamically -->
+      </div>
+    </div>
 
     <!-- Sidebar Footer -->
     <div class="px-5 py-4 border-t" style="border-color:var(--border);">
@@ -437,104 +859,57 @@
           </div>
         </div>
 
-        <!-- KPI STATS CARDS -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 3D KPI STATS CARDS (5 ELEVATED CARDS) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
           <!-- Focus Efficiency -->
           <div class="kpi-card p-5">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Focus Efficiency</span>
-              <span class="w-8 h-8 rounded-lg flex items-center justify-center text-emerald-600 bg-emerald-50">⚡</span>
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 shadow-sm">⚡</span>
             </div>
-            <div class="text-2xl font-extrabold" style="color:var(--ink);" id="kpiEfficiency">0%</div>
-            <div class="mt-2 text-xs text-slate-500" id="kpiEfficiencySub">Productive ratio</div>
+            <div class="text-2xl font-extrabold tracking-tight" style="color:var(--ink);" id="kpiEfficiency">0%</div>
+            <div class="mt-2 text-xs text-slate-500 font-medium" id="kpiEfficiencySub">Productive ratio</div>
           </div>
 
           <!-- Productive Time -->
           <div class="kpi-card p-5">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Productive Time</span>
-              <span class="w-8 h-8 rounded-lg flex items-center justify-center text-purple-600 bg-purple-50">🚀</span>
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-purple-600 bg-purple-50 dark:bg-purple-950/40 shadow-sm">🚀</span>
             </div>
-            <div class="text-2xl font-extrabold" style="color:var(--ink);" id="kpiProductive">0m</div>
-            <div class="mt-2 text-xs text-slate-500" id="kpiProductiveSub">Active focus hours</div>
+            <div class="text-2xl font-extrabold tracking-tight" style="color:var(--ink);" id="kpiProductive">0m</div>
+            <div class="mt-2 text-xs text-slate-500 font-medium" id="kpiProductiveSub">Active focus hours</div>
           </div>
 
-          <!-- Total Screen Time -->
+          <!-- Total Screen Time (Today) -->
           <div class="kpi-card p-5">
             <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Total Screen Time</span>
-              <span class="w-8 h-8 rounded-lg flex items-center justify-center text-amber-600 bg-amber-50">💻</span>
+              <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Today's Screen Time</span>
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-amber-600 bg-amber-50 dark:bg-amber-950/40 shadow-sm">💻</span>
             </div>
-            <div class="text-2xl font-extrabold" style="color:var(--ink);" id="kpiScreenTime">0m</div>
-            <div class="mt-2 text-xs text-slate-500" id="kpiScreenTimeSub">Tracked today</div>
+            <div class="text-2xl font-extrabold tracking-tight" style="color:var(--ink);" id="kpiScreenTime">0m</div>
+            <div class="mt-2 text-xs text-slate-500 font-medium" id="kpiScreenTimeSub">Tracked today</div>
+          </div>
+
+          <!-- Weekly Screen Time (NEW PROMINENT KPI CARD) -->
+          <div class="kpi-card p-5">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Weekly Screen Time</span>
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-sky-600 bg-sky-50 dark:bg-sky-950/40 shadow-sm">📊</span>
+            </div>
+            <div class="text-2xl font-extrabold tracking-tight" style="color:var(--ink);" id="kpiWeeklyScreenTime">0h 0m</div>
+            <div class="mt-2 text-xs text-slate-500 font-medium" id="kpiWeeklyScreenTimeSub">Last 7 days total</div>
           </div>
 
           <!-- Focus Blocks / Sessions -->
           <div class="kpi-card p-5">
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Focus Blocks</span>
-              <span class="w-8 h-8 rounded-lg flex items-center justify-center text-rose-600 bg-rose-50">🎯</span>
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-rose-600 bg-rose-50 dark:bg-rose-950/40 shadow-sm">🎯</span>
             </div>
-            <div class="text-2xl font-extrabold" style="color:var(--ink);" id="kpiSessions">0 Sessions</div>
-            <div class="mt-2 text-xs text-slate-500" id="kpiLongestSession">Longest: 0m</div>
-          </div>
-        </div>
-
-        <!-- GREEN GROVE CARD (Forest Visual Progress) -->
-        <div class="rounded-2xl p-5 sm:p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-xl">🌳</span>
-                <h2 class="text-base font-bold" style="color:var(--ink);">Green Grove</h2>
-              </div>
-              <p class="text-xs mt-0.5" style="color:var(--ink-subtle);">
-                30-day focus discipline visual · Visual progress indicator only (not real-world tree planting)
-              </p>
-            </div>
-
-            <!-- Stats next to the grove -->
-            <div class="flex items-center gap-3">
-              <div class="px-3.5 py-1.5 rounded-xl border flex items-center gap-2" style="background:var(--bg); border-color:var(--border);">
-                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-muted);">Total Trees:</span>
-                <span id="groveTotalGrown" class="text-sm font-extrabold text-emerald-600">0</span>
-              </div>
-              <div class="px-3.5 py-1.5 rounded-xl border flex items-center gap-2" style="background:var(--bg); border-color:var(--border);">
-                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-muted);">Current Streak:</span>
-                <span id="groveStreak" class="text-sm font-extrabold" style="color:var(--pri);">0 Days</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Empty state for new users -->
-          <div id="groveEmptyState" class="p-4 mb-4 rounded-xl border text-center hidden" style="background:var(--bg); border-color:var(--border);">
-            <div class="text-2xl mb-1">🌱</div>
-            <div class="text-xs font-bold" style="color:var(--ink);">Your Grove is Ready to Flourish!</div>
-            <div class="text-xs mt-1 max-w-md mx-auto" style="color:var(--ink-subtle);">
-              Stay within your daily site limits today to grow your very first green tree. Complete each day mindfully to expand your grove.
-            </div>
-          </div>
-
-          <!-- 30-Day Trees Grid -->
-          <div id="groveContainer" class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 sm:gap-2.5">
-            <!-- 30 days rendered dynamically -->
-          </div>
-
-          <!-- Legend -->
-          <div class="flex flex-wrap items-center gap-5 mt-4 pt-3 border-t text-xs font-semibold" style="border-color:var(--border); color:var(--ink-muted);">
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M12 2L6 9H9L5 15H10L8 19H16L14 15H19L15 9H18L12 2Z" fill="#10B981"/><rect x="11" y="19" width="2" height="4" rx="0.5" fill="#78350F"/></svg>
-              Grown (Goal Met)
-            </span>
-            <span class="flex items-center gap-1.5">
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round"><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 16L8 12"/><path d="M12 13L16 9"/><path d="M12 9L9 6"/><path d="M12 7L14 4"/></svg>
-              Withered (Limit Exceeded)
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="w-3.5 h-3.5 rounded-full border border-dashed flex items-center justify-center" style="border-color:var(--ink-subtle);"><span class="w-1 h-1 rounded-full" style="background:var(--ink-subtle);"></span></span>
-              Empty Spot (No Data)
-            </span>
+            <div class="text-2xl font-extrabold tracking-tight" style="color:var(--ink);" id="kpiSessions">0 Sessions</div>
+            <div class="mt-2 text-xs text-slate-500 font-medium" id="kpiLongestSession">Longest: 0m</div>
           </div>
         </div>
 
@@ -639,8 +1014,65 @@
           </div>
         </div>
 
+        <!-- GREEN GROVE CARD (Forest Visual Progress) -->
+        <div class="grove-card rounded-2xl p-5 sm:p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🌳</span>
+                <h2 class="text-base font-bold" style="color:var(--ink);">Green Grove</h2>
+              </div>
+              <p class="text-xs mt-0.5" style="color:var(--ink-subtle);">
+                30-day focus discipline visual · Visual progress indicator only (not real-world tree planting)
+              </p>
+            </div>
+
+            <!-- Stats next to the grove -->
+            <div class="flex items-center gap-3">
+              <div class="px-3.5 py-1.5 rounded-xl border flex items-center gap-2" style="background:var(--bg); border-color:var(--border);">
+                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-muted);">Total Trees:</span>
+                <span id="groveTotalGrown" class="text-sm font-extrabold text-emerald-600">0</span>
+              </div>
+              <div class="px-3.5 py-1.5 rounded-xl border flex items-center gap-2" style="background:var(--bg); border-color:var(--border);">
+                <span class="text-xs font-bold uppercase tracking-wider" style="color:var(--ink-muted);">Current Streak:</span>
+                <span id="groveStreak" class="text-sm font-extrabold" style="color:var(--pri);">0 Days</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty state for new users -->
+          <div id="groveEmptyState" class="p-4 mb-4 rounded-xl border text-center hidden" style="background:var(--bg); border-color:var(--border);">
+            <div class="text-2xl mb-1">🌱</div>
+            <div class="text-xs font-bold" style="color:var(--ink);">Your Grove is Ready to Flourish!</div>
+            <div class="text-xs mt-1 max-w-md mx-auto" style="color:var(--ink-subtle);">
+              Stay within your daily site limits today to grow your very first green tree. Complete each day mindfully to expand your grove.
+            </div>
+          </div>
+
+          <!-- 30-Day Trees Grid -->
+          <div id="groveContainer" class="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-10 gap-2 sm:gap-2.5">
+            <!-- 30 days rendered dynamically -->
+          </div>
+
+          <!-- Legend -->
+          <div class="flex flex-wrap items-center gap-5 mt-4 pt-3 border-t text-xs font-semibold" style="border-color:var(--border); color:var(--ink-muted);">
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M12 2L6 9H9L5 15H10L8 19H16L14 15H19L15 9H18L12 2Z" fill="#10B981"/><rect x="11" y="19" width="2" height="4" rx="0.5" fill="#78350F"/></svg>
+              Grown (Goal Met)
+            </span>
+            <span class="flex items-center gap-1.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round"><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 16L8 12"/><path d="M12 13L16 9"/><path d="M12 9L9 6"/><path d="M12 7L14 4"/></svg>
+              Withered (Limit Exceeded)
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="w-3.5 h-3.5 rounded-full border border-dashed flex items-center justify-center" style="border-color:var(--ink-subtle);"><span class="w-1 h-1 rounded-full" style="background:var(--ink-subtle);"></span></span>
+              Empty Spot (No Data)
+            </span>
+          </div>
+        </div>
+
         <!-- PER-SITE LIMITS & DISTRACTIONS TRACKER TABLE -->
-        <div class="rounded-2xl p-5 sm:p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
+        <div class="distraction-card rounded-2xl p-5 sm:p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
           <div class="flex items-center justify-between mb-4">
             <div>
               <h2 class="text-base font-bold" style="color:var(--ink);">Distraction Tracker &amp; Per-Site Limits</h2>
@@ -684,6 +1116,36 @@
 
       <!-- ══════════════ TAB 3: SETTINGS & PRIVACY ══════════════ -->
       <section id="tab-settings" class="tab-content space-y-6">
+
+        <!-- Persona Configuration (Section 1) -->
+        <div class="rounded-2xl p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-8 h-8 rounded-xl flex items-center justify-center text-white text-base" style="background:var(--grad);">🎭</span>
+              <div>
+                <h2 class="text-base font-bold" style="color:var(--ink);">User Persona</h2>
+                <p class="text-xs" style="color:var(--ink-subtle);">Choose your workflow style to optimize site recommendations and focus defaults</p>
+              </div>
+            </div>
+          </div>
+          <p class="text-xs mb-4 leading-relaxed" style="color:var(--ink-muted);">
+            Changing your persona updates your recommended distracting and productive sites while preserving any custom sites you have added manually.
+          </p>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <select id="dashPersonaSelect" class="px-3.5 py-2 text-xs font-semibold rounded-xl border focus:outline-none cursor-pointer" style="background:var(--bg); color:var(--ink); border-color:var(--border);">
+              <option value="student">🎓 Student</option>
+              <option value="professional">💼 Professional</option>
+              <option value="influencer">📱 Influencer</option>
+              <option value="creator">🎨 Creator</option>
+              <option value="other">🌐 Other</option>
+            </select>
+            <button onclick="saveDashboardPersona()" class="px-4 py-2 text-xs font-bold text-white rounded-xl transition hover:opacity-90 shadow-sm" style="background:var(--pri);">
+              Save Persona
+            </button>
+            <span id="personaSaveStatus" class="text-xs font-semibold" style="color:var(--prod); display:none;">✓ Saved!</span>
+          </div>
+        </div>
 
         <!-- Category Management (Section 2) -->
         <div class="rounded-2xl p-6 border shadow-sm" style="background:var(--card); border-color:var(--border);">
@@ -960,13 +1422,13 @@
 
       const demoPayload = {
         weekly: [
-          { date: getDateOffset(-6), total_seconds: 14400, productive_seconds: 10800, distracting_seconds: 3600, others_seconds: 0 },
-          { date: getDateOffset(-5), total_seconds: 15600, productive_seconds: 11400, distracting_seconds: 4200, others_seconds: 0 },
-          { date: getDateOffset(-4), total_seconds: 16800, productive_seconds: 12600, distracting_seconds: 4200, others_seconds: 0 },
-          { date: getDateOffset(-3), total_seconds: 15000, productive_seconds: 10800, distracting_seconds: 4200, others_seconds: 0 },
-          { date: getDateOffset(-2), total_seconds: 17400, productive_seconds: 12600, distracting_seconds: 4800, others_seconds: 0 },
-          { date: getDateOffset(-1), total_seconds: 18000, productive_seconds: 13200, distracting_seconds: 4800, others_seconds: 0 },
-          { date: today,             total_seconds: 16200, productive_seconds: 12000, distracting_seconds: 4200, others_seconds: 0 },
+          { date: getDateOffset(-6), total_seconds: 35400, productive_seconds: 25200, distracting_seconds: 10200, others_seconds: 0 },
+          { date: getDateOffset(-5), total_seconds: 36900, productive_seconds: 27000, distracting_seconds: 9900, others_seconds: 0 },
+          { date: getDateOffset(-4), total_seconds: 37200, productive_seconds: 28800, distracting_seconds: 8400, others_seconds: 0 },
+          { date: getDateOffset(-3), total_seconds: 34800, productive_seconds: 25200, distracting_seconds: 9600, others_seconds: 0 },
+          { date: getDateOffset(-2), total_seconds: 36600, productive_seconds: 27000, distracting_seconds: 9600, others_seconds: 0 },
+          { date: getDateOffset(-1), total_seconds: 37500, productive_seconds: 28200, distracting_seconds: 9300, others_seconds: 0 },
+          { date: today,             total_seconds: 34500, productive_seconds: 25500, distracting_seconds: 9000, others_seconds: 0 },
         ],
         daily: [
           { website_url: 'github.com', total_seconds: 5400, category: 'Productive sites' },
@@ -1007,6 +1469,16 @@
           schedule_enabled: false,
           schedule_start: '20:00',
           schedule_end: '22:30',
+        },
+        user: {
+          username: USERNAME || 'Alex',
+          persona: '{{ persona|default:"student" }}',
+          level: 5,
+          xp: 80,
+          xp_progress: 80,
+          has_zen_master: true,
+          has_deep_worker: true,
+          has_iron_will: true
         }
       };
       cachedSummary = demoPayload;
@@ -1017,6 +1489,96 @@
       const d = new Date();
       d.setDate(d.getDate() + days);
       return d.toISOString().slice(0, 10);
+    }
+
+    // ── Time Formatting Helper (e.g. 270m -> 4h 30m, 4215m -> 70h 15m, 45m -> 45m) ──
+    function formatTimeHoursMins(mins) {
+      mins = Math.round(Number(mins) || 0);
+      if (mins <= 0) return '0m';
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      if (h > 0 && m > 0) return `${h}h ${m}m`;
+      if (h > 0) return `${h}h`;
+      return `${m}m`;
+    }
+
+    // ── Priority To-Do Planner (Stored in LocalStorage) ───────────────────────
+    const DEFAULT_PRIORITY_TODOS = [
+      { id: 1, text: 'Complete 2h Deep Work Sprint', done: true },
+      { id: 2, text: 'Audit Distraction Limits', done: false },
+      { id: 3, text: 'Protect Green Grove Streak', done: false },
+    ];
+
+    function getStoredTodos() {
+      try {
+        const raw = localStorage.getItem('driftless_priority_todos');
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return DEFAULT_PRIORITY_TODOS;
+    }
+
+    function saveStoredTodos(todos) {
+      try {
+        localStorage.setItem('driftless_priority_todos', JSON.stringify(todos));
+      } catch (e) {}
+      renderTodos();
+    }
+
+    function renderTodos() {
+      const container = document.getElementById('todoListContainer');
+      const badge = document.getElementById('todoBadge');
+      if (!container) return;
+
+      const todos = getStoredTodos();
+      const completed = todos.filter(t => t.done).length;
+      if (badge) badge.textContent = `${completed}/${todos.length}`;
+
+      if (todos.length === 0) {
+        container.innerHTML = `
+          <div class="text-[11px] text-center py-4" style="color:var(--ink-subtle);">
+            No priorities added yet.<br>Plan your day above!
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = todos.map(todo => `
+        <div class="todo-item ${todo.done ? 'completed' : ''}">
+          <input type="checkbox" class="todo-checkbox" ${todo.done ? 'checked' : ''} onchange="toggleTodo(${todo.id})" />
+          <span class="todo-text" title="${todo.text}">${todo.text}</span>
+          <button type="button" class="todo-delete-btn" onclick="deleteTodo(${todo.id})" title="Delete task">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    function addPriorityTodo(event) {
+      if (event) event.preventDefault();
+      const input = document.getElementById('todoInput');
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+
+      const todos = getStoredTodos();
+      todos.push({
+        id: Date.now(),
+        text: text,
+        done: false
+      });
+      saveStoredTodos(todos);
+      input.value = '';
+    }
+
+    function toggleTodo(id) {
+      const todos = getStoredTodos().map(t => {
+        if (t.id === id) return { ...t, done: !t.done };
+        return t;
+      });
+      saveStoredTodos(todos);
+    }
+
+    function deleteTodo(id) {
+      const todos = getStoredTodos().filter(t => t.id !== id);
+      saveStoredTodos(todos);
     }
 
     // ── Render Dashboard Metrics ─────────────────────────────────────────────
@@ -1032,20 +1594,31 @@
       // KPIs
       document.getElementById('kpiEfficiency').textContent = `${stats.focus_efficiency || 0}%`;
       const prodMins = Math.round((stats.productive_seconds || 0) / 60);
-      document.getElementById('kpiProductive').textContent = `${prodMins}m`;
+      document.getElementById('kpiProductive').textContent = formatTimeHoursMins(prodMins);
       const totalMins = Math.round((stats.today_total_seconds || 0) / 60);
-      document.getElementById('kpiScreenTime').textContent = `${totalMins}m`;
+      document.getElementById('kpiScreenTime').textContent = formatTimeHoursMins(totalMins);
+
+      // Compute Weekly Screen Time KPI
+      const weeklySecs = (data.weekly || []).reduce((acc, d) => {
+        const sec = (d.total_seconds !== undefined)
+          ? d.total_seconds
+          : ((d.productive_seconds || d.productivity_seconds || 0) + (d.distracting_seconds || 0) + (d.others_seconds || d.other_seconds || 0));
+        return acc + (sec || 0);
+      }, 0);
+      const weeklyMins = Math.round(weeklySecs / 60);
+      const weeklyEl = document.getElementById('kpiWeeklyScreenTime');
+      if (weeklyEl) weeklyEl.textContent = formatTimeHoursMins(weeklyMins);
 
       const sessCount = stats.today_sessions_count || 0;
       document.getElementById('kpiSessions').textContent = `${sessCount} Session${sessCount === 1 ? '' : 's'}`;
-      document.getElementById('kpiLongestSession').textContent = `Longest: ${stats.longest_session_minutes || 0}m`;
+      document.getElementById('kpiLongestSession').textContent = `Longest: ${formatTimeHoursMins(stats.longest_session_minutes || 0)}`;
 
       // Focus Goal Ring (e.g. 3h daily goal = 180 mins)
       const goalMins = settings.focus_goal_minutes || 180;
       const goalPct = Math.min(Math.round((prodMins / goalMins) * 100), 100);
       document.getElementById('goalRingPct').textContent = `${goalPct}%`;
       document.getElementById('goalRingCircle').setAttribute('stroke-dasharray', `${goalPct}, 100`);
-      document.getElementById('goalRingText').textContent = `${(prodMins / 60).toFixed(1)}h / ${(goalMins / 60).toFixed(0)}h`;
+      document.getElementById('goalRingText').textContent = `${formatTimeHoursMins(prodMins)} / ${formatTimeHoursMins(goalMins)}`;
 
       // Focus Mode Toggle State
       const fToggle = document.getElementById('focusToggle');
@@ -1059,6 +1632,23 @@
       if (aText && settings.allowed_sites !== undefined) aText.value = settings.allowed_sites;
       const rcCheck = document.getElementById('requireChallengeCheck');
       if (rcCheck && settings.require_challenge !== undefined) rcCheck.checked = !!settings.require_challenge;
+
+      // User Persona Selector (Section 1)
+      const personaSelect = document.getElementById('dashPersonaSelect');
+      if (personaSelect && data.user && data.user.persona) {
+        personaSelect.value = data.user.persona.toLowerCase();
+      }
+
+      // Update Gamified Level & XP Progress
+      if (data.user) {
+        const lvlEl = document.getElementById('sidebarUserLevel');
+        if (lvlEl && data.user.level) lvlEl.textContent = `LVL ${data.user.level}`;
+        const xpRatio = data.user.xp_progress !== undefined ? data.user.xp_progress : 80;
+        const xpTextEl = document.getElementById('sidebarXpRatio');
+        if (xpTextEl) xpTextEl.textContent = `${xpRatio}% XP`;
+        const xpBarEl = document.getElementById('sidebarXpBar');
+        if (xpBarEl) xpBarEl.style.width = `${xpRatio}%`;
+      }
 
       // Green Grove (Last 30 Days)
       renderGrove(data.grove, streak);
@@ -1159,6 +1749,39 @@
 
         container.appendChild(plot);
       });
+    }
+
+    // ── Persona Settings ─────────────────────────────────────────────────────
+    async function saveDashboardPersona() {
+      const select = document.getElementById('dashPersonaSelect');
+      const statusEl = document.getElementById('personaSaveStatus');
+      if (!select) return;
+
+      const personaVal = select.value;
+      try {
+        const res = await fetch('/api/settings/', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Token ' + API_TOKEN,
+          },
+          body: JSON.stringify({
+            persona: personaVal
+          })
+        });
+
+        if (res.ok) {
+          if (statusEl) {
+            statusEl.style.display = 'inline';
+            setTimeout(() => { statusEl.style.display = 'none'; }, 2500);
+          }
+          loadData();
+        } else {
+          alert('Failed to update persona.');
+        }
+      } catch (err) {
+        alert('Error saving persona: ' + err.message);
+      }
     }
 
     // ── Scheduled Focus Mode Controls ─────────────────────────────────────────
@@ -1337,13 +1960,13 @@
               padding: 12,
               cornerRadius: 12,
               callbacks: {
-                label: ctx => `  ${ctx.dataset.label}: ${ctx.raw}m`
+                label: ctx => `  ${ctx.dataset.label}: ${formatTimeHoursMins(ctx.raw)}`
               }
             }
           },
           scales: {
             x: { grid: { display: false }, ticks: { color: style.getPropertyValue('--chart-tick').trim() || '#9CA3AF', font: { family: 'Inter', size: 11 } } },
-            y: { grid: { color: style.getPropertyValue('--chart-grid').trim() || 'rgba(221,232,245,0.7)' }, ticks: { color: style.getPropertyValue('--chart-tick').trim() || '#9CA3AF', font: { family: 'Inter', size: 11 }, callback: v => v + 'm' } }
+            y: { grid: { color: style.getPropertyValue('--chart-grid').trim() || 'rgba(221,232,245,0.7)' }, ticks: { color: style.getPropertyValue('--chart-tick').trim() || '#9CA3AF', font: { family: 'Inter', size: 11 }, callback: v => formatTimeHoursMins(v) } }
           }
         }
       });
@@ -1424,7 +2047,7 @@
               </div>
             </div>
             <div class="text-right flex-shrink-0">
-              <div class="text-xs font-bold" style="color:var(--ink);">${d.used_minutes}m / ${d.limit_minutes}m</div>
+              <div class="text-xs font-bold" style="color:var(--ink);">${formatTimeHoursMins(d.used_minutes)} / ${formatTimeHoursMins(d.limit_minutes)}</div>
               <div class="text-xs text-slate-400 font-semibold">${pct}% used</div>
             </div>
           </div>
@@ -1444,7 +2067,7 @@
           <tr class="hover:bg-slate-50">
             <td class="py-2.5 px-4 font-bold text-slate-800">${d.website_url}</td>
             <td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100">${d.category}</span></td>
-            <td class="py-2.5 px-4">${mins} minutes</td>
+            <td class="py-2.5 px-4">${formatTimeHoursMins(mins)}</td>
             <td class="py-2.5 px-4 text-emerald-600">✓ Logged</td>
           </tr>
         `;
@@ -1669,6 +2292,7 @@
     const _origRenderDistractions = renderDistractions;
 
     // Initial boot
+    renderTodos();
     loadData();
   </script>
 </body>

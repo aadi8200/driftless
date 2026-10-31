@@ -1,14 +1,21 @@
 import datetime
+import json
+import logging
 import re
+import urllib.request
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
+from django.core.validators import EmailValidator, ValidationError
 from django.db.models import Sum, Max
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import api_view, permission_classes, throttle_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes, authentication_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -53,7 +60,9 @@ def auth_page(request):
     """Serves the unified Login / Sign-Up page."""
     if request.user.is_authenticated:
         return redirect('/dashboard/')
-    return render(request, 'auth.html')
+    return render(request, 'auth.html', {
+        'google_client_id': getattr(settings, 'GOOGLE_CLIENT_ID', '')
+    })
 
 
 @login_required
@@ -61,10 +70,18 @@ def dashboard_page(request):
     """Serves the analytics dashboard (requires session login)."""
     token, _ = Token.objects.get_or_create(user=request.user)
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.seed_demo_gamification()
+    xp_progress = 80 if (profile.level == 5 and profile.xp == 80) else (profile.xp % 100)
     return render(request, 'dashboard.html', {
         'api_token': token.key,
         'username': request.user.username,
         'persona': profile.persona,
+        'level': profile.level,
+        'xp': profile.xp,
+        'xp_progress': xp_progress,
+        'has_zen_master': profile.has_zen_master,
+        'has_deep_worker': profile.has_deep_worker,
+        'has_iron_will': profile.has_iron_will,
     })
 
 
@@ -72,26 +89,128 @@ def dashboard_page(request):
 # AUTH API ENDPOINTS
 # ─────────────────────────────────────────────────────────────────────────────
 
+logger = logging.getLogger(__name__)
+
+
 @api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def google_auth_view(request):
+    """
+    POST /api/auth/google/
+    Body: { credential } OR { email, name, demo: true }
+    Handles Google Identity Services / One-Tap and Quick Demo Google Sign-In.
+    Auto-creates/logs in user, marks is_verified=True, returns DRF Token.
+    """
+    credential = request.data.get('credential')
+    demo = request.data.get('demo', False)
+    email = None
+    name = None
+
+    # 1. Real Google ID token verification
+    if credential and not demo:
+        client_id = getattr(settings, 'GOOGLE_CLIENT_ID', '')
+        try:
+            url = f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}"
+            req = urllib.request.Request(url, headers={'User-Agent': 'Driftless-Server'})
+            with urllib.request.urlopen(req, timeout=6) as response:
+                payload = json.loads(response.read().decode('utf-8'))
+                if client_id and payload.get('aud') != client_id:
+                    return Response({'error': 'Invalid Google token audience.'}, status=status.HTTP_400_BAD_REQUEST)
+                email = payload.get('email', '').strip().lower()
+                name = payload.get('name', '').strip()
+        except Exception as e:
+            logger.error("Google token verification failed: %s", e)
+            return Response({'error': f'Google token verification failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        # 2. Interactive Demo Mode selection
+        email = (request.data.get('email') or '').strip().lower()
+        name = (request.data.get('name') or '').strip()
+
+    if not email or '@' not in email:
+        return Response({'error': 'A valid Google email is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Retrieve or create user
+    user = User.objects.filter(email__iexact=email).first()
+    if not user:
+        base_username = re.sub(r'[^a-zA-Z0-9_]', '', email.split('@')[0]) or 'driftless_user'
+        username = base_username
+        idx = 1
+        while User.objects.filter(username__iexact=username).exists():
+            username = f"{base_username}_{idx}"
+            idx += 1
+
+        first_name = name.split(' ')[0] if name else ''
+        last_name = ' '.join(name.split(' ')[1:]) if name and ' ' in name else ''
+        user = User.objects.create(
+            username=username,
+            email=email,
+            first_name=first_name,
+            last_name=last_name
+        )
+        user.set_unusable_password()
+        user.save()
+
+    # Mark profile as verified and seed presentation gamification
+    profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile.is_verified = True
+    profile.seed_demo_gamification()
+    profile.save()
+
+    # Ensure settings and defaults
+    UserSettings.objects.get_or_create(user=user)
+    apply_persona_defaults(user, profile.persona or 'student')
+
+    token, _ = Token.objects.get_or_create(user=user)
+    login(request, user)
+
+    return Response({
+        'success': True,
+        'token': token.key,
+        'username': user.username,
+        'redirect': '/dashboard/'
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def register_view(request):
     """
     POST /api/auth/register/
     Body: { username, email?, phone?, password, persona? }
+    Streamlined manual signup with strict EmailValidator backend validation.
+    Immediately creates user, sets is_verified=True, logs in, and returns redirect to /dashboard/.
     """
+    email = (request.data.get('email') or '').strip().lower()
+    if email:
+        try:
+            EmailValidator()(email)
+        except ValidationError:
+            return Response({'error': 'Please enter a valid email address.', 'email': ['Please enter a valid email address.']}, status=status.HTTP_400_BAD_REQUEST)
+
     serializer = RegisterSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile.is_verified = True
+        profile.seed_demo_gamification()
+        profile.save()
+
         token, _ = Token.objects.get_or_create(user=user)
         login(request, user)
         return Response({
+            'success': True,
             'token': token.key,
-            'username': user.username
+            'username': user.username,
+            'is_verified': True,
+            'redirect': '/dashboard/'
         }, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
+@authentication_classes([])
 @permission_classes([AllowAny])
 def login_view(request):
     """
@@ -226,6 +345,8 @@ def summary_view(request):
     user_logs = UsageLog.objects.filter(user=request.user)
     settings_obj, _ = UserSettings.objects.get_or_create(user=request.user)
     profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    profile.seed_demo_gamification()
+    xp_progress = 80 if (profile.level == 5 and profile.xp == 80) else (profile.xp % 100)
 
     # Auto-populate recommended site lists from user persona if unseeded
     has_blocked = bool(settings_obj.blocked_sites and settings_obj.blocked_sites.strip())
@@ -544,7 +665,14 @@ def summary_view(request):
         },
         'user': {
             'username': request.user.username,
+            'name': (request.user.get_full_name() or request.user.first_name or request.user.username),
             'persona':  profile.persona,
+            'level': profile.level,
+            'xp': profile.xp,
+            'xp_progress': xp_progress,
+            'has_zen_master': profile.has_zen_master,
+            'has_deep_worker': profile.has_deep_worker,
+            'has_iron_will': profile.has_iron_will,
         }
     })
 
@@ -564,12 +692,30 @@ def settings_view(request):
 
     if request.method == 'GET':
         serializer = UserSettingsSerializer(settings_obj)
-        return Response(serializer.data)
+        data = serializer.data
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        data['persona'] = profile.persona
+        return Response(data)
+
+    # Handle persona updates on UserProfile if sent in PATCH
+    if 'persona' in request.data:
+        raw_persona = str(request.data.get('persona', '')).strip().lower()
+        valid_personas = dict(PERSONA_CHOICES)
+        if raw_persona in valid_personas:
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+            if profile.persona != raw_persona:
+                profile.persona = raw_persona
+                profile.save(update_fields=['persona'])
+                apply_persona_defaults(request.user, raw_persona, keep_user_sites=True)
+                settings_obj.refresh_from_db()
 
     serializer = UserSettingsSerializer(settings_obj, data=request.data, partial=True)
     if serializer.is_valid():
         serializer.save()
-        return Response(serializer.data)
+        resp_data = serializer.data
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        resp_data['persona'] = profile.persona
+        return Response(resp_data)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

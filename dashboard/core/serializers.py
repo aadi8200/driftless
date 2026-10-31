@@ -1,6 +1,7 @@
 import re
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.core.validators import EmailValidator, ValidationError
 from .models import (
     UsageLog,
     UserSettings,
@@ -51,16 +52,38 @@ PERSONA_DEFAULTS = {
 }
 
 
-def apply_persona_defaults(user, persona: str):
+def apply_persona_defaults(user, persona: str, keep_user_sites: bool = False):
     """Initializes default distracting/productive lists, limits and suggested focus schedule according to chosen persona."""
     key = (persona or 'student').lower()
     p_def = PERSONA_DEFAULTS.get(key, PERSONA_DEFAULTS['student'])
 
     settings, _ = UserSettings.objects.get_or_create(user=user)
-    if not settings.blocked_sites or not settings.blocked_sites.strip():
-        settings.blocked_sites = '\n'.join(p_def['distracting'])
-    if not settings.allowed_sites or not settings.allowed_sites.strip():
-        settings.allowed_sites = '\n'.join(p_def['productive'])
+    
+    if keep_user_sites:
+        # Collect all default domains from all personas to distinguish user-added sites from default recommendations
+        all_default_distracting = set()
+        all_default_productive = set()
+        for p in PERSONA_DEFAULTS.values():
+            all_default_distracting.update(p['distracting']) 
+            all_default_productive.update(p['productive'])
+
+        existing_blocked = [clean_domain(s) for s in re.split(r'[\r\n,]+', settings.blocked_sites or '') if clean_domain(s)]
+        existing_allowed = [clean_domain(s) for s in re.split(r'[\r\n,]+', settings.allowed_sites or '') if clean_domain(s)]
+
+        # Keep custom sites added by user (sites not belonging to any default list)
+        user_added_dist = [d for d in existing_blocked if d not in all_default_distracting]
+        user_added_prod = [d for d in existing_allowed if d not in all_default_productive]
+
+        new_blocked = list(dict.fromkeys(p_def['distracting'] + user_added_dist))
+        new_allowed = list(dict.fromkeys(p_def['productive'] + user_added_prod))
+
+        settings.blocked_sites = '\n'.join(new_blocked)
+        settings.allowed_sites = '\n'.join(new_allowed)
+    else:
+        if not settings.blocked_sites or not settings.blocked_sites.strip():
+            settings.blocked_sites = '\n'.join(p_def['distracting'])
+        if not settings.allowed_sites or not settings.allowed_sites.strip():
+            settings.allowed_sites = '\n'.join(p_def['productive'])
     
     # Pre-fill suggested schedule times if schedule has not been explicitly configured
     if p_def.get('schedule_start') and (not settings.schedule_start or settings.schedule_start == '20:00'):
@@ -101,9 +124,15 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def validate_email(self, value):
-        if value and User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError('An account with this email already exists.')
-        return value.lower() if value else value
+        if value:
+            value = value.strip().lower()
+            try:
+                EmailValidator()(value)
+            except ValidationError:
+                raise serializers.ValidationError('Please enter a valid email address.')
+            if User.objects.filter(email__iexact=value).exists():
+                raise serializers.ValidationError('An account with this email already exists.')
+        return value
 
     def validate_phone(self, value):
         if value:

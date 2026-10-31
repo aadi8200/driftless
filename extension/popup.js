@@ -51,6 +51,116 @@ let liveTickerInterval = null;
 let currentCustomDomain = null;
 let selectedPersona = 'Student';
 
+// ── Pomodoro Timer State & UI ────────────────────────────────────────────────
+let pomodoroLocalState = {
+  mode: 'work', // 'work' | 'rest'
+  state: 'idle', // 'idle' | 'running' | 'paused'
+  remainingSec: 1500, // 25m focus = 1500s, 5m rest = 300s
+  startTime: null,
+  endTime: null
+};
+
+function formatPomoTime(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+async function renderPomodoroUI() {
+  const data = await chrome.storage.local.get([
+    'pomodoroMode',
+    'pomodoroState',
+    'pomodoroRemainingSec',
+    'pomodoroStartTime',
+    'pomodoroEndTime'
+  ]);
+
+  const mode = data.pomodoroMode || 'work';
+  let state = data.pomodoroState || 'idle';
+  let remaining = data.pomodoroRemainingSec !== undefined ? data.pomodoroRemainingSec : (mode === 'rest' ? 300 : 1500);
+  const endTime = data.pomodoroEndTime || null;
+  const startTime = data.pomodoroStartTime || null;
+
+  if (state === 'running' && endTime) {
+    const now = Date.now();
+    const diff = Math.max(0, Math.round((endTime - now) / 1000));
+    if (diff <= 0) {
+      // Alarm in background worker will handle phase transition
+      remaining = 0;
+    } else {
+      remaining = diff;
+    }
+  }
+
+  pomodoroLocalState = { mode, state, remainingSec: remaining, startTime, endTime };
+
+  const badge = document.getElementById('pomoPhaseBadge');
+  if (badge) {
+    if (mode === 'work') {
+      badge.textContent = state === 'running' ? 'Focus (25m)' : 'Focus';
+      badge.classList.remove('break');
+    } else {
+      badge.textContent = state === 'running' ? 'Rest (5m)' : 'Rest';
+      badge.classList.add('break');
+    }
+  }
+
+  const display = document.getElementById('pomoDisplay');
+  if (display) display.textContent = formatPomoTime(remaining);
+
+  const startBtn = document.getElementById('pomoStartBtn');
+  if (startBtn) {
+    if (state === 'running') {
+      startBtn.textContent = 'Running';
+      startBtn.style.opacity = '0.85';
+      startBtn.style.background = 'var(--grad)';
+    } else {
+      startBtn.textContent = 'Start';
+      startBtn.style.opacity = '1';
+      startBtn.style.background = 'var(--grad)';
+    }
+  }
+}
+
+async function startPomodoroSession() {
+  const mode = 'work';
+  const durationSec = 1500; // 25 minutes
+  const now = Date.now();
+  const endTime = now + (durationSec * 1000);
+
+  await chrome.storage.local.set({
+    pomodoroMode: mode,
+    pomodoroState: 'running',
+    pomodoroStartTime: now,
+    pomodoroEndTime: endTime,
+    pomodoroRemainingSec: durationSec
+  });
+
+  chrome.runtime.sendMessage({
+    type: 'START_POMODORO',
+    mode,
+    startTime: now,
+    endTime,
+    remainingSec: durationSec
+  });
+
+  await renderPomodoroUI();
+}
+
+async function stopPomodoroSession() {
+  await chrome.storage.local.set({
+    pomodoroMode: 'work',
+    pomodoroState: 'idle',
+    pomodoroStartTime: null,
+    pomodoroEndTime: null,
+    pomodoroRemainingSec: 1500
+  });
+
+  chrome.runtime.sendMessage({ type: 'STOP_POMODORO' });
+  await renderPomodoroUI();
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   await initTheme();
   await checkOnboardingState();
@@ -91,6 +201,17 @@ function applyTheme(theme) {
 
 // ── Persona Seeding & Onboarding ─────────────────────────────────────────────
 
+// Helper to determine all default domains across all personas
+function getAllDefaultDomains() {
+  const dist = new Set();
+  const prod = new Set();
+  Object.values(PERSONA_DEFAULTS).forEach(p => {
+    p.distracting.forEach(d => dist.add(d));
+    p.productive.forEach(d => prod.add(d));
+  });
+  return { dist, prod };
+}
+
 async function seedPersonaDefaults(personaName, force = false) {
   const data = await chrome.storage.local.get([
     'defaultsSeeded',
@@ -102,6 +223,9 @@ async function seedPersonaDefaults(personaName, force = false) {
     'apiToken'
   ]);
 
+  const pKey = getPersonaKey(personaName || data.persona || 'Student');
+  const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
+
   const existingDist = (data.distractingSites && data.distractingSites.length > 0)
     ? data.distractingSites
     : (data.blockedSites && data.blockedSites.length > 0 ? data.blockedSites : []);
@@ -109,20 +233,25 @@ async function seedPersonaDefaults(personaName, force = false) {
     ? data.productiveSites
     : (data.allowedSites && data.allowedSites.length > 0 ? data.allowedSites : []);
 
-  // If both lists already have items and not forcing, keep existing user choices
-  if (existingDist.length > 0 && existingProd.length > 0 && !force) {
-    await chrome.storage.local.set({ defaultsSeeded: true });
-    return false;
-  }
+  // Rule 6: Sites the user added themselves must never be deleted when persona changes.
+  // We extract any domain the user manually added (not part of all default persona lists)
+  const { dist: allDefaultDist, prod: allDefaultProd } = getAllDefaultDomains();
+  const userAddedDist = existingDist.filter(d => !allDefaultDist.has(d));
+  const userAddedProd = existingProd.filter(d => !allDefaultProd.has(d));
 
-  const pKey = getPersonaKey(personaName || data.persona || 'Student');
-  const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
+  // Merge the chosen persona's recommendations with the user's custom added sites
+  const distractingSites = Array.from(new Set([...pDef.distracting, ...userAddedDist]));
+  const productiveSites = Array.from(new Set([...pDef.productive, ...userAddedProd]));
 
-  const distractingSites = [...pDef.distracting];
-  const productiveSites = [...pDef.productive];
   const scheduleStart = data.scheduleStart || pDef.scheduleStart || '20:00';
   const scheduleEnd = data.scheduleEnd || pDef.scheduleEnd || '22:30';
   const scheduleEnabled = data.scheduleEnabled !== undefined ? data.scheduleEnabled : false;
+
+  // Turn off Block Shorts and Reels if persona is not Student
+  let blockShortsReels = data.blockShortsReels;
+  if (pKey !== 'Student') {
+    blockShortsReels = false;
+  }
 
   await chrome.storage.local.set({
     defaultsSeeded: true,
@@ -133,7 +262,8 @@ async function seedPersonaDefaults(personaName, force = false) {
     allowedSites: productiveSites,
     scheduleStart,
     scheduleEnd,
-    scheduleEnabled
+    scheduleEnabled,
+    blockShortsReels
   });
 
   // Notify background to update schedule
@@ -151,7 +281,14 @@ async function seedPersonaDefaults(personaName, force = false) {
     productiveSites
   });
 
-  // If token is linked, sync to backend settings immediately
+  if (pKey !== 'Student') {
+    chrome.runtime.sendMessage({
+      type: 'TOGGLE_SHORTS_REELS',
+      enabled: false
+    });
+  }
+
+  // If token is linked, sync persona and lists to backend settings immediately
   if (data.apiToken) {
     const serverUrl = await getServerUrl();
     fetch(`${serverUrl}/api/settings/`, {
@@ -161,6 +298,7 @@ async function seedPersonaDefaults(personaName, force = false) {
         'Authorization': `Token ${data.apiToken}`
       },
       body: JSON.stringify({
+        persona: pKey.toLowerCase(),
         blocked_sites: distractingSites.join('\n'),
         allowed_sites: productiveSites.join('\n')
       })
@@ -172,64 +310,90 @@ async function seedPersonaDefaults(personaName, force = false) {
 
 async function checkOnboardingState() {
   const {
-    onboardingComplete,
-    defaultsSeeded,
     apiToken,
-    persona,
-    distractingSites,
-    productiveSites
-  } = await chrome.storage.local.get([
-    'onboardingComplete', 'defaultsSeeded', 'apiToken', 'persona', 'distractingSites', 'productiveSites'
-  ]);
+    persona
+  } = await chrome.storage.local.get(['apiToken', 'persona']);
 
   const onboardingView = document.getElementById('onboardingView');
   const mainView = document.getElementById('mainView');
 
-  const hasLists = (distractingSites && distractingSites.length > 0) || (productiveSites && productiveSites.length > 0);
+  // If user has a token, query backend summary to see if the user already has a persona from signup
+  if (apiToken) {
+    try {
+      const serverUrl = await getServerUrl();
+      const res = await fetch(`${serverUrl}/api/summary/`, {
+        headers: { 'Authorization': `Token ${apiToken}` }
+      });
+      if (res.ok) {
+        const summary = await res.json();
+        if (summary.user && summary.user.persona) {
+          const websitePersona = getPersonaKey(summary.user.persona);
+          // If extension doesn't have a persona or website has a persona, prioritize website persona
+          if (!persona || persona !== websitePersona) {
+            await seedPersonaDefaults(websitePersona, false);
+          }
+          if (onboardingView) onboardingView.style.display = 'none';
+          if (mainView) mainView.style.display = 'block';
+          return;
+        }
+      }
+    } catch (e) {
+      console.debug('Failed to fetch user persona from backend:', e);
+    }
+  }
 
-  // If user has not completed onboarding, has not seeded, has no token, and has no lists -> show onboarding
-  if (!onboardingComplete && !defaultsSeeded && !apiToken && !hasLists) {
+  // If no persona is saved at all, show the Welcome screen inside popup
+  if (!persona) {
     if (onboardingView) onboardingView.style.display = 'flex';
     if (mainView) mainView.style.display = 'none';
     setupOnboardingFlow();
   } else {
     if (onboardingView) onboardingView.style.display = 'none';
     if (mainView) mainView.style.display = 'block';
-
-    // Ensure defaults are populated if lists are empty
-    if (!hasLists) {
-      await seedPersonaDefaults(persona || 'Student', true);
-    }
   }
 }
 
 function setupOnboardingFlow() {
+  const welcomeCard = document.getElementById('onboardWelcome');
+  const welcomeNextBtn = document.getElementById('onboardWelcomeNext');
   const step1 = document.getElementById('onboardStep1');
   const step2 = document.getElementById('onboardStep2');
   const step1Next = document.getElementById('onboardStep1Next');
   const backBtn = document.getElementById('onboardBackBtn');
   const finishBtn = document.getElementById('onboardFinishBtn');
   const skipBtn = document.getElementById('onboardSkipBtn');
+  const onboardSubTitle = document.getElementById('onboardSubTitle');
 
-  // Persona card clicks
-  document.querySelectorAll('.persona-card').forEach(card => {
-    card.addEventListener('click', async () => {
-      document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      selectedPersona = card.dataset.persona || 'Student';
-      await seedPersonaDefaults(selectedPersona, true);
-    });
-  });
-
-  if (step1Next) {
-    step1Next.addEventListener('click', async () => {
-      await seedPersonaDefaults(selectedPersona, true);
-      step1.style.display = 'none';
-      step2.style.display = 'block';
+  // Step 0: Welcome screen Next button
+  if (welcomeNextBtn && welcomeCard && step1) {
+    welcomeNextBtn.addEventListener('click', () => {
+      welcomeCard.style.display = 'none';
+      step1.style.display = 'block';
+      if (onboardSubTitle) onboardSubTitle.textContent = 'Who are you?';
     });
   }
 
-  if (backBtn) {
+  // Step 1: Persona card clicks
+  document.querySelectorAll('.persona-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      selectedPersona = card.dataset.persona || 'Student';
+    });
+  });
+
+  // Step 1: Persona choice submitted -> save persona and open main view (or optional token step)
+  if (step1Next) {
+    step1Next.addEventListener('click', async () => {
+      await seedPersonaDefaults(selectedPersona, true);
+      // Item 1 Rule 3: After the user chooses, save the persona and show the normal popup.
+      document.getElementById('onboardingView').style.display = 'none';
+      document.getElementById('mainView').style.display = 'block';
+      await loadPopupState();
+    });
+  }
+
+  if (backBtn && step1 && step2) {
     backBtn.addEventListener('click', () => {
       step2.style.display = 'none';
       step1.style.display = 'block';
@@ -299,7 +463,11 @@ async function loadPopupState() {
     'siteTimes',
     'siteLimits',
     'userTimeLimitMinutes',
-    'lastSyncedTime'
+    'lastSyncedTime',
+    'scheduleEnabled',
+    'scheduleStart',
+    'scheduleEnd',
+    'persona'
   ]);
 
   const apiToken = data.apiToken || '';
@@ -334,6 +502,9 @@ async function loadPopupState() {
     });
   }
 
+  // 0. Pomodoro Focus Timer
+  await renderPomodoroUI();
+
   // 1. Header Streak
   renderStreakBadge(streakDays);
 
@@ -341,8 +512,29 @@ async function loadPopupState() {
   const focusToggle = document.getElementById('focusToggle');
   if (focusToggle) focusToggle.checked = focusModeActive;
 
+  // 2a. Shorts & Reels Blocker Toggle (Item 4: Student Persona Only)
+  const currentPersonaKey = getPersonaKey(data.persona || selectedPersona);
+  const shortsReelsRow = document.getElementById('shortsReelsRow');
+  const shortsToggle = document.getElementById('blockShortsReelsToggle');
+
+  if (currentPersonaKey === 'Student') {
+    if (shortsReelsRow) shortsReelsRow.style.display = 'flex';
+    const { blockShortsReels = false } = await chrome.storage.local.get(['blockShortsReels']);
+    if (shortsToggle) shortsToggle.checked = !!blockShortsReels;
+  } else {
+    // Hide switch and ensure feature is off for other personas
+    if (shortsReelsRow) shortsReelsRow.style.display = 'none';
+    if (shortsToggle) shortsToggle.checked = false;
+    await chrome.storage.local.set({ blockShortsReels: false });
+    chrome.runtime.sendMessage({ type: 'TOGGLE_SHORTS_REELS', enabled: false });
+  }
+
   // 2b. Scheduled Focus Mode
-  const { scheduleEnabled = false, scheduleStart = '20:00', scheduleEnd = '22:00' } = data;
+  const pKey = currentPersonaKey;
+  const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
+  const scheduleEnabled = data.scheduleEnabled !== undefined ? data.scheduleEnabled : false;
+  const scheduleStart = data.scheduleStart || pDef.scheduleStart || '20:00';
+  const scheduleEnd = data.scheduleEnd || pDef.scheduleEnd || '22:00';
   renderScheduleStatus(scheduleEnabled, scheduleStart, scheduleEnd);
 
   // 3. Global Default Timer
@@ -358,6 +550,21 @@ async function loadPopupState() {
   // 6. Sync & Account Area
   const sDisplay = document.getElementById('serverDisplay');
   if (sDisplay) sDisplay.textContent = server;
+
+  const connectedText = document.getElementById('connectedAccountText');
+  const { connectedAccountName } = await chrome.storage.local.get(['connectedAccountName']);
+  if (connectedText) {
+    if (apiToken && connectedAccountName) {
+      connectedText.textContent = `Connected as ${connectedAccountName}`;
+      connectedText.style.color = 'var(--ink)';
+    } else if (apiToken) {
+      connectedText.textContent = 'Connected account';
+      connectedText.style.color = 'var(--ink)';
+    } else {
+      connectedText.textContent = 'Not signed in';
+      connectedText.style.color = 'var(--ink-muted)';
+    }
+  }
 
   const tokenInput = document.getElementById('apiTokenInput');
   if (tokenInput && apiToken) {
@@ -404,6 +611,13 @@ function formatTime12h(timeStr) {
   return `${h}:${m} ${ampm}`;
 }
 
+function formatTimeMmSs(totalSeconds) {
+  const s = Math.max(0, Math.floor(totalSeconds || 0));
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
 function isInsideSchedule(startStr, endStr) {
   if (!startStr || !endStr) return false;
   const sParts = startStr.split(':').map(Number);
@@ -423,7 +637,20 @@ function isInsideSchedule(startStr, endStr) {
 function renderScheduleStatus(enabled, startStr = '20:00', endStr = '22:00') {
   const toggle = document.getElementById('scheduleToggle');
   const statusText = document.getElementById('scheduleStatusText');
+  const badge = document.getElementById('scheduleTimesBadge');
+  const startInput = document.getElementById('popupSchedStart');
+  const endInput = document.getElementById('popupSchedEnd');
+
   if (toggle) toggle.checked = !!enabled;
+  if (badge) {
+    badge.textContent = `${formatTime12h(startStr)} to ${formatTime12h(endStr)}`;
+  }
+  if (startInput && document.activeElement !== startInput) {
+    startInput.value = startStr;
+  }
+  if (endInput && document.activeElement !== endInput) {
+    endInput.value = endStr;
+  }
   if (!statusText) return;
 
   if (!enabled) {
@@ -468,12 +695,12 @@ function renderDistractingSites(sites, siteTimes, siteLimits, globalLimit) {
   let html = '';
   sites.forEach(domain => {
     const seconds = siteTimes[domain] || 0;
-    const usedMins = Math.floor(seconds / 60);
     const customObj = siteLimits[domain];
     const isCustom = customObj && typeof customObj.daily_limit_minutes === 'number' && customObj.daily_limit_minutes > 0;
     const limitMins = isCustom ? customObj.daily_limit_minutes : globalLimit;
+    const limitSeconds = limitMins * 60;
 
-    const pct = Math.min(Math.round((usedMins / Math.max(limitMins, 1)) * 100), 100);
+    const pct = Math.min(Math.round((seconds / Math.max(limitSeconds, 1)) * 100), 100);
 
     let barColor = 'var(--pri)';
     if (pct >= 100) barColor = 'var(--ent)';
@@ -489,7 +716,7 @@ function renderDistractingSites(sites, siteTimes, siteLimits, globalLimit) {
             <span class="site-name" title="${domain}">${domain}</span>
           </div>
           <div class="site-controls">
-            <span class="site-time-text" id="time-dist-${domain}">${usedMins}m / ${limitMins}m</span>
+            <span class="site-time-text" id="time-dist-${domain}">${formatTimeMmSs(seconds)} / ${formatTimeMmSs(limitSeconds)}</span>
             <button class="limit-pill ${isCustom ? 'is-custom' : ''}" data-domain="${domain}" data-limit="${limitMins}" data-custom="${isCustom}" title="Click to customize timer">${limitPillLabel}</button>
             <button class="delete-btn delete-distracting-btn" data-domain="${domain}" title="Delete site">✕</button>
           </div>
@@ -716,25 +943,40 @@ function closeGlobalLimitModal() {
 function startLiveTicker() {
   if (liveTickerInterval) clearInterval(liveTickerInterval);
   liveTickerInterval = setInterval(async () => {
-    const { siteTimes = {}, siteLimits = {}, userTimeLimitMinutes = 60 } = await chrome.storage.local.get([
-      'siteTimes', 'siteLimits', 'userTimeLimitMinutes'
+    const {
+      siteTimes = {},
+      siteLimits = {},
+      userTimeLimitMinutes = 60,
+      activeTrackingSession = {}
+    } = await chrome.storage.local.get([
+      'siteTimes', 'siteLimits', 'userTimeLimitMinutes', 'activeTrackingSession'
     ]);
+
+    const activeDomain = (activeTrackingSession.isWindowFocused && activeTrackingSession.isUserActive && activeTrackingSession.domain)
+      ? activeTrackingSession.domain : null;
+    const now = Date.now();
+    const liveDelta = (activeDomain && activeTrackingSession.lastCommitTimestamp)
+      ? Math.max(0, Math.floor((now - activeTrackingSession.lastCommitTimestamp) / 1000))
+      : 0;
 
     // Live update distracting sites
     document.querySelectorAll('#distractingSitesContainer .site-item').forEach(item => {
       const domain = item.dataset.domain;
       if (!domain) return;
-      const seconds = siteTimes[domain] || 0;
-      const usedMins = Math.floor(seconds / 60);
+      let seconds = siteTimes[domain] || 0;
+      if (domain === activeDomain && liveDelta > 0 && liveDelta < 60) {
+        seconds += liveDelta;
+      }
 
       const customObj = siteLimits[domain];
       const isCustom = customObj && typeof customObj.daily_limit_minutes === 'number' && customObj.daily_limit_minutes > 0;
       const limitMins = isCustom ? customObj.daily_limit_minutes : userTimeLimitMinutes;
+      const limitSeconds = limitMins * 60;
 
-      const pct = Math.min(Math.round((usedMins / Math.max(limitMins, 1)) * 100), 100);
+      const pct = Math.min(Math.round((seconds / Math.max(limitSeconds, 1)) * 100), 100);
 
       const textEl = document.getElementById(`time-dist-${domain}`);
-      if (textEl) textEl.textContent = `${usedMins}m / ${limitMins}m`;
+      if (textEl) textEl.textContent = `${formatTimeMmSs(seconds)} / ${formatTimeMmSs(limitSeconds)}`;
 
       const barEl = document.getElementById(`bar-dist-${domain}`);
       if (barEl) {
@@ -749,18 +991,38 @@ function startLiveTicker() {
     document.querySelectorAll('#productiveSitesContainer .site-item').forEach(item => {
       const domain = item.dataset.domain;
       if (!domain) return;
-      const seconds = siteTimes[domain] || 0;
-      const usedMins = Math.floor(seconds / 60);
+      let seconds = siteTimes[domain] || 0;
+      if (domain === activeDomain && liveDelta > 0 && liveDelta < 60) {
+        seconds += liveDelta;
+      }
 
       const textEl = document.getElementById(`time-prod-${domain}`);
-      if (textEl) textEl.textContent = `${usedMins}m today`;
+      if (textEl) textEl.textContent = `${formatTimeMmSs(seconds)} today`;
     });
+
+    // Live update Pomodoro Timer
+    if (pomodoroLocalState.state === 'running' && pomodoroLocalState.endTime) {
+      const diff = Math.max(0, Math.round((pomodoroLocalState.endTime - Date.now()) / 1000));
+      pomodoroLocalState.remainingSec = diff;
+      const display = document.getElementById('pomoDisplay');
+      if (display) display.textContent = formatPomoTime(diff);
+      if (diff <= 0) {
+        renderPomodoroUI();
+      }
+    }
   }, 1000);
 }
 
 // ── Setup Event Listeners ────────────────────────────────────────────────────
 
 function setupEventListeners() {
+  // 0. Pomodoro Controls (Start / Stop)
+  const pomoStartBtn = document.getElementById('pomoStartBtn');
+  const pomoResetBtn = document.getElementById('pomoResetBtn');
+
+  if (pomoStartBtn) pomoStartBtn.addEventListener('click', startPomodoroSession);
+  if (pomoResetBtn) pomoResetBtn.addEventListener('click', stopPomodoroSession);
+
   // 1. Focus Mode Toggle
   const focusToggle = document.getElementById('focusToggle');
   if (focusToggle) {
@@ -779,11 +1041,41 @@ function setupEventListeners() {
     });
   }
 
-  // 1b. Scheduled Focus Mode Toggle
+  // 1a. Shorts & Reels Blocker Toggle
+  const shortsToggle = document.getElementById('blockShortsReelsToggle');
+  if (shortsToggle) {
+    shortsToggle.addEventListener('change', async e => {
+      const isChecked = e.target.checked;
+      await chrome.storage.local.set({ blockShortsReels: isChecked });
+      chrome.runtime.sendMessage({
+        type: 'TOGGLE_SHORTS_REELS',
+        enabled: isChecked
+      });
+    });
+  }
+
+  // 1b. Scheduled Focus Mode Toggle & Inline Editor
+  const schedRow = document.getElementById('scheduleRow');
   const schedToggle = document.getElementById('scheduleToggle');
+  const schedEditor = document.getElementById('scheduleEditor');
+  const saveSchedBtn = document.getElementById('popupSaveSchedBtn');
+  const schedStartInput = document.getElementById('popupSchedStart');
+  const schedEndInput = document.getElementById('popupSchedEnd');
+  const schedErrorMsg = document.getElementById('scheduleErrorMsg');
+
+  if (schedRow && schedEditor) {
+    schedRow.addEventListener('click', () => {
+      const isHidden = schedEditor.style.display === 'none' || !schedEditor.style.display;
+      schedEditor.style.display = isHidden ? 'block' : 'none';
+    });
+  }
+
   if (schedToggle) {
     schedToggle.addEventListener('change', async e => {
       const isChecked = e.target.checked;
+      if (isChecked && schedEditor) {
+        schedEditor.style.display = 'block';
+      }
       chrome.runtime.sendMessage({
         type: 'UPDATE_SCHEDULE',
         scheduleEnabled: isChecked
@@ -791,6 +1083,51 @@ function setupEventListeners() {
         chrome.storage.local.get(['scheduleStart', 'scheduleEnd'], d => {
           renderScheduleStatus(isChecked, d.scheduleStart || '20:00', d.scheduleEnd || '22:00');
         });
+      });
+    });
+  }
+
+  if (saveSchedBtn && schedStartInput && schedEndInput) {
+    saveSchedBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const sVal = schedStartInput.value.trim();
+      const eVal = schedEndInput.value.trim();
+
+      if (!sVal || !eVal) {
+        if (schedErrorMsg) {
+          schedErrorMsg.textContent = 'Please choose both start and end times.';
+          schedErrorMsg.style.display = 'block';
+        }
+        return;
+      }
+
+      // Requirement 4: Reject an end time equal to the start time
+      if (sVal === eVal) {
+        if (schedErrorMsg) {
+          schedErrorMsg.textContent = 'Start time and end time cannot be the same.';
+          schedErrorMsg.style.display = 'block';
+        }
+        return;
+      }
+
+      if (schedErrorMsg) schedErrorMsg.style.display = 'none';
+
+      // Save and sync immediately to background and backend
+      chrome.runtime.sendMessage({
+        type: 'UPDATE_SCHEDULE',
+        scheduleStart: sVal,
+        scheduleEnd: eVal,
+        scheduleEnabled: true
+      }, res => {
+        renderScheduleStatus(true, sVal, eVal);
+        const origText = saveSchedBtn.textContent;
+        const origBg = saveSchedBtn.style.background;
+        saveSchedBtn.textContent = 'Saved ✓';
+        saveSchedBtn.style.background = '#10B981';
+        setTimeout(() => {
+          saveSchedBtn.textContent = origText;
+          saveSchedBtn.style.background = origBg;
+        }, 1500);
       });
     });
   }
@@ -974,5 +1311,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (changes.focusModeActive) {
     const fToggle = document.getElementById('focusToggle');
     if (fToggle) fToggle.checked = !!changes.focusModeActive.newValue;
+  }
+  if (changes.blockShortsReels) {
+    const sToggle = document.getElementById('blockShortsReelsToggle');
+    if (sToggle) sToggle.checked = !!changes.blockShortsReels.newValue;
+  }
+  if (changes.pomodoroState || changes.pomodoroEndTime || changes.pomodoroMode || changes.pomodoroRemainingSec) {
+    renderPomodoroUI();
   }
 });

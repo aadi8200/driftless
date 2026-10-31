@@ -11,6 +11,7 @@ urlpatterns = [
     path('api/auth/login/',             views.login_view,             name='api-login'),
     path('api/auth/logout/',            views.logout_view,            name='api-logout'),
     path('api/auth/regenerate-token/',  views.regenerate_token_view,  name='api-regenerate-token'),
+    path('api/auth/google/',            views.google_auth_view,        name='api-google-auth'),
 
     # ── Usage & Analytics API ────────────────────────────────────────────────
     path('api/usage/',     views.usage_log_view, name='api-usage'),

@@ -7,9 +7,11 @@ const ALARM_PERIODIC_SYNC      = 'driftless_periodic_sync';
 const ALARM_TICK               = 'driftless_tick';
 const ALARM_SCHEDULE_START     = 'driftless_schedule_start';
 const ALARM_SCHEDULE_END       = 'driftless_schedule_end';
+const ALARM_POMODORO           = 'driftless_pomodoro';
 
 const FOCUS_RULE_BASE_ID       = 100;    // Dynamic rules 100..899 for Focus Mode
-const LIMIT_BLOCK_RULE_BASE_ID = 1000;   // Dynamic rules 1000..9999 for 100% limit reached
+const LIMIT_BLOCK_RULE_BASE_ID = 1000;   // Dynamic rules 1000..1999 for 100% limit reached
+const SHORTS_REELS_RULE_BASE_ID = 2000;  // Dynamic rules 2000..2009 for Shorts & Reels blocking
 const DEFAULT_SERVER_URL       = 'http://127.0.0.1:8000';
 
 const PERSONA_DEFAULTS = {
@@ -223,11 +225,14 @@ async function evaluateSiteLimits(domain, totalSeconds) {
   const nudgeSeconds = Math.floor(limitSeconds * 0.8);
   const state = escalationState[domain] || { nudged: false, blocked: false };
 
+  console.log(`[Driftless Timer Check] domain=${domain} elapsed=${totalSeconds}s nudge=${nudgeSeconds}s limit=${limitSeconds}s time=${new Date().toISOString()}`);
+
   // 1. At 80% of limit: send ONE Chrome notification as a nudge
   if (totalSeconds >= nudgeSeconds && !state.nudged) {
     state.nudged = true;
     escalationState[domain] = state;
     await chrome.storage.local.set({ escalationState });
+    console.log(`[Driftless Timer 80% Nudge] FIRED for ${domain} at ${new Date().toISOString()} (elapsed: ${totalSeconds}s, target: ${nudgeSeconds}s)`);
     sendNudgeNotification(domain);
   }
 
@@ -236,6 +241,7 @@ async function evaluateSiteLimits(domain, totalSeconds) {
     state.blocked = true;
     escalationState[domain] = state;
     await chrome.storage.local.set({ escalationState });
+    console.log(`[Driftless Timer 100% Block] FIRED for ${domain} at ${new Date().toISOString()} (elapsed: ${totalSeconds}s, target: ${limitSeconds}s)`);
     sendLimitReachedNotification(domain);
     await blockDomainViaDNR(domain);
   }
@@ -258,6 +264,16 @@ function sendLimitReachedNotification(domain) {
     title:    'Driftless — Focus Alert',
     message:  `Time's up for ${domain}`,
     priority: 2
+  });
+}
+
+function sendScheduleNotification(startStr, endStr) {
+  chrome.notifications.create(`schedule-${Date.now()}`, {
+    type:     'basic',
+    iconUrl:  'icons/icon-128.png',
+    title:    'Driftless — Scheduled Focus Active',
+    message:  `Focus Mode is now ON until ${endStr}. Distracting sites are blocked.`,
+    priority: 1
   });
 }
 
@@ -320,7 +336,7 @@ async function enableFocusMode() {
     removeRuleIds: removeIds,
     addRules
   });
-  console.log('Driftless: Focus Mode ON — blocking:', sitesToBlock.join(', '));
+  console.log('Driftless: Focus/Pomodoro Mode ON — blocking:', sitesToBlock.join(', '));
 
   // Reload tab if currently viewing a blocked distracting site
   const activeTab = await getActiveTabSafe();
@@ -330,13 +346,98 @@ async function enableFocusMode() {
 }
 
 async function disableFocusMode() {
+  const { focusModeActive = false, pomodoroState = 'idle', pomodoroMode = 'work' } = await chrome.storage.local.get([
+    'focusModeActive', 'pomodoroState', 'pomodoroMode'
+  ]);
+  // If either Focus Mode is active OR Pomodoro is running in focus phase, DO NOT clear the blocking rules
+  if (focusModeActive || (pomodoroState === 'running' && pomodoroMode === 'work')) {
+    return;
+  }
+
   const existing = await chrome.declarativeNetRequest.getDynamicRules();
   const removeIds = existing.filter(r => r.id >= FOCUS_RULE_BASE_ID && r.id < LIMIT_BLOCK_RULE_BASE_ID).map(r => r.id);
   await chrome.declarativeNetRequest.updateDynamicRules({
     removeRuleIds: removeIds,
     addRules: []
   });
-  console.log('Driftless: Focus Mode OFF — dynamic focus rules cleared.');
+  console.log('Driftless: Focus/Pomodoro Mode OFF — dynamic focus rules cleared.');
+}
+
+// ── Shorts & Reels Blocker (DeclarativeNetRequest & SPA Navigation) ──────────
+
+function isShortsOrReelsUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.toLowerCase();
+    if ((host.includes('youtube.com') || host.includes('youtu.be')) && path.startsWith('/shorts')) {
+      return true;
+    }
+    if (host.includes('instagram.com') && (path.startsWith('/reels') || path.startsWith('/reel/'))) {
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function updateShortsReelsRules(enabled) {
+  try {
+    const existing = await chrome.declarativeNetRequest.getDynamicRules();
+    const removeIds = existing
+      .filter(r => r.id >= SHORTS_REELS_RULE_BASE_ID && r.id < SHORTS_REELS_RULE_BASE_ID + 10)
+      .map(r => r.id);
+
+    const addRules = [];
+    if (enabled) {
+      addRules.push({
+        id: SHORTS_REELS_RULE_BASE_ID + 1,
+        priority: 2,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: '||youtube.com/shorts*',
+          resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest']
+        }
+      });
+      addRules.push({
+        id: SHORTS_REELS_RULE_BASE_ID + 2,
+        priority: 2,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: '||instagram.com/reels*',
+          resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest']
+        }
+      });
+      addRules.push({
+        id: SHORTS_REELS_RULE_BASE_ID + 3,
+        priority: 2,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: '||instagram.com/reel/*',
+          resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest']
+        }
+      });
+    }
+
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: removeIds,
+      addRules
+    });
+
+    console.log(`Driftless: Shorts & Reels blocking ${enabled ? 'ENABLED' : 'DISABLED'}`);
+
+    if (enabled) {
+      const activeTab = await getActiveTabSafe();
+      if (activeTab && isShortsOrReelsUrl(activeTab.url)) {
+        const blockedUrl = chrome.runtime.getURL('blocked.html?site=Shorts%20%26%20Reels&reason=shorts_reels');
+        chrome.tabs.update(activeTab.id, { url: blockedUrl });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to update Shorts/Reels DNR rules:', err);
+  }
 }
 
 // ── Scheduled Focus Mode (Manifest V3 Alarms) ────────────────────────────────
@@ -462,6 +563,7 @@ async function evaluateScheduleState(reason = '') {
         await chrome.storage.local.set({ focusModeActive: true, focusModeSource: 'schedule' });
         await enableFocusMode();
         await syncFocusModeToBackend(true);
+        sendScheduleNotification(scheduleStart, scheduleEnd);
       }
     } else {
       // Currently outside prime time window
@@ -504,6 +606,16 @@ chrome.tabs.onActivated.addListener(async () => {
 });
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  const targetUrl = changeInfo.url || tab.url;
+  if (targetUrl) {
+    const { blockShortsReels = false } = await chrome.storage.local.get(['blockShortsReels']);
+    if (blockShortsReels && isShortsOrReelsUrl(targetUrl)) {
+      const blockedUrl = chrome.runtime.getURL('blocked.html?site=Shorts%20%26%20Reels&reason=shorts_reels');
+      chrome.tabs.update(tabId, { url: blockedUrl });
+      return;
+    }
+  }
+
   if (tab.active && (changeInfo.url || changeInfo.status === 'complete')) {
     await commitActiveTime();
     currentTabDomain = cleanDomain(tab.url);
@@ -778,7 +890,8 @@ async function syncToBackend() {
       const serverScheduleStart = settings.schedule_start || '20:00';
       const serverScheduleEnd = settings.schedule_end || '22:00';
 
-      await chrome.storage.local.set({
+      // Sync persona and account info from backend if provided
+      const updates = {
         defaultsSeeded: didSeed,
         streakDays: streak,
         focusModeActive,
@@ -793,7 +906,23 @@ async function syncToBackend() {
         scheduleStart: serverScheduleStart,
         scheduleEnd: serverScheduleEnd,
         lastSyncedTime: Date.now()
-      });
+      };
+
+      if (summary.user) {
+        if (summary.user.persona) {
+          const sPersona = getPersonaKey(summary.user.persona);
+          updates.persona = sPersona;
+          if (sPersona !== 'Student') {
+            updates.blockShortsReels = false;
+            await updateShortsReelsRules(false);
+          }
+        }
+        if (summary.user.name || summary.user.username) {
+          updates.connectedAccountName = summary.user.name || summary.user.username;
+        }
+      }
+
+      await chrome.storage.local.set(updates);
 
       await updateScheduleAlarms();
       await evaluateScheduleState('sync');
@@ -813,22 +942,22 @@ async function syncToBackend() {
 // ── Alarms & Message Handlers ────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async () => {
-  const data = await chrome.storage.local.get(['distractingSites', 'productiveSites', 'persona']);
-  const hasDist = Array.isArray(data.distractingSites) && data.distractingSites.length > 0;
-  const hasProd = Array.isArray(data.productiveSites) && data.productiveSites.length > 0;
-  if (!hasDist || !hasProd) {
-    const pKey = getPersonaKey(data.persona || 'Student');
+  const data = await chrome.storage.local.get(['persona']);
+  // Only seed if user has already chosen a persona
+  if (data.persona) {
+    const pKey = getPersonaKey(data.persona);
     const pDef = PERSONA_DEFAULTS[pKey] || PERSONA_DEFAULTS.Student;
-    const distractingSites = hasDist ? data.distractingSites : [...pDef.distracting];
-    const productiveSites = hasProd ? data.productiveSites : [...pDef.productive];
-    await chrome.storage.local.set({
-      defaultsSeeded: true,
-      persona: pKey,
-      distractingSites,
-      blockedSites: distractingSites,
-      productiveSites,
-      allowedSites: productiveSites
-    });
+    const { distractingSites = [], productiveSites = [] } = await chrome.storage.local.get(['distractingSites', 'productiveSites']);
+    if (distractingSites.length === 0 && productiveSites.length === 0) {
+      await chrome.storage.local.set({
+        defaultsSeeded: true,
+        persona: pKey,
+        distractingSites: [...pDef.distracting],
+        blockedSites: [...pDef.distracting],
+        productiveSites: [...pDef.productive],
+        allowedSites: [...pDef.productive]
+      });
+    }
   }
 });
 
@@ -843,10 +972,207 @@ chrome.alarms.onAlarm.addListener(async alarm => {
   } else if (alarm.name === ALARM_SCHEDULE_START || alarm.name === ALARM_SCHEDULE_END) {
     await evaluateScheduleState(alarm.name);
     await updateScheduleAlarms();
+  } else if (alarm.name === ALARM_POMODORO) {
+    const { pomodoroMode = 'work' } = await chrome.storage.local.get(['pomodoroMode']);
+    if (pomodoroMode === 'work') {
+      // 25m Focus ended -> transition to 5m Rest
+      const restDurationMs = 5 * 60 * 1000;
+      const restEnd = Date.now() + restDurationMs;
+      await chrome.storage.local.set({
+        pomodoroMode: 'rest',
+        pomodoroState: 'running',
+        pomodoroStartTime: Date.now(),
+        pomodoroEndTime: restEnd,
+        pomodoroRemainingSec: 300
+      });
+      // Lift Pomodoro's own block during rest (if focus mode or schedule is active, they will remain blocking)
+      await disableFocusMode();
+      chrome.alarms.create(ALARM_POMODORO, { when: restEnd });
+      console.log('Driftless: Pomodoro Focus completed -> entering 5m Rest');
+    } else {
+      // 5m Rest ended -> session ends completely (do not repeat automatically)
+      await chrome.alarms.clear(ALARM_POMODORO);
+      await chrome.storage.local.set({
+        pomodoroMode: 'work',
+        pomodoroState: 'idle',
+        pomodoroStartTime: null,
+        pomodoroEndTime: null,
+        pomodoroRemainingSec: 1500
+      });
+      await disableFocusMode();
+      console.log('Driftless: Pomodoro Rest completed -> session ended');
+    }
   }
 });
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'PAGE_HEARTBEAT_TICK') {
+    (async () => {
+      try {
+        const rawDomain = message.domain || (sender.tab && sender.tab.url ? cleanDomain(sender.tab.url) : null);
+        const domain = cleanDomain(rawDomain);
+        if (!domain) {
+          sendResponse({ active: false });
+          return;
+        }
+
+        // Only count if sender tab is the active tab in its window
+        if (sender.tab && !sender.tab.active) {
+          sendResponse({ active: false, backgroundTab: true });
+          return;
+        }
+
+        // Check if Shorts & Reels blocking is enabled and current URL matches
+        const { blockShortsReels = false } = await chrome.storage.local.get(['blockShortsReels']);
+        const reqUrl = message.url || (sender.tab && sender.tab.url);
+        if (blockShortsReels && isShortsOrReelsUrl(reqUrl)) {
+          sendResponse({ blocked: true, domain: 'Shorts & Reels', reason: 'shorts_reels' });
+          return;
+        }
+
+        const data = await chrome.storage.local.get([
+          'siteTimes',
+          'unsyncedDeltas',
+          'activeTrackingSession',
+          'distractingSites',
+          'blockedSites',
+          'siteLimits',
+          'userTimeLimitMinutes',
+          'escalationState',
+          'focusModeActive',
+          'pomodoroState',
+          'pomodoroMode'
+        ]);
+
+        const siteTimes = data.siteTimes || {};
+        const unsyncedDeltas = data.unsyncedDeltas || {};
+        const distractingSites = data.distractingSites || [];
+        const blockedSites = data.blockedSites || [];
+        const siteLimits = data.siteLimits || {};
+        const escalationState = data.escalationState || {};
+        const allDistracting = Array.from(new Set([...distractingSites, ...blockedSites].map(cleanDomain).filter(Boolean)));
+        const isDistracting = allDistracting.includes(domain);
+
+        // If focus mode or Pomodoro focus phase is currently active and domain is distracting, return blocked immediately
+        const isFocusActive = !!data.focusModeActive || (data.pomodoroState === 'running' && data.pomodoroMode === 'work');
+        if (isFocusActive && isDistracting) {
+          sendResponse({ blocked: true, domain, reason: 'focus_mode' });
+          return;
+        }
+
+        // Check if already reached 100% limit and blocked
+        const state = escalationState[domain] || { nudged: false, blocked: false };
+        if (state.blocked) {
+          sendResponse({ blocked: true, domain, reason: 'limit_reached' });
+          return;
+        }
+
+        // Accumulate active time second-by-second
+        const now = Date.now();
+        const session = data.activeTrackingSession || {};
+        let delta = 1;
+        if (session.domain === domain && session.lastCommitTimestamp) {
+          const diffMs = now - session.lastCommitTimestamp;
+          if (diffMs >= 500 && diffMs <= 3000) {
+            delta = Math.round(diffMs / 1000) || 1;
+          }
+        }
+
+        currentTabDomain = domain;
+        lastCommitTimestamp = now;
+        isWindowFocused = true;
+        isUserActive = true;
+
+        siteTimes[domain] = (siteTimes[domain] || 0) + delta;
+        unsyncedDeltas[domain] = (unsyncedDeltas[domain] || 0) + delta;
+
+        await chrome.storage.local.set({
+          siteTimes,
+          unsyncedDeltas,
+          activeTrackingSession: {
+            domain,
+            lastCommitTimestamp: now,
+            isWindowFocused: true,
+            isUserActive: true
+          }
+        });
+
+        // If site is not in distracting list, it has no limit
+        if (!isDistracting) {
+          sendResponse({ blocked: false, domain, elapsed: siteTimes[domain] });
+          return;
+        }
+
+        // Distracting site: evaluate limits with second-precision
+        let limitMins = data.userTimeLimitMinutes || 60;
+        const customLimit = siteLimits[domain];
+        if (customLimit && typeof customLimit.daily_limit_minutes === 'number' && customLimit.daily_limit_minutes > 0) {
+          limitMins = customLimit.daily_limit_minutes;
+        }
+        if (limitMins < 1) limitMins = 1;
+
+        const limitSeconds = limitMins * 60;
+        const nudgeSeconds = Math.floor(limitSeconds * 0.8);
+        const currentSeconds = siteTimes[domain];
+
+        console.log(`[Driftless Timer Check] domain=${domain} elapsed=${currentSeconds}s nudge=${nudgeSeconds}s limit=${limitSeconds}s time=${new Date().toISOString()}`);
+
+        // 80% nudge threshold
+        if (currentSeconds >= nudgeSeconds && !state.nudged) {
+          state.nudged = true;
+          escalationState[domain] = state;
+          await chrome.storage.local.set({ escalationState });
+          console.log(`[Driftless Timer 80% Nudge] FIRED for ${domain} at ${new Date().toISOString()} (elapsed: ${currentSeconds}s, target: ${nudgeSeconds}s)`);
+          sendNudgeNotification(domain);
+        }
+
+        // 100% block threshold
+        if (currentSeconds >= limitSeconds && !state.blocked) {
+          state.blocked = true;
+          escalationState[domain] = state;
+          await chrome.storage.local.set({ escalationState });
+          console.log(`[Driftless Timer 100% Block] FIRED for ${domain} at ${new Date().toISOString()} (elapsed: ${currentSeconds}s, target: ${limitSeconds}s)`);
+          sendLimitReachedNotification(domain);
+          await blockDomainViaDNR(domain);
+          sendResponse({ blocked: true, domain, reason: 'limit_reached' });
+          return;
+        }
+
+        sendResponse({
+          blocked: false,
+          domain,
+          elapsed: currentSeconds,
+          limit: limitSeconds,
+          nudgeAt: nudgeSeconds
+        });
+      } catch (err) {
+        console.error('Error handling heartbeat tick:', err);
+        sendResponse({ error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'PAGE_HEARTBEAT_PAUSE') {
+    (async () => {
+      try {
+        await commitActiveTime();
+        await chrome.storage.local.set({
+          activeTrackingSession: {
+            domain: currentTabDomain,
+            lastCommitTimestamp: Date.now(),
+            isWindowFocused: false,
+            isUserActive: false
+          }
+        });
+        sendResponse({ success: true });
+      } catch (e) {
+        sendResponse({ success: false });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'SET_FOCUS_MODE') {
     (async () => {
       try {
@@ -1063,6 +1389,70 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })();
     return true;
   }
+
+  if (message.type === 'TOGGLE_SHORTS_REELS') {
+    (async () => {
+      try {
+        const isEnabled = !!message.enabled;
+        await chrome.storage.local.set({ blockShortsReels: isEnabled });
+        await updateShortsReelsRules(isEnabled);
+        sendResponse({ success: true, blockShortsReels: isEnabled });
+      } catch (err) {
+        console.error('Toggle shorts/reels error:', err);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'START_POMODORO') {
+    (async () => {
+      try {
+        await chrome.alarms.clear(ALARM_POMODORO);
+        chrome.alarms.create(ALARM_POMODORO, { when: message.endTime });
+        if (message.mode === 'work') {
+          await enableFocusMode();
+        }
+        sendResponse({ success: true });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'STOP_POMODORO') {
+    (async () => {
+      try {
+        await chrome.alarms.clear(ALARM_POMODORO);
+        await chrome.storage.local.set({
+          pomodoroMode: 'work',
+          pomodoroState: 'idle',
+          pomodoroStartTime: null,
+          pomodoroEndTime: null,
+          pomodoroRemainingSec: 1500
+        });
+        await disableFocusMode();
+        sendResponse({ success: true });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (message.type === 'PAUSE_POMODORO') {
+    (async () => {
+      try {
+        await chrome.alarms.clear(ALARM_POMODORO);
+        await disableFocusMode();
+        sendResponse({ success: true });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
 });
 
 // ── Alarms & Tracker Initialization ──────────────────────────────────────────
@@ -1126,6 +1516,16 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
     await updateScheduleAlarms();
     await evaluateScheduleState('storage_change');
   }
+  if (changes.blockShortsReels && changes.blockShortsReels.oldValue !== changes.blockShortsReels.newValue) {
+    await updateShortsReelsRules(!!changes.blockShortsReels.newValue);
+  }
+  if (changes.persona && changes.persona.oldValue !== changes.persona.newValue) {
+    const newPersona = getPersonaKey(changes.persona.newValue);
+    if (newPersona !== 'Student') {
+      await chrome.storage.local.set({ blockShortsReels: false });
+      await updateShortsReelsRules(false);
+    }
+  }
 });
 
 // Run tracker initialization and setup alarms
@@ -1134,9 +1534,12 @@ setupAlarms();
 updateScheduleAlarms();
 evaluateScheduleState('script_init');
 
-// Also check Focus Mode state on startup to ensure rules are active if enabled
-chrome.storage.local.get(['focusModeActive'], async ({ focusModeActive }) => {
+// Check Focus Mode and Shorts/Reels state on startup to ensure rules are active
+chrome.storage.local.get(['focusModeActive', 'blockShortsReels'], async ({ focusModeActive, blockShortsReels }) => {
   if (focusModeActive) {
     await enableFocusMode();
+  }
+  if (blockShortsReels) {
+    await updateShortsReelsRules(true);
   }
 });

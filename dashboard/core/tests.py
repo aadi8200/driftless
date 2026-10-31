@@ -280,3 +280,83 @@ class DriftlessApiAndDataIsolationTests(TestCase):
         self.assertGreaterEqual(grove['total_grown'], 1)
 
 
+class DriftlessAuthenticationUpgradeTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = User.objects.create_user(username='emma', email='emma@example.com', password='oldpassword123')
+
+    def test_streamlined_registration_success(self):
+        res = self.client.post('/api/auth/register/', {
+            'username': 'newpilot',
+            'email': 'newpilot@example.com',
+            'password': 'password123',
+            'persona': 'student'
+        }, format='json')
+        self.assertEqual(res.status_code, 201)
+        self.assertTrue(res.data['success'])
+        self.assertIn('token', res.data)
+        self.assertEqual(res.data['redirect'], '/dashboard/')
+        self.assertTrue(res.data['is_verified'])
+
+        # Verify user created and marked verified
+        new_u = User.objects.get(username='newpilot')
+        self.assertEqual(new_u.email, 'newpilot@example.com')
+        self.assertTrue(new_u.profile.is_verified)
+
+    def test_registration_strict_email_validation(self):
+        # Invalid email (no @ or domain, e.g. 'abcd')
+        res_invalid = self.client.post('/api/auth/register/', {
+            'username': 'invaliduser',
+            'email': 'abcd',
+            'password': 'password123',
+            'persona': 'student'
+        }, format='json')
+        self.assertEqual(res_invalid.status_code, 400)
+        self.assertIn('Please enter a valid email address.', str(res_invalid.data))
+
+    def test_registration_duplicate_email(self):
+        # Existing email 'emma@example.com'
+        res_dup = self.client.post('/api/auth/register/', {
+            'username': 'emma2',
+            'email': 'emma@example.com',
+            'password': 'password123',
+            'persona': 'student'
+        }, format='json')
+        self.assertEqual(res_dup.status_code, 400)
+        self.assertIn('already exists', str(res_dup.data))
+
+    def test_google_authentication(self):
+        # Test Quick Google Sign-In Demo Mode
+        res_google = self.client.post('/api/auth/google/', {
+            'email': 'alex.river@gmail.com',
+            'name': 'Alex River',
+            'demo': True
+        }, format='json')
+        self.assertEqual(res_google.status_code, 200)
+        self.assertTrue(res_google.data['success'])
+        self.assertIn('token', res_google.data)
+        self.assertEqual(res_google.data['redirect'], '/dashboard/')
+
+        alex_user = User.objects.get(email='alex.river@gmail.com')
+        self.assertTrue(alex_user.profile.is_verified)
+        self.assertEqual(alex_user.profile.level, 5)
+        self.assertTrue(alex_user.profile.has_zen_master)
+        self.assertTrue(alex_user.profile.has_deep_worker)
+        self.assertTrue(alex_user.profile.has_iron_will)
+
+    def test_gamification_profile_and_summary_payload(self):
+        # Authenticate and query summary
+        self.client.force_authenticate(user=self.user)
+        res = self.client.get('/api/summary/')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('user', res.data)
+        user_data = res.data['user']
+        self.assertEqual(user_data['level'], 5)
+        self.assertEqual(user_data['xp'], 80)
+        self.assertEqual(user_data['xp_progress'], 80)
+        self.assertTrue(user_data['has_zen_master'])
+        self.assertTrue(user_data['has_deep_worker'])
+        self.assertTrue(user_data['has_iron_will'])
+
+
+

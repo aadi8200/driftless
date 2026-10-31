@@ -1,6 +1,7 @@
 import re
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 # ─── User Profile & Personas ──────────────────────────────────────────────────
@@ -15,15 +16,34 @@ PERSONA_CHOICES = [
 
 class UserProfile(models.Model):
     """
-    Extends the built-in User with phone number and persona.
+    Extends the built-in User with phone number, persona, and gamification level & badges.
     Persona presets adjust default limits and domain categories.
     """
-    user    = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    phone   = models.CharField(max_length=32, blank=True, default='')
-    persona = models.CharField(max_length=20, choices=PERSONA_CHOICES, default='student')
+    user        = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    phone       = models.CharField(max_length=32, blank=True, default='')
+    persona     = models.CharField(max_length=20, choices=PERSONA_CHOICES, default='student')
+    is_verified = models.BooleanField(default=True)  # True by default so existing users are never locked out
+
+    # Gamification: Level, XP & Badges
+    xp              = models.IntegerField(default=0)
+    level           = models.IntegerField(default=1)
+    has_zen_master  = models.BooleanField(default=False)
+    has_deep_worker = models.BooleanField(default=False)
+    has_iron_will   = models.BooleanField(default=False)
+
+    def seed_demo_gamification(self, force=False):
+        """Pre-seeds Level 5, 80% XP progress, and all 3 presentation badges."""
+        if force or (self.level <= 1 and self.xp == 0):
+            self.level = 5
+            self.xp = 80
+            self.has_zen_master = True
+            self.has_deep_worker = True
+            self.has_iron_will = True
+            self.save(update_fields=['level', 'xp', 'has_zen_master', 'has_deep_worker', 'has_iron_will'])
+        return self
 
     def __str__(self):
-        return f'{self.user.username} ({self.persona})'
+        return f'{self.user.username} (Lvl {self.level}, {self.persona})'
 
 
 # ─── Site Categorisation ──────────────────────────────────────────────────────
@@ -279,3 +299,4 @@ class UserSettings(models.Model):
 
     def __str__(self):
         return f'{self.user.username} settings'
+
