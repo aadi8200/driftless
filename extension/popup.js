@@ -1064,13 +1064,19 @@ function setupEventListeners() {
   const schedErrorMsg = document.getElementById('scheduleErrorMsg');
 
   if (schedRow && schedEditor) {
-    schedRow.addEventListener('click', () => {
+    schedRow.addEventListener('click', (e) => {
+      if (e.target && e.target.closest('.switch')) return;
       const isHidden = schedEditor.style.display === 'none' || !schedEditor.style.display;
       schedEditor.style.display = isHidden ? 'block' : 'none';
     });
   }
 
   if (schedToggle) {
+    if (schedToggle.parentElement) {
+      schedToggle.parentElement.addEventListener('click', e => {
+        e.stopPropagation();
+      });
+    }
     schedToggle.addEventListener('change', async e => {
       const isChecked = e.target.checked;
       if (isChecked && schedEditor) {
