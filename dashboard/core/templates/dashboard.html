@@ -598,6 +598,36 @@
       box-shadow: inset 0 1.5px 2px rgba(167, 243, 208, 0.5),
                   0 8px 20px rgba(16, 185, 129, 0.45);
     }
+
+    /* 🔒 LOCKED / PLACEHOLDER BADGE (For new users in Live Data mode) */
+    .badge-locked {
+      background: rgba(148, 163, 184, 0.08);
+      border: 1.5px dashed rgba(148, 163, 184, 0.35);
+      box-shadow: none;
+      color: var(--ink-subtle, #94A3B8);
+      opacity: 0.65;
+      cursor: default;
+    }
+    .badge-locked .badge-icon-wrap {
+      background: rgba(148, 163, 184, 0.12);
+      box-shadow: none;
+    }
+    .badge-locked:hover {
+      transform: none !important;
+      box-shadow: none !important;
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+    .badge-locked .badge-sheen {
+      display: none;
+    }
+    [data-theme="dark"] .badge-locked {
+      background: rgba(30, 41, 59, 0.35);
+      border-color: rgba(71, 85, 105, 0.45);
+      color: #64748B;
+    }
+    [data-theme="dark"] .badge-locked .badge-icon-wrap {
+      background: rgba(51, 65, 85, 0.3);
+    }
   </style>
 </head>
 <body class="flex min-h-screen" style="background:var(--bg); color:var(--ink);">
@@ -637,7 +667,7 @@
               <span class="text-[9px]">⭐</span>
               <span id="sidebarUserLevel">LVL {{ level|default:"5" }}</span>
             </span>
-            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Focus Adept</span>
+            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400" id="sidebarUserRank">Focus Adept</span>
           </div>
           <span class="text-[10px] font-black" style="color:var(--pri);" id="sidebarXpRatio">{{ xp_progress|default:"80" }}% XP</span>
         </div>
@@ -651,11 +681,11 @@
         <!-- Badges Section Header -->
         <div class="flex items-center justify-between mb-1.5 px-0.5">
           <span class="uppercase font-black text-[8.5px] tracking-wider" style="color:var(--ink-subtle);">My Badges</span>
-          <span class="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">3 Unlocked</span>
+          <span id="sidebarBadgesCount" class="text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">3 Unlocked</span>
         </div>
 
         <!-- 3D Shiny Badges Grid -->
-        <div class="grid grid-cols-3 gap-1.5">
+        <div class="grid grid-cols-3 gap-1.5" id="sidebarBadgesGrid">
           
           <!-- Badge 1: 🧘‍♂️ Zen Master (10-day streak - Gold / Yellow) -->
           <div class="badge-3d badge-gold group" title="🧘‍♂️ Zen Master: 10-Day Focus Streak Maintained!">
@@ -1366,6 +1396,7 @@
       document.querySelectorAll('#dataModeSwitcher .data-toggle-option').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === mode);
       });
+      renderGamification(mode === 'demo');
       loadData();
     }
 
@@ -1581,6 +1612,119 @@
       saveStoredTodos(todos);
     }
 
+    // ── Dynamic Sidebar Gamification Renderer ────────────────────────────────
+    function renderGamification(isDemo, userData) {
+      const lvlEl = document.getElementById('sidebarUserLevel');
+      const rankEl = document.getElementById('sidebarUserRank');
+      const xpRatioEl = document.getElementById('sidebarXpRatio');
+      const xpBarEl = document.getElementById('sidebarXpBar');
+      const badgesCountEl = document.getElementById('sidebarBadgesCount');
+      const badgesGridEl = document.getElementById('sidebarBadgesGrid');
+
+      if (isDemo) {
+        // DEMO DATA: LVL 5 Focus Adept, 80% XP progress, 3 shiny 3D metallic badges
+        if (lvlEl) lvlEl.textContent = 'LVL 5';
+        if (rankEl) rankEl.textContent = 'Focus Adept';
+        if (xpRatioEl) xpRatioEl.textContent = '80% XP';
+        if (xpBarEl) {
+          xpBarEl.style.width = '80%';
+          xpBarEl.classList.add('xp-bar-shimmer');
+        }
+        if (badgesCountEl) {
+          badgesCountEl.textContent = '3 Unlocked';
+          badgesCountEl.className = 'text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20';
+        }
+        if (badgesGridEl) {
+          badgesGridEl.innerHTML = `
+            <!-- Badge 1: 🧘‍♂️ Zen Master (10-day streak - Gold / Yellow) -->
+            <div class="badge-3d badge-gold group" title="🧘‍♂️ Zen Master: 10-Day Focus Streak Maintained!">
+              <div class="badge-sheen"></div>
+              <div class="badge-icon-wrap">
+                <span class="badge-emoji">🧘‍♂️</span>
+              </div>
+              <div class="badge-info">
+                <div class="badge-title">Zen Master</div>
+                <div class="badge-desc">10d Streak</div>
+              </div>
+            </div>
+
+            <!-- Badge 2: 🧠 Deep Worker (2 hours pure focus - Blue / Sapphire) -->
+            <div class="badge-3d badge-sapphire group" title="🧠 Deep Worker: 2+ Hours of Undistracted Focus!">
+              <div class="badge-sheen"></div>
+              <div class="badge-icon-wrap">
+                <span class="badge-emoji">🧠</span>
+              </div>
+              <div class="badge-info">
+                <div class="badge-title">Deep Worker</div>
+                <div class="badge-desc">2h Focus</div>
+              </div>
+            </div>
+
+            <!-- Badge 3: 🛡️ Iron Will (Distraction Slayer - Silver / Emerald) -->
+            <div class="badge-3d badge-emerald group" title="🛡️ Iron Will: Immediately Closed Distracting Sites!">
+              <div class="badge-sheen"></div>
+              <div class="badge-icon-wrap">
+                <span class="badge-emoji">🛡️</span>
+              </div>
+              <div class="badge-info">
+                <div class="badge-title">Iron Will</div>
+                <div class="badge-desc">Site Shield</div>
+              </div>
+            </div>
+          `;
+        }
+      } else {
+        // LIVE DATA: Fresh state for new user (LVL 1 Novice, 0% XP progress, 0 Unlocked / locked placeholder silhouettes)
+        if (lvlEl) lvlEl.textContent = 'LVL 1';
+        if (rankEl) rankEl.textContent = 'Novice';
+        if (xpRatioEl) xpRatioEl.textContent = '0% XP';
+        if (xpBarEl) {
+          xpBarEl.style.width = '0%';
+          xpBarEl.classList.remove('xp-bar-shimmer');
+        }
+        if (badgesCountEl) {
+          badgesCountEl.textContent = '0 Unlocked';
+          badgesCountEl.className = 'text-[8.5px] font-black px-1.5 py-0.5 rounded-full bg-slate-500/10 text-slate-400 border border-slate-500/20';
+        }
+        if (badgesGridEl) {
+          badgesGridEl.innerHTML = `
+            <!-- Locked Badge 1: 🧘‍♂️ Zen Master -->
+            <div class="badge-3d badge-locked group" title="🔒 Locked: Maintain a 10-day focus streak to unlock Zen Master">
+              <div class="badge-icon-wrap">
+                <span class="badge-emoji" style="filter: grayscale(100%); opacity: 0.35;">🔒</span>
+              </div>
+              <div class="badge-info">
+                <div class="badge-title text-slate-400 dark:text-slate-500 font-bold">Locked</div>
+                <div class="badge-desc text-slate-400 dark:text-slate-500">10d Streak</div>
+              </div>
+            </div>
+
+            <!-- Locked Badge 2: 🧠 Deep Worker -->
+            <div class="badge-3d badge-locked group" title="🔒 Locked: Complete 2+ hours of deep work to unlock Deep Worker">
+              <div class="badge-icon-wrap">
+                <span class="badge-emoji" style="filter: grayscale(100%); opacity: 0.35;">🔒</span>
+              </div>
+              <div class="badge-info">
+                <div class="badge-title text-slate-400 dark:text-slate-500 font-bold">Locked</div>
+                <div class="badge-desc text-slate-400 dark:text-slate-500">2h Focus</div>
+              </div>
+            </div>
+
+            <!-- Locked Badge 3: 🛡️ Iron Will -->
+            <div class="badge-3d badge-locked group" title="🔒 Locked: Defend against distracting sites to unlock Iron Will">
+              <div class="badge-icon-wrap">
+                <span class="badge-emoji" style="filter: grayscale(100%); opacity: 0.35;">🔒</span>
+              </div>
+              <div class="badge-info">
+                <div class="badge-title text-slate-400 dark:text-slate-500 font-bold">Locked</div>
+                <div class="badge-desc text-slate-400 dark:text-slate-500">Site Shield</div>
+              </div>
+            </div>
+          `;
+        }
+      }
+    }
+
     // ── Render Dashboard Metrics ─────────────────────────────────────────────
     function renderDashboard(data, isDemo) {
       const stats = data.stats || {};
@@ -1640,15 +1784,7 @@
       }
 
       // Update Gamified Level & XP Progress
-      if (data.user) {
-        const lvlEl = document.getElementById('sidebarUserLevel');
-        if (lvlEl && data.user.level) lvlEl.textContent = `LVL ${data.user.level}`;
-        const xpRatio = data.user.xp_progress !== undefined ? data.user.xp_progress : 80;
-        const xpTextEl = document.getElementById('sidebarXpRatio');
-        if (xpTextEl) xpTextEl.textContent = `${xpRatio}% XP`;
-        const xpBarEl = document.getElementById('sidebarXpBar');
-        if (xpBarEl) xpBarEl.style.width = `${xpRatio}%`;
-      }
+      renderGamification(isDemo, data.user);
 
       // Green Grove (Last 30 Days)
       renderGrove(data.grove, streak);
@@ -2293,6 +2429,7 @@
 
     // Initial boot
     renderTodos();
+    renderGamification(currentDataMode === 'demo');
     loadData();
   </script>
 </body>
